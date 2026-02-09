@@ -44,17 +44,17 @@ export function CreateCompanyForm() {
         throw new Error('El nombre de la empresa es requerido')
       }
 
-      // Insert company
+      // Insert company (do not send `name` - it is a generated column: COALESCE(company_name, legal_name))
       const { data: newCompany, error: insertError } = await supabase
         .from('companies')
         .insert([
           {
-            company_name: formData.company_name,
-            name: formData.name || formData.company_name,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-            notes: formData.notes || null,
+            company_name: formData.company_name.trim(),
+            legal_name: formData.name?.trim() || null,
+            email: formData.email?.trim() || null,
+            phone: formData.phone?.trim() || null,
+            address: formData.address?.trim() || null,
+            notes: formData.notes?.trim() || null,
           }
         ])
         .select()
@@ -66,8 +66,14 @@ export function CreateCompanyForm() {
       // Redirect to company detail
       router.push(`/empresas/${newCompany.id}`)
     } catch (err) {
-      console.error('[v0] Error creating company:', err)
-      setError(err instanceof Error ? err.message : 'Error al crear la empresa')
+      console.error('[CreateCompanyForm] Error creating company:', err)
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: string }).message)
+          : err instanceof Error
+            ? err.message
+            : 'Error al crear la empresa'
+      setError(message)
     } finally {
       setIsLoading(false)
     }
