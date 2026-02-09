@@ -49,6 +49,7 @@ const caseStatusConfig: Record<CaseStatus, { label: string; variant: 'default' |
 const taskStatusConfig: Record<TaskStatus, { label: string; color: string }> = {
   pending: { label: 'Pendiente', color: 'text-muted-foreground' },
   in_progress: { label: 'En Progreso', color: 'text-chart-1' },
+  under_review: { label: 'En Revisión', color: 'text-warning' },
   completed: { label: 'Completada', color: 'text-chart-2' },
   cancelled: { label: 'Cancelada', color: 'text-muted-foreground' },
 }
@@ -235,9 +236,11 @@ async function getTeamTaskStatus(userId: string, organizationId: string | null) 
   if (!teamAssignments) return []
 
   // Deduplicate team members
-  const uniqueMembers = new Map()
+  const uniqueMembers = new Map<string, { id: string; first_name: string; last_name: string }>()
   for (const assignment of teamAssignments) {
-    const profile = assignment.profiles as { id: string; first_name: string; last_name: string } | null
+    const profilesRaw = assignment.profiles as unknown
+    const profiles = profilesRaw as { id: string; first_name: string; last_name: string }[] | { id: string; first_name: string; last_name: string } | null
+    const profile = Array.isArray(profiles) ? (profiles.length > 0 ? profiles[0] : null) : profiles
     if (profile && !uniqueMembers.has(profile.id)) {
       uniqueMembers.set(profile.id, profile)
     }
@@ -251,17 +254,9 @@ async function getTeamTaskStatus(userId: string, organizationId: string | null) 
     return baseQuery
   }
 
-  // Build task queries with organization filter
-  const buildTaskQuery = (baseQuery: any) => {
-    if (organizationId) {
-      return baseQuery.eq('organization_id', organizationId)
-    }
-    return baseQuery
-  }
-
   // Get task counts for each team member
   const teamStats = await Promise.all(
-    Array.from(uniqueMembers.values()).map(async (member) => {
+    Array.from(uniqueMembers.values()).map(async (member: { id: string; first_name: string; last_name: string }) => {
       const [{ count: pending }, { count: inProgress }, { count: completed }] = await Promise.all([
         buildTaskQuery(supabase.from('tasks').select('*', { count: 'exact', head: true })
           .in('case_id', caseIds)
@@ -275,14 +270,6 @@ async function getTeamTaskStatus(userId: string, organizationId: string | null) 
           .in('case_id', caseIds)
           .eq('assigned_to', member.id)
           .eq('status', 'completed')),
-      ])
-          .in('case_id', caseIds)
-          .eq('assigned_to', member.id)
-          .eq('status', 'in_progress'),
-        supabase.from('tasks').select('*', { count: 'exact', head: true })
-          .in('case_id', caseIds)
-          .eq('assigned_to', member.id)
-          .eq('status', 'completed'),
       ])
 
       return {
@@ -429,7 +416,9 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
               ) : (
                 <div className="space-y-3">
                   {leadCases.slice(0, 5).map((caseItem) => {
-                    const company = caseItem.companies as { id: string; company_name: string | null; name: string | null } | null
+                    const company = Array.isArray(caseItem.companies) 
+                      ? (caseItem.companies[0] as { id: string; company_name: string | null; name: string | null } | null)
+                      : (caseItem.companies as { id: string; company_name: string | null; name: string | null } | null)
                     const status = caseStatusConfig[caseItem.status as CaseStatus]
 
                     return (
@@ -499,7 +488,9 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {deadlines.map((deadline) => {
-                    const caseData = deadline.cases as { id: string; case_number: string; title: string } | null
+                    const caseData = Array.isArray(deadline.cases)
+                      ? (deadline.cases[0] as { id: string; case_number: string; title: string } | null)
+                      : (deadline.cases as { id: string; case_number: string; title: string } | null)
                     const daysUntil = getDaysUntil(deadline.due_date)
                     const isUrgent = daysUntil <= 2
 
@@ -559,7 +550,7 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
                   </p>
                 </div>
               ) : (
-                teamStatus.slice(0, 6).map((member) => {
+                teamStatus.slice(0, 6).map((member: { id: string; first_name: string; last_name: string; pending: number; inProgress: number; completed: number; total: number }) => {
                   const completionRate = member.total > 0 
                     ? Math.round((member.completed / member.total) * 100) 
                     : 0
