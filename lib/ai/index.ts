@@ -63,3 +63,15 @@ export { resolveModel } from './resolver'
 
 // Orchestrator (stream with fallback; used by API route)
 export { runStreamWithFallback } from './orchestrator'
+
+// Credits and usage (for quota enforcement and recording)
+export { getCreditsForIntent, getPlanCreditsLimit, CREDITS_BY_INTENT, PLAN_CREDITS } from './credits'
+export {
+  checkCreditsRemaining,
+  recordLexiaUsage,
+  getUserLexiaPlan,
+  getCurrentPeriodUsage,
+  type UserLexiaPlan,
+  type PeriodUsage,
+  type CreditsRemaining,
+} from './usage'

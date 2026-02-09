@@ -24,10 +24,15 @@ import {
   lexiaTools,
   getToolsForIntent,
   runStreamWithFallback,
+  checkCreditsRemaining,
+  recordLexiaUsage,
+  getCreditsForIntent,
   type CaseContextInput,
 } from '@/lib/ai'
 
 export const maxDuration = 60
+
+const LEXIA_CREDITS_ENFORCEMENT = process.env.LEXIA_CREDITS_ENFORCEMENT === 'true'
 
 // Export message type (unchanged - UI compatibility)
 export type LexiaMessage = UIMessage<never, UIDataTypes, InferUITools<typeof lexiaTools>>
@@ -110,6 +115,20 @@ export async function POST(req: Request) {
       )
     }
 
+    if (LEXIA_CREDITS_ENFORCEMENT) {
+      const credits = await checkCreditsRemaining(supabase, user.id)
+      if (!credits.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: 'Credits exhausted for this period. Usage resets next month.',
+            remaining: 0,
+            limit: credits.limit,
+          }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     // 2. Parse request body
     const body = await req.json()
     const caseContextInput: CaseContextInput | null = body.caseContext || null
@@ -157,13 +176,28 @@ export async function POST(req: Request) {
     return result.toUIMessageStreamResponse({
       onFinish: async (options) => {
         const durationMs = Date.now() - startTime
+        const tokensUsed = options.usage?.totalTokens ?? 0
+        const creditsCharged = getCreditsForIntent(finalDecision.classification.intent)
+
+        try {
+          await recordLexiaUsage(
+            supabase,
+            user.id,
+            finalDecision.traceId,
+            finalDecision.classification.intent,
+            creditsCharged,
+            tokensUsed,
+          )
+        } catch (err) {
+          console.error('[Lexia] Error recording usage:', err)
+        }
 
         const toolsInvoked = getToolNamesFromFinishOptions(options)
         const audit = createAuditEntry(
           finalDecision,
           user.id,
           messages.length,
-          options.usage?.totalTokens ?? 0,
+          tokensUsed,
           durationMs,
           toolsInvoked,
         )
