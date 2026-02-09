@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { CreatePersonForm } from '@/components/people/create-person-form'
 import { Skeleton } from '@/components/ui/skeleton'
 
+interface CreatePersonPageProps {
+  searchParams: Promise<{ company_id?: string }>
+}
+
 export const metadata = {
   title: 'Nueva Persona',
   description: 'Crear una nueva persona',
@@ -44,12 +48,14 @@ function CreatePersonSkeleton() {
   )
 }
 
-export default async function CreatePersonPage() {
+export default async function CreatePersonPage({ searchParams }: CreatePersonPageProps) {
   await validateAccess()
+  const params = await searchParams
+  const companyId = params?.company_id
 
   return (
     <Suspense fallback={<CreatePersonSkeleton />}>
-      <CreatePersonForm />
+      <CreatePersonForm preselectedCompanyId={companyId} />
     </Suspense>
   )
 }
