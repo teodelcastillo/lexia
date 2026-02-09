@@ -9,6 +9,7 @@
  */
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -65,11 +66,19 @@ const caseStatusConfig: Record<CaseStatus, { label: string; variant: 'default' |
 /**
  * Fetches personal statistics for the user
  */
-async function getPersonalStats(userId: string) {
+async function getPersonalStats(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   const today = new Date().toISOString().split('T')[0]
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  // Build queries with organization filter
+  const buildQuery = (table: string, baseQuery: any) => {
+    if (organizationId) {
+      return baseQuery.eq('organization_id', organizationId)
+    }
+    return baseQuery
+  }
 
   const [
     { count: pendingTasks },
@@ -80,28 +89,28 @@ async function getPersonalStats(userId: string) {
     { count: upcomingDeadlines },
   ] = await Promise.all([
     // Pending tasks assigned to user
-    supabase.from('tasks').select('*', { count: 'exact', head: true })
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true })
       .eq('assigned_to', userId)
-      .eq('status', 'pending'),
+      .eq('status', 'pending')),
     // In progress tasks
-    supabase.from('tasks').select('*', { count: 'exact', head: true })
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true })
       .eq('assigned_to', userId)
-      .eq('status', 'in_progress'),
+      .eq('status', 'in_progress')),
     // Completed today
-    supabase.from('tasks').select('*', { count: 'exact', head: true })
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true })
       .eq('assigned_to', userId)
       .eq('status', 'completed')
-      .gte('completed_at', today),
+      .gte('completed_at', today)),
     // Overdue tasks
-    supabase.from('tasks').select('*', { count: 'exact', head: true })
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true })
       .eq('assigned_to', userId)
       .in('status', ['pending', 'in_progress'])
-      .lt('due_date', today),
-    // Cases assigned to user
-    supabase.from('case_assignments').select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .lt('due_date', today)),
+    // Cases assigned to user (filtered by organization via case_assignments)
+    buildQuery('case_assignments', supabase.from('case_assignments').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)),
     // Upcoming deadlines in assigned cases
-    supabase.from('deadlines').select(`
+    buildQuery('deadlines', supabase.from('deadlines').select(`
       id,
       case_id,
       cases!inner (
@@ -111,7 +120,7 @@ async function getPersonalStats(userId: string) {
       .eq('is_completed', false)
       .gte('due_date', today)
       .lte('due_date', nextWeek)
-      .eq('cases.case_assignments.user_id', userId),
+      .eq('cases.case_assignments.user_id', userId)),
   ])
 
   return {
@@ -127,10 +136,10 @@ async function getPersonalStats(userId: string) {
 /**
  * Fetches user's personal task list
  */
-async function getMyTasks(userId: string) {
+async function getMyTasks(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
-  const { data: tasks } = await supabase
+  const query = supabase
     .from('tasks')
     .select(`
       id,
@@ -144,13 +153,20 @@ async function getMyTasks(userId: string) {
     .order('due_date', { ascending: true, nullsFirst: false })
     .limit(8)
 
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: tasks } = await query
+
   return tasks || []
 }
 
 /**
  * Fetches user's assigned cases
  */
-async function getMyCases(userId: string) {
+async function getMyCases(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   // Get case IDs where user is assigned
@@ -164,7 +180,7 @@ async function getMyCases(userId: string) {
   const caseIds = assignments.map(a => a.case_id)
   const roleMap = new Map(assignments.map(a => [a.case_id, a.case_role]))
 
-  const { data: cases } = await supabase
+  const query = supabase
     .from('cases')
     .select(`
       id,
@@ -178,6 +194,13 @@ async function getMyCases(userId: string) {
     .order('updated_at', { ascending: false })
     .limit(6)
 
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: cases } = await query
+
   return (cases || []).map(c => ({
     ...c,
     role: roleMap.get(c.id) || 'case_leader',
@@ -187,7 +210,7 @@ async function getMyCases(userId: string) {
 /**
  * Fetches upcoming deadlines for user's cases
  */
-async function getMyDeadlines(userId: string) {
+async function getMyDeadlines(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   // Get case IDs where user is assigned
@@ -202,7 +225,7 @@ async function getMyDeadlines(userId: string) {
   const today = new Date().toISOString().split('T')[0]
   const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  const { data: deadlines } = await supabase
+  const query = supabase
     .from('deadlines')
     .select(`
       id,
@@ -217,6 +240,13 @@ async function getMyDeadlines(userId: string) {
     .lte('due_date', twoWeeks)
     .order('due_date', { ascending: true })
     .limit(5)
+
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: deadlines } = await query
 
   return deadlines || []
 }
@@ -246,11 +276,13 @@ function getDaysUntil(dateString: string | null): { days: number; text: string; 
 }
 
 export async function LawyerDashboard({ userId }: LawyerDashboardProps) {
+  const organizationId = await getCurrentUserOrganizationId()
+  
   const [stats, myTasks, myCases, myDeadlines] = await Promise.all([
-    getPersonalStats(userId),
-    getMyTasks(userId),
-    getMyCases(userId),
-    getMyDeadlines(userId),
+    getPersonalStats(userId, organizationId),
+    getMyTasks(userId, organizationId),
+    getMyCases(userId, organizationId),
+    getMyDeadlines(userId, organizationId),
   ])
 
   const totalActiveTasks = stats.pendingTasks + stats.inProgressTasks

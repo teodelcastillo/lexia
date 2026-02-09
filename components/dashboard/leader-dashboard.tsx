@@ -9,6 +9,7 @@
  */
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,7 +56,7 @@ const taskStatusConfig: Record<TaskStatus, { label: string; color: string }> = {
 /**
  * Fetches cases where the user is a leader
  */
-async function getLeadCases(userId: string) {
+async function getLeadCases(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   // Get case IDs where user is leader
@@ -69,8 +70,8 @@ async function getLeadCases(userId: string) {
 
   const caseIds = assignments.map(a => a.case_id)
 
-  // Get case details
-  const { data: cases } = await supabase
+  // Get case details with organization filter
+  const query = supabase
     .from('cases')
     .select(`
       id,
@@ -84,13 +85,20 @@ async function getLeadCases(userId: string) {
     .in('status', ['active', 'pending', 'on_hold'])
     .order('updated_at', { ascending: false })
 
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: cases } = await query
+
   return cases || []
 }
 
 /**
  * Fetches leader's case statistics
  */
-async function getLeaderStats(userId: string) {
+async function getLeaderStats(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   // Get case IDs where user is leader
@@ -113,6 +121,14 @@ async function getLeaderStats(userId: string) {
 
   const caseIds = assignments.map(a => a.case_id)
 
+  // Build queries with organization filter for defense in depth
+  const buildQuery = (table: string, baseQuery: any) => {
+    if (organizationId) {
+      return baseQuery.eq('organization_id', organizationId)
+    }
+    return baseQuery
+  }
+
   const [
     { count: totalCases },
     { count: activeCases },
@@ -121,16 +137,16 @@ async function getLeaderStats(userId: string) {
     { count: completedTasks },
     { count: upcomingDeadlines },
   ] = await Promise.all([
-    supabase.from('cases').select('*', { count: 'exact', head: true }).in('id', caseIds),
-    supabase.from('cases').select('*', { count: 'exact', head: true }).in('id', caseIds).eq('status', 'active'),
-    supabase.from('tasks').select('*', { count: 'exact', head: true }).in('case_id', caseIds),
-    supabase.from('tasks').select('*', { count: 'exact', head: true }).in('case_id', caseIds).in('status', ['pending', 'in_progress']),
-    supabase.from('tasks').select('*', { count: 'exact', head: true }).in('case_id', caseIds).eq('status', 'completed'),
-    supabase.from('deadlines').select('*', { count: 'exact', head: true })
+    buildQuery('cases', supabase.from('cases').select('*', { count: 'exact', head: true }).in('id', caseIds)),
+    buildQuery('cases', supabase.from('cases').select('*', { count: 'exact', head: true }).in('id', caseIds).eq('status', 'active')),
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true }).in('case_id', caseIds)),
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true }).in('case_id', caseIds).in('status', ['pending', 'in_progress'])),
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true }).in('case_id', caseIds).eq('status', 'completed')),
+    buildQuery('deadlines', supabase.from('deadlines').select('*', { count: 'exact', head: true })
       .in('case_id', caseIds)
       .eq('is_completed', false)
       .gte('due_date', new Date().toISOString().split('T')[0])
-      .lte('due_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+      .lte('due_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])),
   ])
 
   return {
@@ -146,7 +162,7 @@ async function getLeaderStats(userId: string) {
 /**
  * Fetches deadlines for leader's cases
  */
-async function getLeaderDeadlines(userId: string) {
+async function getLeaderDeadlines(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   // Get case IDs where user is leader
@@ -162,7 +178,7 @@ async function getLeaderDeadlines(userId: string) {
   const today = new Date().toISOString().split('T')[0]
   const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  const { data: deadlines } = await supabase
+  const query = supabase
     .from('deadlines')
     .select(`
       id,
@@ -178,13 +194,20 @@ async function getLeaderDeadlines(userId: string) {
     .order('due_date', { ascending: true })
     .limit(6)
 
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: deadlines } = await query
+
   return deadlines || []
 }
 
 /**
  * Fetches team task assignments for leader's cases
  */
-async function getTeamTaskStatus(userId: string) {
+async function getTeamTaskStatus(userId: string, organizationId: string | null) {
   const supabase = await createClient()
 
   // Get case IDs where user is leader
@@ -220,15 +243,39 @@ async function getTeamTaskStatus(userId: string) {
     }
   }
 
+  // Build task queries with organization filter
+  const buildTaskQuery = (baseQuery: any) => {
+    if (organizationId) {
+      return baseQuery.eq('organization_id', organizationId)
+    }
+    return baseQuery
+  }
+
+  // Build task queries with organization filter
+  const buildTaskQuery = (baseQuery: any) => {
+    if (organizationId) {
+      return baseQuery.eq('organization_id', organizationId)
+    }
+    return baseQuery
+  }
+
   // Get task counts for each team member
   const teamStats = await Promise.all(
     Array.from(uniqueMembers.values()).map(async (member) => {
       const [{ count: pending }, { count: inProgress }, { count: completed }] = await Promise.all([
-        supabase.from('tasks').select('*', { count: 'exact', head: true })
+        buildTaskQuery(supabase.from('tasks').select('*', { count: 'exact', head: true })
           .in('case_id', caseIds)
           .eq('assigned_to', member.id)
-          .eq('status', 'pending'),
-        supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .eq('status', 'pending')),
+        buildTaskQuery(supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .in('case_id', caseIds)
+          .eq('assigned_to', member.id)
+          .eq('status', 'in_progress')),
+        buildTaskQuery(supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .in('case_id', caseIds)
+          .eq('assigned_to', member.id)
+          .eq('status', 'completed')),
+      ])
           .in('case_id', caseIds)
           .eq('assigned_to', member.id)
           .eq('status', 'in_progress'),
@@ -270,11 +317,13 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
+  const organizationId = await getCurrentUserOrganizationId()
+  
   const [leadCases, stats, deadlines, teamStatus] = await Promise.all([
-    getLeadCases(userId),
-    getLeaderStats(userId),
-    getLeaderDeadlines(userId),
-    getTeamTaskStatus(userId),
+    getLeadCases(userId, organizationId),
+    getLeaderStats(userId, organizationId),
+    getLeaderDeadlines(userId, organizationId),
+    getTeamTaskStatus(userId, organizationId),
   ])
 
   const taskCompletionRate = stats.totalTasks > 0 

@@ -50,12 +50,19 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
   // Get person (client) record linked to this user via portal_user_id
   const { data: person } = await supabase
     .from('people')
-    .select('id, company_id')
+    .select('id, company_id, organization_id')
     .eq('portal_user_id', effectiveUserId)
     .eq('person_type', 'client')
     .single()
 
   if (!person) {
+    redirect('/auth/portal-login')
+  }
+
+  // Validate organization_id exists (defense in depth)
+  const clientOrganizationId = person.organization_id
+  if (!clientOrganizationId) {
+    // This shouldn't happen with RLS, but validate explicitly
     redirect('/auth/portal-login')
   }
 
@@ -75,6 +82,7 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
         .select('id')
         .eq('id', id)
         .eq('company_id', person.company_id)
+        .eq('organization_id', clientOrganizationId)
         .single()
     : { data: null }
 
@@ -83,7 +91,7 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
     notFound()
   }
 
-  // Fetch case details
+  // Fetch case details with organization filter
   const { data: caseData } = await supabase
     .from('cases')
     .select(`
@@ -94,6 +102,7 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
       )
     `)
     .eq('id', id)
+    .eq('organization_id', clientOrganizationId)
     .single()
 
   if (!caseData) {
@@ -102,19 +111,21 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
 
   const statusDisplay = getStatusDisplay(caseData.status)
 
-  // Fetch documents shared with client
+  // Fetch documents shared with client with organization filter
   const { data: documents } = await supabase
     .from('documents')
     .select('*')
     .eq('case_id', id)
+    .eq('organization_id', clientOrganizationId)
     .eq('is_visible_to_client', true)
     .order('created_at', { ascending: false })
 
-  // Fetch deadlines visible to client
+  // Fetch deadlines visible to client with organization filter
   const { data: deadlines } = await supabase
     .from('deadlines')
     .select('*')
     .eq('case_id', id)
+    .eq('organization_id', clientOrganizationId)
     .eq('is_visible_to_client', true)
     .gte('due_date', new Date().toISOString())
     .order('due_date', { ascending: true })

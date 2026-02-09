@@ -108,6 +108,23 @@ export function CreateCaseForm({ companies: initialCompanies = [], organizationI
         throw new Error('Empresa es requerida')
       }
 
+      // Validate that the selected company belongs to the user's organization
+      if (organizationId && formData.company_id) {
+        const { data: company, error: companyError } = await supabase
+          .from('companies')
+          .select('organization_id')
+          .eq('id', formData.company_id)
+          .single()
+
+        if (companyError) {
+          throw new Error('Error al validar la empresa seleccionada')
+        }
+
+        if (!company || company.organization_id !== organizationId) {
+          throw new Error('La empresa seleccionada no pertenece a su organización')
+        }
+      }
+
       // Create case
       // organization_id will be auto-assigned by trigger, but we include it explicitly if available
       const insertData: any = {

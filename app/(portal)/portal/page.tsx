@@ -123,12 +123,19 @@ export default async function PortalDashboard() {
   // Get person (client) record linked to this user via portal_user_id
   const { data: person } = await supabase
     .from('people')
-    .select('id, name, company_id')
+    .select('id, name, company_id, organization_id')
     .eq('portal_user_id', effectiveUserId)
     .eq('person_type', 'client')
     .single()
 
   if (!person) {
+    redirect('/auth/portal-login')
+  }
+
+  // Validate organization_id exists (defense in depth)
+  const clientOrganizationId = person.organization_id
+  if (!clientOrganizationId) {
+    // This shouldn't happen with RLS, but validate explicitly
     redirect('/auth/portal-login')
   }
 
@@ -147,11 +154,13 @@ export default async function PortalDashboard() {
   const participantCaseIds = participantCases?.map((cp) => cp.case_id) || []
   
   // Get cases by company_id if person belongs to a company
+  // Add organization filter for defense in depth
   const { data: companyCases } = person.company_id
     ? await supabase
         .from('cases')
         .select('id')
         .eq('company_id', person.company_id)
+        .eq('organization_id', clientOrganizationId)
     : { data: [] }
 
   const companyCaseIds = companyCases?.map((c) => c.id) || []
@@ -159,7 +168,7 @@ export default async function PortalDashboard() {
   // Merge and deduplicate case IDs
   const allCaseIds = [...new Set([...participantCaseIds, ...companyCaseIds])]
 
-  // Fetch full case details
+  // Fetch full case details with organization filter
   const { data: cases } = allCaseIds.length > 0
     ? await supabase
         .from('cases')
@@ -177,10 +186,11 @@ export default async function PortalDashboard() {
           )
         `)
         .in('id', allCaseIds)
+        .eq('organization_id', clientOrganizationId)
         .order('updated_at', { ascending: false })
     : { data: [] }
 
-  // Fetch upcoming deadlines for client's cases
+  // Fetch upcoming deadlines for client's cases with organization filter
   const caseIds = cases?.map(c => c.id) || []
   const { data: upcomingDeadlines } = caseIds.length > 0 
     ? await supabase
@@ -193,6 +203,7 @@ export default async function PortalDashboard() {
           case:cases(case_number, title)
         `)
         .in('case_id', caseIds)
+        .eq('organization_id', clientOrganizationId)
         .eq('status', 'pending')
         .eq('is_visible_to_client', true)
         .gte('due_date', new Date().toISOString())
@@ -200,7 +211,7 @@ export default async function PortalDashboard() {
         .limit(5)
     : { data: [] }
 
-  // Fetch recent activity/updates visible to client
+  // Fetch recent activity/updates visible to client with organization filter
   const { data: recentUpdates } = caseIds.length > 0
     ? await supabase
         .from('activity_log')
@@ -212,12 +223,13 @@ export default async function PortalDashboard() {
           case:cases(case_number, title)
         `)
         .in('case_id', caseIds)
+        .eq('organization_id', clientOrganizationId)
         .eq('is_visible_to_client', true)
         .order('created_at', { ascending: false })
         .limit(5)
     : { data: [] }
 
-  // Fetch recent documents shared with client
+  // Fetch recent documents shared with client with organization filter
   const { data: recentDocuments } = caseIds.length > 0
     ? await supabase
         .from('documents')
@@ -228,6 +240,7 @@ export default async function PortalDashboard() {
           case:cases(case_number)
         `)
         .in('case_id', caseIds)
+        .eq('organization_id', clientOrganizationId)
         .eq('is_visible_to_client', true)
         .order('created_at', { ascending: false })
         .limit(3)

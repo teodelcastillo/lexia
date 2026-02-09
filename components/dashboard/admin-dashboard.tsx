@@ -10,6 +10,7 @@
  */
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,8 +49,16 @@ const caseStatusConfig: Record<CaseStatus, { label: string; variant: 'default' |
 /**
  * Fetches global statistics for the admin dashboard
  */
-async function getGlobalStats() {
+async function getGlobalStats(organizationId: string | null) {
   const supabase = await createClient()
+
+  // Build queries with organization filter
+  const buildQuery = (table: string, baseQuery: any) => {
+    if (organizationId) {
+      return baseQuery.eq('organization_id', organizationId)
+    }
+    return baseQuery
+  }
 
   const [
     { count: totalCases },
@@ -62,24 +71,24 @@ async function getGlobalStats() {
     { count: urgentDeadlines },
     { count: teamMembers },
   ] = await Promise.all([
-    supabase.from('cases').select('*', { count: 'exact', head: true }),
-    supabase.from('cases').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('companies').select('*', { count: 'exact', head: true }),
-    supabase.from('companies').select('*', { count: 'exact', head: true }),
-    supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['pending', 'in_progress']),
-    supabase.from('tasks').select('*', { count: 'exact', head: true })
+    buildQuery('cases', supabase.from('cases').select('*', { count: 'exact', head: true })),
+    buildQuery('cases', supabase.from('cases').select('*', { count: 'exact', head: true }).eq('status', 'active')),
+    buildQuery('companies', supabase.from('companies').select('*', { count: 'exact', head: true })),
+    buildQuery('companies', supabase.from('companies').select('*', { count: 'exact', head: true })),
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['pending', 'in_progress'])),
+    buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true })
       .in('status', ['pending', 'in_progress'])
-      .lt('due_date', new Date().toISOString().split('T')[0]),
-    supabase.from('deadlines').select('*', { count: 'exact', head: true })
+      .lt('due_date', new Date().toISOString().split('T')[0])),
+    buildQuery('deadlines', supabase.from('deadlines').select('*', { count: 'exact', head: true })
       .eq('is_completed', false)
       .gte('due_date', new Date().toISOString().split('T')[0])
-      .lte('due_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-    supabase.from('deadlines').select('*', { count: 'exact', head: true })
+      .lte('due_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])),
+    buildQuery('deadlines', supabase.from('deadlines').select('*', { count: 'exact', head: true })
       .eq('is_completed', false)
-      .lte('due_date', new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-    supabase.from('profiles').select('*', { count: 'exact', head: true })
+      .lte('due_date', new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])),
+    buildQuery('profiles', supabase.from('profiles').select('*', { count: 'exact', head: true })
       .neq('system_role', 'client')
-      .eq('is_active', true),
+      .eq('is_active', true)),
   ])
 
   return {
@@ -98,10 +107,10 @@ async function getGlobalStats() {
 /**
  * Fetches priority cases that need attention
  */
-async function getPriorityCases() {
+async function getPriorityCases(organizationId: string | null) {
   const supabase = await createClient()
 
-  const { data: cases } = await supabase
+  const query = supabase
     .from('cases')
     .select(`
       id,
@@ -113,18 +122,24 @@ async function getPriorityCases() {
     .order('updated_at', { ascending: false })
     .limit(5)
 
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: cases } = await query
+
   return cases || []
 }
 
 /**
  * Fetches upcoming critical deadlines
  */
-async function getCriticalDeadlines() {
+async function getCriticalDeadlines(organizationId: string | null) {
   const supabase = await createClient()
   const today = new Date().toISOString().split('T')[0]
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  const { data: deadlines } = await supabase
+  const query = supabase
     .from('deadlines')
     .select(`
       id,
@@ -139,39 +154,58 @@ async function getCriticalDeadlines() {
     .order('due_date', { ascending: true })
     .limit(6)
 
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: deadlines } = await query
+
   return deadlines || []
 }
 
 /**
  * Fetches team workload summary
  */
-async function getTeamWorkload() {
+async function getTeamWorkload(organizationId: string | null) {
   const supabase = await createClient()
 
   // Get team members with their task counts
-  const { data: profiles } = await supabase
+  const profilesQuery = supabase
     .from('profiles')
     .select('id, first_name, last_name, system_role')
     .neq('system_role', 'client')
     .eq('is_active', true)
     .limit(8)
 
+  if (organizationId) {
+    profilesQuery.eq('organization_id', organizationId)
+  }
+
+  const { data: profiles } = await profilesQuery
+
   if (!profiles) return []
 
   // Get task counts for each team member
   const workloadPromises = profiles.map(async (profile) => {
+    const buildTaskQuery = (baseQuery: any) => {
+      if (organizationId) {
+        return baseQuery.eq('organization_id', organizationId)
+      }
+      return baseQuery
+    }
+
     const [{ count: pendingTasks }, { count: completedThisWeek }] = await Promise.all([
-      supabase
+      buildTaskQuery(supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('assigned_to', profile.id)
-        .in('status', ['pending', 'in_progress']),
-      supabase
+        .in('status', ['pending', 'in_progress'])),
+      buildTaskQuery(supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('assigned_to', profile.id)
         .eq('status', 'completed')
-        .gte('completed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        .gte('completed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())),
     ])
 
     return {
@@ -188,10 +222,10 @@ async function getTeamWorkload() {
 /**
  * Fetches recent activity across the studio
  */
-async function getRecentActivity() {
+async function getRecentActivity(organizationId: string | null) {
   const supabase = await createClient()
 
-  const { data: activities } = await supabase
+  const query = supabase
     .from('activity_log')
     .select(`
       id,
@@ -203,6 +237,12 @@ async function getRecentActivity() {
     `)
     .order('created_at', { ascending: false })
     .limit(6)
+
+  if (organizationId) {
+    query.eq('organization_id', organizationId)
+  }
+
+  const { data: activities } = await query
 
   return activities || []
 }
@@ -242,12 +282,14 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 export async function AdminDashboard({ userId }: AdminDashboardProps) {
+  const organizationId = await getCurrentUserOrganizationId()
+  
   const [stats, priorityCases, criticalDeadlines, teamWorkload, recentActivity] = await Promise.all([
-    getGlobalStats(),
-    getPriorityCases(),
-    getCriticalDeadlines(),
-    getTeamWorkload(),
-    getRecentActivity(),
+    getGlobalStats(organizationId),
+    getPriorityCases(organizationId),
+    getCriticalDeadlines(organizationId),
+    getTeamWorkload(organizationId),
+    getRecentActivity(organizationId),
   ])
 
   return (
@@ -279,9 +321,9 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeClients}</div>
+            <div className="text-2xl font-bold">{stats.activeCompanies}</div>
             <p className="text-xs text-muted-foreground">
-              de {stats.totalClients} clientes totales
+              de {stats.totalCompanies} empresas totales
             </p>
           </CardContent>
         </Card>
