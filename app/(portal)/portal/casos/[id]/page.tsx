@@ -47,25 +47,53 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
   const effectiveUserId = await getEffectivePortalUserId()
   if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record linked to this user (or viewed-as client when admin)
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('user_id', effectiveUserId)
+  // Get person (client) record linked to this user via portal_user_id
+  const { data: person } = await supabase
+    .from('people')
+    .select('id, company_id')
+    .eq('portal_user_id', effectiveUserId)
+    .eq('person_type', 'client')
     .single()
 
-  // Fetch case details - only if it belongs to this client
+  if (!person) {
+    redirect('/auth/portal-login')
+  }
+
+  // Check if this case belongs to the client via case_participants or company_id
+  const { data: participantCase } = await supabase
+    .from('case_participants')
+    .select('case_id')
+    .eq('case_id', id)
+    .eq('person_id', person.id)
+    .eq('role', 'client_representative')
+    .eq('is_active', true)
+    .single()
+
+  const { data: companyCase } = person.company_id
+    ? await supabase
+        .from('cases')
+        .select('id')
+        .eq('id', id)
+        .eq('company_id', person.company_id)
+        .single()
+    : { data: null }
+
+  // Case must belong to client via one of the methods
+  if (!participantCase && !companyCase) {
+    notFound()
+  }
+
+  // Fetch case details
   const { data: caseData } = await supabase
     .from('cases')
     .select(`
       *,
       case_assignments(
-        role,
-        profile:profiles(id, first_name, last_name, email)
+        case_role,
+        profiles(id, first_name, last_name, email)
       )
     `)
     .eq('id', id)
-    .eq('client_id', client?.id)
     .single()
 
   if (!caseData) {
@@ -94,7 +122,7 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
 
   // Get lead lawyer
   const leadLawyer = caseData.case_assignments?.find(
-    (a: { role: string }) => a.role === 'leader'
+    (a: { case_role: string }) => a.case_role === 'leader'
   )
 
   return (
@@ -213,7 +241,7 @@ export default async function PortalCasePage({ params }: PortalCasePageProps) {
                         <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">
-                            {doc.file_name}
+                            {doc.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(doc.created_at).toLocaleDateString('es-AR')}

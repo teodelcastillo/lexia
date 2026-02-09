@@ -78,10 +78,21 @@ export function ClientForm({ client }: ClientFormProps) {
     try {
       const supabase = createClient()
       
-      const clientData = {
+      // Parse name field: for individuals split into first_name/last_name, for companies use company_name
+      // Do not send `name` - it's a generated column
+      const nameParts = formData.name.trim().split(/\s+/)
+      const firstName = clientType === 'individual' ? nameParts[0] || '' : null
+      const lastName = clientType === 'individual' ? nameParts.slice(1).join(' ') || null : null
+      const companyName = clientType === 'company' ? formData.name.trim() : null
+      
+      const personData = {
         client_type: clientType,
-        name: formData.name.trim(),
-        tax_id: formData.tax_id.trim() || null,
+        first_name: firstName,
+        last_name: lastName,
+        company_name: companyName,
+        person_type: 'client' as const,
+        cuit: formData.tax_id.trim() || null,
+        dni: clientType === 'individual' ? (formData.tax_id.trim() || null) : null,
         email: formData.email.trim() || null,
         phone: formData.phone.trim() || null,
         address: formData.address.trim() || null,
@@ -93,10 +104,10 @@ export function ClientForm({ client }: ClientFormProps) {
       }
 
       if (isEditing && client) {
-        // Update existing client
+        // Update existing person (client)
         const { error } = await supabase
-          .from('clients')
-          .update(clientData)
+          .from('people')
+          .update(personData)
           .eq('id', client.id)
 
         if (error) throw error
@@ -104,10 +115,10 @@ export function ClientForm({ client }: ClientFormProps) {
         toast.success('Cliente actualizado correctamente')
         router.push(`/clientes/${client.id}`)
       } else {
-        // Create new client
+        // Create new person (client)
         const { data, error } = await supabase
-          .from('clients')
-          .insert(clientData)
+          .from('people')
+          .insert(personData)
           .select('id')
           .single()
 

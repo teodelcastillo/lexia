@@ -100,22 +100,19 @@ export function CreatePersonForm() {
         throw new Error('El nombre es requerido')
       }
 
-      // Build full name
-      const fullName = [formData.first_name, formData.last_name].filter(Boolean).join(' ')
-
-      // Insert person
+      // Insert person (do not send `name` - it is a generated column: COALESCE(first_name + last_name, company_name))
       const { data: newPerson, error: insertError } = await supabase
         .from('people')
         .insert([
           {
-            first_name: formData.first_name,
-            last_name: formData.last_name || null,
-            name: fullName,
-            email: formData.email || null,
-            phone: formData.phone || null,
+            first_name: formData.first_name.trim(),
+            last_name: formData.last_name?.trim() || null,
+            email: formData.email?.trim() || null,
+            phone: formData.phone?.trim() || null,
             person_type: formData.person_type,
-            company_id: formData.company_id || null,
-            notes: formData.notes || null,
+            company_id: formData.company_id === 'defaultCompany' ? null : formData.company_id || null,
+            notes: formData.notes?.trim() || null,
+            client_type: 'individual', // Default for individual persons
           }
         ])
         .select()

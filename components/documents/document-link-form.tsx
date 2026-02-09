@@ -179,17 +179,16 @@ export function DocumentLinkForm({
     setIsSubmitting(true)
 
     try {
-      // Save document metadata to Supabase
+      // Save document metadata to Supabase (use name and mime_type, not file_name/file_type)
       const { data, error } = await supabase
         .from('documents')
         .insert({
           case_id: caseId,
           name: name,
           description: description || null,
-          file_name: name,
           file_path: `https://drive.google.com/file/d/${driveId}/view`,
           file_size: 0, // Unknown for linked documents
-          file_type: 'application/octet-stream', // Generic type for linked files
+          mime_type: 'application/octet-stream', // Generic type for linked files
           category: documentType,
           is_visible_to_client: visibility === 'client_visible',
           google_drive_id: driveId,

@@ -189,7 +189,6 @@ export async function seedTestUsers() {
           last_name: testUser.lastName,
           system_role: testUser.role,
           phone: '+54 9 351 000-0000',
-          location: 'Córdoba, Argentina',
           is_active: true,
         })
 

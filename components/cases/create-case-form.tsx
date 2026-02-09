@@ -101,8 +101,7 @@ export function CreateCaseForm() {
             case_type: formData.case_type.trim() || null,
             status: formData.status,
             company_id: formData.company_id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            // created_at and updated_at have defaults in DB, no need to send explicitly
           },
         ])
         .select()

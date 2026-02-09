@@ -69,28 +69,59 @@ export default async function PortalHelpPage() {
   const effectiveUserId = await getEffectivePortalUserId()
   if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record (or viewed-as client when admin)
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id, name')
-    .eq('user_id', effectiveUserId)
+  // Get person (client) record linked to this user via portal_user_id
+  const { data: person } = await supabase
+    .from('people')
+    .select('id, company_id')
+    .eq('portal_user_id', effectiveUserId)
+    .eq('person_type', 'client')
     .single()
+
+  if (!person) {
+    redirect('/auth/portal-login')
+  }
+
+  // Get case IDs for this client
+  const { data: participantCases } = person.id
+    ? await supabase
+        .from('case_participants')
+        .select('case_id')
+        .eq('person_id', person.id)
+        .eq('role', 'client_representative')
+        .eq('is_active', true)
+        .limit(1)
+    : { data: [] }
+
+  const participantCaseIds = participantCases?.map((cp) => cp.case_id) || []
+  
+  const { data: companyCases } = person.company_id
+    ? await supabase
+        .from('cases')
+        .select('id')
+        .eq('company_id', person.company_id)
+        .limit(1)
+    : { data: [] }
+
+  const companyCaseIds = companyCases?.map((c) => c.id) || []
+  const allCaseIds = [...new Set([...participantCaseIds, ...companyCaseIds])]
 
   // Get lead lawyer from any of client's cases
-  const { data: caseWithLawyer } = await supabase
-    .from('cases')
-    .select(`
-      case_assignments(
-        role,
-        profile:profiles(first_name, last_name, email)
-      )
-    `)
-    .eq('client_id', client?.id)
-    .limit(1)
-    .single()
+  const { data: caseWithLawyer } = allCaseIds.length > 0
+    ? await supabase
+        .from('cases')
+        .select(`
+          case_assignments(
+            case_role,
+            profiles(first_name, last_name, email)
+          )
+        `)
+        .in('id', allCaseIds)
+        .limit(1)
+        .single()
+    : { data: null }
 
   const leadLawyer = caseWithLawyer?.case_assignments?.find(
-    (a: { role: string }) => a.role === 'leader'
+    (a: { case_role: string }) => a.case_role === 'leader'
   )
 
   return (

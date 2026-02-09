@@ -144,10 +144,14 @@ export function CaseTeam({ caseId, assignments, canManageTeam }: CaseTeamProps) 
     if (!selectedProfile || !user) return
     setIsAdding(true)
     try {
+      // Map UI roles to DB roles: 'assistant' and 'lawyer' both map to 'executive'
+      // DB only accepts 'leader' and 'executive' (script 006)
+      const dbRole = selectedRole === 'leader' ? 'leader' : 'executive'
+      
       const { error } = await supabase.from('case_assignments').insert({
         case_id: caseId,
         user_id: selectedProfile.id,
-        case_role: selectedRole,
+        case_role: dbRole,
         assigned_by: user.id,
       })
       if (error) throw error

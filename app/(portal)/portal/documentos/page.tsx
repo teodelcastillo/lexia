@@ -48,19 +48,48 @@ export default async function PortalDocumentsPage() {
   const effectiveUserId = await getEffectivePortalUserId()
   if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record linked to this user (or viewed-as client when admin)
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id, name')
-    .eq('user_id', effectiveUserId)
+  // Get person (client) record linked to this user via portal_user_id
+  const { data: person } = await supabase
+    .from('people')
+    .select('id, name, company_id')
+    .eq('portal_user_id', effectiveUserId)
+    .eq('person_type', 'client')
     .single()
 
+  if (!person) {
+    redirect('/auth/portal-login')
+  }
+
+  // Get case IDs via case_participants and/or company_id
+  const { data: participantCases } = person.id
+    ? await supabase
+        .from('case_participants')
+        .select('case_id')
+        .eq('person_id', person.id)
+        .eq('role', 'client_representative')
+        .eq('is_active', true)
+    : { data: [] }
+
+  const participantCaseIds = participantCases?.map((cp) => cp.case_id) || []
+  
+  const { data: companyCases } = person.company_id
+    ? await supabase
+        .from('cases')
+        .select('id')
+        .eq('company_id', person.company_id)
+    : { data: [] }
+
+  const companyCaseIds = companyCases?.map((c) => c.id) || []
+  const allCaseIds = [...new Set([...participantCaseIds, ...companyCaseIds])]
+
   // Fetch all client's cases
-  const { data: cases } = await supabase
-    .from('cases')
-    .select('id, case_number, title')
-    .eq('client_id', client?.id)
-    .order('updated_at', { ascending: false })
+  const { data: cases } = allCaseIds.length > 0
+    ? await supabase
+        .from('cases')
+        .select('id, case_number, title')
+        .in('id', allCaseIds)
+        .order('updated_at', { ascending: false })
+    : { data: [] }
 
   // Fetch all documents visible to client
   const caseIds = cases?.map(c => c.id) || []
@@ -135,7 +164,7 @@ export default async function PortalDocumentsPage() {
               <CardContent>
                 <div className="space-y-2">
                   {docs?.map((doc) => {
-                    const fileType = getFileTypeDisplay(doc.file_name)
+                    const fileType = getFileTypeDisplay(doc.name)
                     
                     return (
                       <div 
@@ -151,7 +180,7 @@ export default async function PortalDocumentsPage() {
                           </Badge>
                           <div className="min-w-0">
                             <p className="font-medium text-sm truncate">
-                              {doc.file_name}
+                              {doc.name}
                             </p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                               <Calendar className="h-3 w-3" />

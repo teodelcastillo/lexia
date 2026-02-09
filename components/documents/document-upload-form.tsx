@@ -188,17 +188,16 @@ export function DocumentUploadForm({
       // This would be replaced with actual Google Drive API integration
       const googleDriveId = `gdrive_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-      // Save document metadata to Supabase
+      // Save document metadata to Supabase (use name and mime_type, not file_name/file_type)
       const { data, error } = await supabase
         .from('documents')
         .insert({
           case_id: caseId,
           name: name || file.name,
           description: description || null,
-          file_name: file.name,
           file_path: `/documents/${caseId}/${file.name}`,
           file_size: file.size,
-          file_type: file.type,
+          mime_type: file.type,
           category: documentType,
           is_visible_to_client: visibility === 'client_visible',
           google_drive_id: googleDriveId,

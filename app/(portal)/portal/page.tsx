@@ -120,31 +120,65 @@ export default async function PortalDashboard() {
   const effectiveUserId = await getEffectivePortalUserId()
   if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record linked to this user (or viewed-as client when admin)
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id, name')
-    .eq('user_id', effectiveUserId)
+  // Get person (client) record linked to this user via portal_user_id
+  const { data: person } = await supabase
+    .from('people')
+    .select('id, name, company_id')
+    .eq('portal_user_id', effectiveUserId)
+    .eq('person_type', 'client')
     .single()
 
-  // Fetch cases for this client
-  const { data: cases } = await supabase
-    .from('cases')
-    .select(`
-      id,
-      case_number,
-      title,
-      case_type,
-      status,
-      created_at,
-      updated_at,
-      case_assignments(
-        role,
-        profile:profiles(first_name, last_name)
-      )
-    `)
-    .eq('client_id', client?.id)
-    .order('updated_at', { ascending: false })
+  if (!person) {
+    redirect('/auth/portal-login')
+  }
+
+  // Get case IDs for this client via two methods:
+  // 1. Cases where person is a participant (client_representative role)
+  // 2. Cases where person's company_id matches cases.company_id
+  const { data: participantCases } = person.id
+    ? await supabase
+        .from('case_participants')
+        .select('case_id')
+        .eq('person_id', person.id)
+        .eq('role', 'client_representative')
+        .eq('is_active', true)
+    : { data: [] }
+
+  const participantCaseIds = participantCases?.map((cp) => cp.case_id) || []
+  
+  // Get cases by company_id if person belongs to a company
+  const { data: companyCases } = person.company_id
+    ? await supabase
+        .from('cases')
+        .select('id')
+        .eq('company_id', person.company_id)
+    : { data: [] }
+
+  const companyCaseIds = companyCases?.map((c) => c.id) || []
+  
+  // Merge and deduplicate case IDs
+  const allCaseIds = [...new Set([...participantCaseIds, ...companyCaseIds])]
+
+  // Fetch full case details
+  const { data: cases } = allCaseIds.length > 0
+    ? await supabase
+        .from('cases')
+        .select(`
+          id,
+          case_number,
+          title,
+          case_type,
+          status,
+          created_at,
+          updated_at,
+          case_assignments(
+            case_role,
+            profiles(first_name, last_name)
+          )
+        `)
+        .in('id', allCaseIds)
+        .order('updated_at', { ascending: false })
+    : { data: [] }
 
   // Fetch upcoming deadlines for client's cases
   const caseIds = cases?.map(c => c.id) || []
@@ -189,7 +223,7 @@ export default async function PortalDashboard() {
         .from('documents')
         .select(`
           id,
-          file_name,
+          name,
           created_at,
           case:cases(case_number)
         `)
@@ -199,8 +233,8 @@ export default async function PortalDashboard() {
         .limit(3)
     : { data: [] }
 
-  // Get client's first name for greeting
-  const firstName = client?.name?.split(' ')[0] || 'Cliente'
+  // Get person's first name for greeting
+  const firstName = person?.name?.split(' ')[0] || person?.first_name || 'Cliente'
   const activeCases = cases?.filter(c => c.status === 'active' || c.status === 'pending').length || 0
 
   return (
@@ -261,7 +295,7 @@ export default async function PortalDashboard() {
                   const statusDisplay = getStatusDisplay(caseItem.status)
                   const StatusIcon = statusDisplay.icon
                   const leadLawyer = caseItem.case_assignments?.find(
-                    (a: { role: string }) => a.role === 'leader'
+                    (a: { case_role: string }) => a.case_role === 'leader'
                   )
 
                   return (
@@ -344,7 +378,7 @@ export default async function PortalDashboard() {
                             <FileText className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                            <p className="text-sm font-medium truncate">{doc.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {doc.case?.case_number} • {new Date(doc.created_at).toLocaleDateString('es-AR')}
                             </p>

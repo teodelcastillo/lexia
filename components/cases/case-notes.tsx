@@ -48,7 +48,7 @@ interface CaseNotesProps {
 interface CaseNote {
   id: string
   content: string
-  is_private: boolean
+  is_visible_to_client: boolean
   created_at: string
   updated_at: string
   profiles: {
@@ -115,16 +115,16 @@ export function CaseNotes({
         .insert({
           case_id: caseId,
           content: newNote.trim(),
-          author_id: currentUserId,
-          is_private: false, // Internal notes visible to all internal users
+          created_by: currentUserId,
+          is_visible_to_client: false, // Internal notes not visible to clients
         })
         .select(`
           id,
           content,
-          is_private,
+          is_visible_to_client,
           created_at,
           updated_at,
-          profiles:author_id (
+          profiles:created_by (
             id,
             first_name,
             last_name

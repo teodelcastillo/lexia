@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create profile for client user
+    // Create profile for client user (profiles table doesn't have person_id/company_id - relationship via people.portal_user_id)
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -79,8 +79,6 @@ export async function POST(req: Request) {
         first_name: person.first_name || person.name?.split(' ')[0] || '',
         last_name: person.last_name || person.name?.split(' ')[1] || '',
         system_role: 'client',
-        person_id: personId,
-        company_id: companyId,
       })
       .select()
       .single()

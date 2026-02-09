@@ -145,6 +145,12 @@ export function DeadlineForm({
       return
     }
 
+    // Validate case_id is required for creation (deadlines.case_id is NOT NULL)
+    if (!isEditing && (caseId === 'none' || !caseId)) {
+      toast.error('Debe seleccionar un caso para crear el vencimiento')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
