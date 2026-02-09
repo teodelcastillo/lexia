@@ -45,7 +45,7 @@ export function NewUserForm() {
     email: '',
     firstName: '',
     lastName: '',
-    role: 'case_leader' as 'admin_general' | 'case_leader' | 'staff' | 'client',
+    role: 'case_leader' as 'admin_general' | 'case_leader' | 'lawyer_executive' | 'client',
     personId: '',
     companyId: '',
   })
@@ -126,7 +126,7 @@ export function NewUserForm() {
           email: formData.email,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          role: formData.role as 'admin_general' | 'case_leader' | 'staff',
+          role: formData.role as 'admin_general' | 'case_leader' | 'lawyer_executive',
         })
         
         if (result.error) {
@@ -297,7 +297,7 @@ export function NewUserForm() {
                 <Select
                   value={formData.role}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, role: value as 'admin_general' | 'case_leader' | 'staff' })
+                    setFormData({ ...formData, role: value as 'admin_general' | 'case_leader' | 'lawyer_executive' })
                   }
                   disabled={isLoading}
                 >
@@ -305,22 +305,22 @@ export function NewUserForm() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">
+                    <SelectItem value="admin_general">
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4" />
                         <span>Administrador</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="lawyer">
+                    <SelectItem value="case_leader">
                       <div className="flex items-center gap-2">
                         <Briefcase className="h-4 w-4" />
-                        <span>Abogado</span>
+                        <span>Líder de Casos</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="staff">
+                    <SelectItem value="lawyer_executive">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4" />
-                        <span>Personal</span>
+                        <span>Abogado/Personal</span>
                       </div>
                     </SelectItem>
                   </SelectContent>

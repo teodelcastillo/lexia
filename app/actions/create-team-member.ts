@@ -55,24 +55,27 @@ export async function createTeamMember(
     // Generate a temporary password (user will change it via email)
     const tempPassword = `Temp${Math.random().toString(36).slice(-8)}!`
 
-    // Create the auth user with organization_id in metadata
-    const { data: newUser, error: signUpError } = await supabase.auth.signUp({
+    // Create the auth user using admin API (doesn't require email confirmation)
+    // This is necessary when admins create users, as signUp() requires email confirmation
+    const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
       email: data.email,
       password: tempPassword,
-      options: {
-        data: {
-          first_name: data.firstName,
-          last_name: data.lastName,
-          system_role: data.role,
-          organization_id: profile.organization_id, // Pass organization_id to trigger
-        },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/dashboard`,
+      email_confirm: true, // Auto-confirm email so user can login immediately
+      user_metadata: {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        system_role: data.role,
+        organization_id: profile.organization_id, // Pass organization_id to trigger
       },
     })
 
-    if (signUpError) {
-      console.error('[v0] Error creating user:', signUpError)
-      return { error: `Error al crear usuario: ${signUpError.message}` }
+    if (createUserError) {
+      console.error('[createTeamMember] Error creating user:', createUserError)
+      // Provide more specific error messages
+      if (createUserError.message.includes('already registered') || createUserError.message.includes('already exists')) {
+        return { error: 'Este email ya está registrado en el sistema' }
+      }
+      return { error: `Error al crear usuario: ${createUserError.message}` }
     }
 
     if (!newUser.user) {
@@ -90,7 +93,7 @@ export async function createTeamMember(
       .single()
 
     if (profileError || !createdProfile) {
-      console.error('[v0] Profile not created by trigger:', profileError)
+      console.error('[createTeamMember] Profile not created by trigger:', profileError)
       
       // Manually create the profile as fallback with organization_id
       const { error: manualProfileError } = await supabase
@@ -102,11 +105,18 @@ export async function createTeamMember(
           last_name: data.lastName,
           system_role: data.role,
           organization_id: profile.organization_id, // Assign to admin's organization
+          is_active: true,
         })
 
       if (manualProfileError) {
-        console.error('[v0] Error creating profile manually:', manualProfileError)
-        return { error: 'Usuario creado pero falló la creación del perfil' }
+        console.error('[createTeamMember] Error creating profile manually:', manualProfileError)
+        // Try to clean up the auth user if profile creation fails
+        try {
+          await supabase.auth.admin.deleteUser(newUser.user.id)
+        } catch (deleteError) {
+          console.error('[createTeamMember] Error cleaning up auth user:', deleteError)
+        }
+        return { error: `Error al crear perfil: ${manualProfileError.message || 'Error desconocido'}` }
       }
     }
 
@@ -114,18 +124,25 @@ export async function createTeamMember(
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       data.email,
       {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/dashboard`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password?next=/dashboard`,
       }
     )
 
     if (resetError) {
-      console.error('[v0] Error sending password reset:', resetError)
-      // Don't fail the whole operation if email fails
+      console.error('[createTeamMember] Error sending password reset:', resetError)
+      // Don't fail the whole operation if email fails, but log it
     }
 
     return { success: true }
   } catch (error) {
-    console.error('[v0] Unexpected error creating team member:', error)
-    return { error: 'Error inesperado al crear el usuario' }
+    console.error('[createTeamMember] Unexpected error creating team member:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+    
+    // Check for database-related errors
+    if (errorMessage.toLowerCase().includes('database') || errorMessage.toLowerCase().includes('constraint')) {
+      return { error: `Error de base de datos: ${errorMessage}` }
+    }
+    
+    return { error: `Error inesperado al crear el usuario: ${errorMessage}` }
   }
 }
