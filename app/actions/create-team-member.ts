@@ -40,7 +40,7 @@ export async function createTeamMember(
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('system_role')
+      .select('system_role, organization_id')
       .eq('id', user.id)
       .single()
 
@@ -48,10 +48,14 @@ export async function createTeamMember(
       return { error: 'No tiene permisos para crear usuarios' }
     }
 
+    if (!profile?.organization_id) {
+      return { error: 'Su usuario no está asociado a una organización' }
+    }
+
     // Generate a temporary password (user will change it via email)
     const tempPassword = `Temp${Math.random().toString(36).slice(-8)}!`
 
-    // Create the auth user
+    // Create the auth user with organization_id in metadata
     const { data: newUser, error: signUpError } = await supabase.auth.signUp({
       email: data.email,
       password: tempPassword,
@@ -60,6 +64,7 @@ export async function createTeamMember(
           first_name: data.firstName,
           last_name: data.lastName,
           system_role: data.role,
+          organization_id: profile.organization_id, // Pass organization_id to trigger
         },
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/dashboard`,
       },
@@ -87,7 +92,7 @@ export async function createTeamMember(
     if (profileError || !createdProfile) {
       console.error('[v0] Profile not created by trigger:', profileError)
       
-      // Manually create the profile as fallback
+      // Manually create the profile as fallback with organization_id
       const { error: manualProfileError } = await supabase
         .from('profiles')
         .insert({
@@ -96,6 +101,7 @@ export async function createTeamMember(
           first_name: data.firstName,
           last_name: data.lastName,
           system_role: data.role,
+          organization_id: profile.organization_id, // Assign to admin's organization
         })
 
       if (manualProfileError) {

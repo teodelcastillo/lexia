@@ -18,10 +18,10 @@ export async function POST(req: Request) {
       )
     }
 
-    // Verify admin role
+    // Verify admin role and get organization_id
     const { data: profile } = await supabase
       .from('profiles')
-      .select('system_role')
+      .select('system_role, organization_id')
       .eq('id', user.id)
       .single()
 
@@ -29,6 +29,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 403 }
+      )
+    }
+
+    if (!profile?.organization_id) {
+      return NextResponse.json(
+        { error: 'Su usuario no está asociado a una organización' },
+        { status: 400 }
       )
     }
 
@@ -42,11 +49,14 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create auth user
+    // Create auth user with organization_id in metadata
     const { data: authData, error: signUpError } = await supabase.auth.admin.createUser({
       email,
       password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
       email_confirm: true,
+      user_metadata: {
+        organization_id: profile.organization_id, // Pass to trigger
+      },
     })
 
     if (signUpError || !authData.user) {
@@ -70,7 +80,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create profile for client user (profiles table doesn't have person_id/company_id - relationship via people.portal_user_id)
+    // Create profile for client user with organization_id
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -79,6 +89,7 @@ export async function POST(req: Request) {
         first_name: person.first_name || person.name?.split(' ')[0] || '',
         last_name: person.last_name || person.name?.split(' ')[1] || '',
         system_role: 'client',
+        organization_id: profile.organization_id, // Assign to admin's organization
       })
       .select()
       .single()

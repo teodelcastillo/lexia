@@ -181,6 +181,13 @@ export async function seedTestUsers() {
         }
       } else {
         // Create profile manually if trigger didn't work
+        // Get default organization for seed users
+        const { data: defaultOrg } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('slug', 'default')
+          .single()
+        
         console.log('[v0] Creating profile manually')
         const { error: profileError } = await supabase.from('profiles').insert({
           id: authData.user.id,
@@ -189,6 +196,7 @@ export async function seedTestUsers() {
           last_name: testUser.lastName,
           system_role: testUser.role,
           phone: '+54 9 351 000-0000',
+          organization_id: defaultOrg?.id || null, // Assign to default org if exists
           is_active: true,
         })
 
