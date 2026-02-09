@@ -57,3 +57,9 @@ export {
 
 // Prompts (for testing/debugging)
 export { buildSystemPrompt } from './prompts'
+
+// Resolver (model string -> LanguageModel)
+export { resolveModel } from './resolver'
+
+// Orchestrator (stream with fallback; used by API route)
+export { runStreamWithFallback } from './orchestrator'

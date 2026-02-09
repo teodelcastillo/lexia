@@ -1,30 +1,20 @@
 /**
  * Lexia - AI Legal Assistant API Route
- * 
- * Refactored to use the 3-layer architecture:
- *   UI (useChat) -> API Route (this file) -> Controller -> Decision -> streamText
- * 
- * This route is a thin HTTP layer. It:
- * 1. Authenticates the user
- * 2. Validates messages  
- * 3. Asks the controller for a decision (intent, provider, config)
- * 4. Executes streamText with the controller's decision
- * 5. Logs the interaction for audit
- * 
- * The route does NOT decide which model to use or how to build prompts.
- * That logic lives in the controller (lib/ai/lexia-controller.ts).
+ *
+ * Thin HTTP layer: auth, validation, controller decision, then orchestrator.
+ * The orchestrator (lib/ai/orchestrator.ts) resolves the provider model and
+ * runs streamText with fallback; this route only returns the stream response.
  */
 
 import {
   convertToModelMessages,
-  streamText,
   validateUIMessages,
-  stepCountIs,
   type UIMessage,
   type InferUITools,
   type UIDataTypes,
 } from 'ai'
 import { createClient } from '@/lib/supabase/server'
+import { checkCasePermission } from '@/lib/utils/access-control'
 
 import {
   processRequest,
@@ -33,6 +23,7 @@ import {
   createAuditEntry,
   lexiaTools,
   getToolsForIntent,
+  runStreamWithFallback,
   type CaseContextInput,
 } from '@/lib/ai'
 
@@ -54,6 +45,49 @@ function getLatestUserMessage(messages: UIMessage[]): string {
     .join(' ')
 }
 
+const LEXIA_RATE_LIMIT_WINDOW_MS = 60_000
+const LEXIA_RATE_LIMIT_MAX = 60
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitStore.get(userId)
+  if (!entry) {
+    rateLimitStore.set(userId, { count: 1, resetAt: now + LEXIA_RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (now >= entry.resetAt) {
+    rateLimitStore.set(userId, { count: 1, resetAt: now + LEXIA_RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= LEXIA_RATE_LIMIT_MAX) return false
+  entry.count += 1
+  return true
+}
+
+/** Extract tool names invoked from AI SDK onFinish options (steps or toolCalls). */
+function getToolNamesFromFinishOptions(options: unknown): string[] {
+  if (!options || typeof options !== 'object') return []
+  const o = options as Record<string, unknown>
+  if (Array.isArray(o.toolCalls)) {
+    return (o.toolCalls as Array<{ toolName?: string }>)
+      .map(t => t.toolName)
+      .filter((name): name is string => typeof name === 'string')
+  }
+  if (Array.isArray(o.steps)) {
+    const names: string[] = []
+    for (const step of o.steps as Array<{ toolCalls?: Array<{ toolName?: string }> }>) {
+      if (Array.isArray(step.toolCalls)) {
+        for (const t of step.toolCalls) {
+          if (typeof t.toolName === 'string') names.push(t.toolName)
+        }
+      }
+    }
+    return [...new Set(names)]
+  }
+  return []
+}
+
 /**
  * POST handler - Lexia chat endpoint
  */
@@ -67,6 +101,13 @@ export async function POST(req: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    }
+
+    if (!checkRateLimit(user.id)) {
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
     }
 
     // 2. Parse request body
@@ -85,6 +126,14 @@ export async function POST(req: Request) {
     // 5. Ask controller for a decision
     let decision = processRequest(userMessage, caseContextInput, user.id)
 
+    // 5b. Validate case access before enriching context
+    if (caseContextInput) {
+      const canView = await checkCasePermission(supabase, user.id, caseContextInput.caseId, 'can_view')
+      if (!canView) {
+        return new Response(JSON.stringify({ error: 'Forbidden: no access to this case' }), { status: 403 })
+      }
+    }
+
     // 6. Enrich case context if the controller says we need it
     let caseContext = null
     if (decision.enrichContext && caseContextInput) {
@@ -96,31 +145,27 @@ export async function POST(req: Request) {
 
     // 8. Resolve tools based on intent classification
     const activeTools = getToolsForIntent(decision.classification.toolsAllowed)
+    const modelMessages = await convertToModelMessages(messages)
 
-    // 9. Stream response using the controller's configuration
-    const result = streamText({
-      model: decision.serviceConfig.model,
-      system: decision.serviceConfig.systemPrompt,
-      messages: await convertToModelMessages(messages),
-      stopWhen: stepCountIs(5),
+    // 9. Orchestrator: resolve provider, stream with fallback
+    const { result, decision: finalDecision } = await runStreamWithFallback({
+      messages: modelMessages,
+      decision,
       tools: activeTools,
-      toolChoice: 'auto',
-      temperature: decision.serviceConfig.temperature,
-      maxTokens: decision.serviceConfig.maxTokens,
     })
 
     return result.toUIMessageStreamResponse({
       onFinish: async (options) => {
         const durationMs = Date.now() - startTime
 
-        // Create audit entry
+        const toolsInvoked = getToolNamesFromFinishOptions(options)
         const audit = createAuditEntry(
-          decision,
+          finalDecision,
           user.id,
           messages.length,
           options.usage?.totalTokens ?? 0,
           durationMs,
-          [], // TODO: extract tool names from response
+          toolsInvoked,
         )
 
         // Log to activity_log for backward compatibility
@@ -130,7 +175,7 @@ export async function POST(req: Request) {
             action_type: 'lexia_query',
             entity_type: caseContextInput ? 'case' : 'general',
             entity_id: caseContextInput?.caseId || 'general',
-            description: `Lexia [${audit.intent}] via ${audit.model} (${durationMs}ms)`,
+            description: `Lexia [${finalDecision.classification.intent}] via ${audit.model} (${durationMs}ms)`,
             case_id: caseContextInput?.caseId || null,
           })
         } catch (err) {

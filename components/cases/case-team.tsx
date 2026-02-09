@@ -6,18 +6,35 @@
  */
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Plus, Users, Crown, UserCog, User, Loader2 } from 'lucide-react'
-import { 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Plus, Users, Crown, UserCog, User, Loader2, Search } from 'lucide-react'
+import {
   ConfirmationDialog,
   EmptyState,
   PermissionButton,
 } from '@/components/shared'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/hooks/use-auth'
 import { toast } from 'sonner'
 import type { CaseRole } from '@/lib/types'
 
@@ -64,13 +81,96 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 }
 
+type ProfileOption = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string
+  system_role: string
+}
+
 export function CaseTeam({ caseId, assignments, canManageTeam }: CaseTeamProps) {
-  // State for remove member confirmation
+  const supabase = createClient()
+  const { user } = useAuth()
+
   const [memberToRemove, setMemberToRemove] = useState<{
     id: string
     name: string
   } | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
+
+  const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<ProfileOption[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [selectedProfile, setSelectedProfile] = useState<ProfileOption | null>(null)
+  const [selectedRole, setSelectedRole] = useState<CaseRole>('assistant')
+  const [isAdding, setIsAdding] = useState(false)
+
+  const assignedIds = new Set(assignments.map((a) => a.profiles?.id).filter(Boolean))
+
+  const fetchProfiles = useCallback(async () => {
+    const q = searchQuery.trim()
+    if (q.length < 2) {
+      setSearchResults([])
+      return
+    }
+    setIsSearching(true)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, system_role')
+        .neq('system_role', 'client')
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
+        .limit(10)
+      if (error) throw error
+      const list = (data || []).filter((p) => !assignedIds.has(p.id)) as ProfileOption[]
+      setSearchResults(list)
+    } catch (err) {
+      console.error('Error searching profiles:', err)
+      toast.error('Error al buscar usuarios')
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }, [searchQuery, supabase, assignments])
+
+  useEffect(() => {
+    const t = setTimeout(fetchProfiles, 300)
+    return () => clearTimeout(t)
+  }, [fetchProfiles])
+
+  const handleAddMember = async () => {
+    if (!selectedProfile || !user) return
+    setIsAdding(true)
+    try {
+      const { error } = await supabase.from('case_assignments').insert({
+        case_id: caseId,
+        user_id: selectedProfile.id,
+        case_role: selectedRole,
+        assigned_by: user.id,
+      })
+      if (error) throw error
+      toast.success('Miembro agregado', {
+        description: `${selectedProfile.first_name ?? ''} ${selectedProfile.last_name ?? ''} fue asignado al caso.`,
+      })
+      setAddMemberOpen(false)
+      setSelectedProfile(null)
+      setSearchQuery('')
+      setSearchResults([])
+      setSelectedRole('assistant')
+      window.location.reload()
+    } catch (err) {
+      console.error('Error adding member:', err)
+      toast.error('Error al agregar miembro', {
+        description: 'No se pudo asignar al usuario. Intente nuevamente.',
+      })
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const openAddMemberDialog = () => setAddMemberOpen(true)
 
   // Sort assignments by role priority
   const sortedAssignments = [...assignments].sort((a, b) => {
@@ -124,6 +224,7 @@ export function CaseTeam({ caseId, assignments, canManageTeam }: CaseTeamProps) 
           permissions={{ canManageTeam }}
           size="sm"
           hideWhenDenied={!canManageTeam}
+          onClick={openAddMemberDialog}
         >
           <Plus className="mr-2 h-4 w-4" />
           Agregar Miembro
@@ -142,9 +243,7 @@ export function CaseTeam({ caseId, assignments, canManageTeam }: CaseTeamProps) 
                 canManageTeam
                   ? {
                       label: 'Asignar Primer Miembro',
-                      onClick: () => {
-                        /* TODO: Open add member dialog */
-                      },
+                      onClick: openAddMemberDialog,
                     }
                   : undefined
               }
@@ -262,6 +361,97 @@ export function CaseTeam({ caseId, assignments, canManageTeam }: CaseTeamProps) 
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Member Dialog */}
+      <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar miembro al caso</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="search-user">Buscar por nombre o email</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="search-user"
+                  placeholder="Escriba al menos 2 caracteres..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            {isSearching && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Buscando...
+              </div>
+            )}
+            {searchResults.length > 0 && (
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+                {searchResults.map((profile) => {
+                  const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email
+                  const isSelected = selectedProfile?.id === profile.id
+                  return (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      onClick={() => setSelectedProfile(profile)}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors ${
+                        isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                      }`}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs">
+                          {(profile.first_name?.charAt(0) ?? '') + (profile.last_name?.charAt(0) ?? '') || profile.email.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
+              <p className="text-sm text-muted-foreground">No se encontraron usuarios o ya están asignados.</p>
+            )}
+            {selectedProfile && (
+              <div className="space-y-2">
+                <Label>Rol en el caso</Label>
+                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as CaseRole)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leader">{roleConfig.leader.label}</SelectItem>
+                    <SelectItem value="lawyer">{roleConfig.lawyer.label}</SelectItem>
+                    <SelectItem value="assistant">{roleConfig.assistant.label}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddMemberOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddMember} disabled={!selectedProfile || isAdding}>
+              {isAdding ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Asignando...
+                </>
+              ) : (
+                'Asignar al caso'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Remove Member Confirmation Dialog */}
       <ConfirmationDialog

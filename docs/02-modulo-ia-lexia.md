@@ -1,8 +1,8 @@
 # LEXIA IA - Documentación Técnica del Módulo de Inteligencia Artificial
 
-**Versión:** 2.0.0  
+**Versión:** 2.1.0  
 **Última actualización:** Febrero 2026  
-**Stack IA:** Vercel AI SDK 6 + GPT-4 Turbo/o + Claude Sonnet 4 + Vercel AI Gateway
+**Stack IA:** Vercel AI SDK 6 + GPT-4 Turbo/o + Claude Sonnet 4 + proveedores directos (OpenAI, Anthropic). No se utiliza Vercel AI Gateway; la resolución de modelo y el fallback viven en el controlador y orquestador (`lib/ai/resolver.ts`, `lib/ai/orchestrator.ts`).
 
 ---
 
@@ -53,7 +53,7 @@
 │   │  2. Validación de mensajes                         │  │
 │   │  3. Extracción del último mensaje de usuario       │  │
 │   │  4. Llamada al Controller con mensaje y contexto  │  │
-│   │  5. streamText() con decisión del Controller      │  │
+│   │  5. runStreamWithFallback() (orquestador)         │  │
 │   │  6. Streaming response via SSE                     │  │
 │   │  7. Logging de auditoría                           │  │
 │   └─────────────────────────────────────────────────────┘  │
@@ -112,16 +112,16 @@
 └───────────────────────┼─────────────────────────────────────┘
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 VERCEL AI GATEWAY                           │
+│   lib/ai/orchestrator.ts + lib/ai/resolver.ts               │
 │                                                             │
-│   Streaming con streamText() / toUIMessageStreamResponse() │
-│   Tool calling automático                                   │
-│   Max steps: 5 (stepCountIs(5))                            │
+│   resolveModel(modelString) → LanguageModel (OpenAI/Anthropic)│
+│   runStreamWithFallback() → streamText con fallback        │
+│   Variables de entorno: OPENAI_API_KEY, ANTHROPIC_API_KEY  │
 │                                                             │
 └───────────────────────┼─────────────────────────────────────┘
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  MODELOS IA                                 │
+│                  MODELOS IA (proveedores directos)          │
 │                                                             │
 │   OpenAI GPT-4 Turbo / GPT-4o / GPT-4o Mini                │
 │   Anthropic Claude Sonnet 4 / Claude 3.5 Haiku             │
@@ -153,11 +153,13 @@
 {
   "ai": "^6.0.0",
   "@ai-sdk/react": "^3.0.0",
+  "@ai-sdk/openai": "^3.0.0",
+  "@ai-sdk/anthropic": "^3.0.0",
   "zod": "^3.x"
 }
 ```
 
-No se requieren paquetes de proveedores (`@ai-sdk/openai`, `@ai-sdk/anthropic`) porque el Vercel AI Gateway maneja el routing transparentemente.
+Se usan los proveedores directos de OpenAI y Anthropic; no se utiliza Vercel AI Gateway. Las variables de entorno requeridas son: **OPENAI_API_KEY**, **ANTHROPIC_API_KEY**.
 
 ---
 
@@ -753,11 +755,12 @@ Notas recientes:
 2. Validación de mensajes (`validateUIMessages`)
 3. Extracción del último mensaje de usuario
 4. Llamada al Controller: `processRequest()`
-5. Enriquecimiento de contexto si es necesario: `enrichCaseContext()`
-6. Finalización de la decisión: `finalizeDecision()`
-7. Resolución de tools: `getToolsForIntent()`
-8. Streaming: `streamText()` con la configuración del Controller
-9. Logging de auditoría en `onFinish`
+5. Validación de acceso al caso (`checkCasePermission`) si hay contexto de caso
+6. Enriquecimiento de contexto si es necesario: `enrichCaseContext()`
+7. Finalización de la decisión: `finalizeDecision()`
+8. Resolución de tools: `getToolsForIntent()`
+9. Orquestador: `runStreamWithFallback()` (resuelve modelo con `resolveModel`, ejecuta `streamText` con fallback)
+10. Logging de auditoría en `onFinish` (incluye `toolsInvoked` extraídos del response)
 
 ```typescript
 export async function POST(req: Request) {
@@ -787,41 +790,22 @@ export async function POST(req: Request) {
   
   // 8. Get filtered tools
   const activeTools = getToolsForIntent(decision.classification.toolsAllowed)
+  const modelMessages = await convertToModelMessages(validatedMessages)
   
-  // 9. Stream response
-  const result = streamText({
-    model: decision.serviceConfig.model,
-    system: decision.serviceConfig.systemPrompt,
-    messages: await convertToModelMessages(validatedMessages),
+  // 9. Orchestrator: resolve provider, stream with fallback
+  const { result, decision: finalDecision } = await runStreamWithFallback({
+    messages: modelMessages,
+    decision,
     tools: activeTools,
-    temperature: decision.serviceConfig.temperature,
-    maxTokens: decision.serviceConfig.maxTokens,
-    stopWhen: stepCountIs(5),
-    toolChoice: 'auto',
   })
   
   return result.toUIMessageStreamResponse({ onFinish: ... })
 }
 ```
 
-### 7.2 `/api/ai-assistant/route.ts` - API Alternativa
+### 7.2 Ruta legacy `/api/ai-assistant` (eliminada)
 
-Ruta legacy para compatibilidad con páginas antiguas. Ahora reutiliza las mismas tools y prompts del módulo principal (`lib/ai`).
-
-```typescript
-export async function POST(req: Request) {
-  // Simplified version without controller
-  const result = streamText({
-    model: 'openai/gpt-4o',
-    system: GENERAL_CHAT_PROMPT,
-    messages: await convertToModelMessages(messages),
-    tools: lexiaTools,  // Shared tools
-    stopWhen: stepCountIs(5),
-  })
-  
-  return result.toUIMessageStreamResponse()
-}
-```
+La ruta `/api/ai-assistant` fue eliminada. Toda la funcionalidad de chat con IA se concentra en `/api/lexia`. La página `/asistente-ia` redirige a `/lexia`.
 
 ---
 

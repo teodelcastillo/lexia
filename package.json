@@ -9,6 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/openai": "^3.0.0",
     "@ai-sdk/react": "3.0.51",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
