@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { CreateCaseForm } from '@/components/cases/create-case-form'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 
 export const metadata = {
   title: 'Crear Caso | Casos',
@@ -39,12 +40,26 @@ async function validateAccess() {
 }
 
 export default async function CreateCasePage() {
-  await validateAccess()
+  const { user } = await validateAccess()
+  const supabase = await createClient()
+  const organizationId = await getCurrentUserOrganizationId()
+
+  // Fetch companies filtered by organization
+  const companiesQuery = supabase
+    .from('companies')
+    .select('id, company_name, name')
+    .order('company_name')
+
+  if (organizationId) {
+    companiesQuery.eq('organization_id', organizationId)
+  }
+
+  const { data: companies } = await companiesQuery
 
   return (
     <div className="mx-auto max-w-3xl">
       <Suspense fallback={<FormSkeleton />}>
-        <CreateCaseForm />
+        <CreateCaseForm companies={companies || []} organizationId={organizationId} />
       </Suspense>
     </div>
   )

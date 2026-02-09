@@ -54,7 +54,11 @@ const industryOptions = [
   { value: 'Otro', label: 'Otro' },
 ]
 
-export function CreateCompanyForm() {
+interface CreateCompanyFormProps {
+  organizationId?: string | null
+}
+
+export function CreateCompanyForm({ organizationId }: CreateCompanyFormProps = {}) {
   const router = useRouter()
   const supabase = createClient()
   
@@ -100,27 +104,33 @@ export function CreateCompanyForm() {
       }
 
       // Insert company (do not send `name` - it is a generated column: COALESCE(company_name, legal_name))
+      // organization_id will be auto-assigned by trigger, but we include it explicitly if available
+      const insertData: any = {
+        company_name: formData.company_name.trim(),
+        legal_name: formData.legal_name?.trim() || null,
+        cuit: formData.cuit?.trim() || null,
+        tax_id: formData.tax_id?.trim() || null,
+        email: formData.email?.trim() || null,
+        phone: formData.phone?.trim() || null,
+        website: formData.website?.trim() || null,
+        address: formData.address?.trim() || null,
+        city: formData.city?.trim() || null,
+        province: formData.province?.trim() || null,
+        postal_code: formData.postal_code?.trim() || null,
+        country: formData.country?.trim() || 'Argentina',
+        industry: formData.industry?.trim() || null,
+        legal_form: formData.legal_form?.trim() || null,
+        notes: formData.notes?.trim() || null,
+      }
+
+      // Include organization_id if provided (trigger will handle it if not)
+      if (organizationId) {
+        insertData.organization_id = organizationId
+      }
+
       const { data: newCompany, error: insertError } = await supabase
         .from('companies')
-        .insert([
-          {
-            company_name: formData.company_name.trim(),
-            legal_name: formData.legal_name?.trim() || null,
-            cuit: formData.cuit?.trim() || null,
-            tax_id: formData.tax_id?.trim() || null,
-            email: formData.email?.trim() || null,
-            phone: formData.phone?.trim() || null,
-            website: formData.website?.trim() || null,
-            address: formData.address?.trim() || null,
-            city: formData.city?.trim() || null,
-            province: formData.province?.trim() || null,
-            postal_code: formData.postal_code?.trim() || null,
-            country: formData.country?.trim() || 'Argentina',
-            industry: formData.industry?.trim() || null,
-            legal_form: formData.legal_form?.trim() || null,
-            notes: formData.notes?.trim() || null,
-          }
-        ])
+        .insert([insertData])
         .select()
         .single()
 

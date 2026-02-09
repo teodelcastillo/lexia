@@ -51,9 +51,10 @@ const companyRoleOptions = [
 
 interface CreatePersonFormProps {
   preselectedCompanyId?: string
+  organizationId?: string | null
 }
 
-export function CreatePersonForm({ preselectedCompanyId }: CreatePersonFormProps = {}) {
+export function CreatePersonForm({ preselectedCompanyId, organizationId }: CreatePersonFormProps = {}) {
   const router = useRouter()
   const supabase = createClient()
   
@@ -84,14 +85,22 @@ export function CreatePersonForm({ preselectedCompanyId }: CreatePersonFormProps
     notes: '',
   })
 
-  // Load companies on mount
+  // Load companies on mount (filtered by organization)
   useEffect(() => {
     const loadCompanies = async () => {
+      setIsLoadingCompanies(true)
       try {
-        const { data, error } = await supabase
+        const query = supabase
           .from('companies')
           .select('id, company_name, name')
           .order('company_name')
+
+        // Filter by organization if provided
+        if (organizationId) {
+          query.eq('organization_id', organizationId)
+        }
+
+        const { data, error } = await query
 
         if (error) throw error
         setCompanies(data || [])
@@ -113,7 +122,7 @@ export function CreatePersonForm({ preselectedCompanyId }: CreatePersonFormProps
     }
 
     loadCompanies()
-  }, [initialCompanyId, supabase])
+  }, [initialCompanyId, organizationId, supabase])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target

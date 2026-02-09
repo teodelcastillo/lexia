@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { DeadlineForm } from '@/components/deadlines/deadline-form'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 
 export const metadata = {
   title: 'Nuevo Vencimiento',
@@ -45,29 +46,48 @@ export default async function NewDeadlinePage({ searchParams }: NewDeadlinePageP
     redirect('/portal')
   }
 
-  // Fetch available cases for assignment
-  const { data: cases } = await supabase
+  const organizationId = await getCurrentUserOrganizationId()
+
+  // Fetch available cases for assignment (filtered by organization)
+  const casesQuery = supabase
     .from('cases')
     .select('id, case_number, title')
     .in('status', ['active', 'pending'])
     .order('case_number', { ascending: false })
 
-  // Fetch team members for assignment
-  const { data: teamMembers } = await supabase
+  if (organizationId) {
+    casesQuery.eq('organization_id', organizationId)
+  }
+
+  const { data: cases } = await casesQuery
+
+  // Fetch team members for assignment (filtered by organization)
+  const teamMembersQuery = supabase
     .from('profiles')
     .select('id, first_name, last_name, system_role')
     .in('system_role', ['admin_general', 'case_leader', 'lawyer_executive'])
     .eq('is_active', true)
     .order('first_name')
 
+  if (organizationId) {
+    teamMembersQuery.eq('organization_id', organizationId)
+  }
+
+  const { data: teamMembers } = await teamMembersQuery
+
   // If caso param provided, get that case's details
   let preselectedCase = null
   if (params.caso) {
-    const { data: caseData } = await supabase
+    const caseQuery = supabase
       .from('cases')
       .select('id, case_number, title')
       .eq('id', params.caso)
-      .single()
+    
+    if (organizationId) {
+      caseQuery.eq('organization_id', organizationId)
+    }
+    
+    const { data: caseData } = await caseQuery.single()
     preselectedCase = caseData
   }
 

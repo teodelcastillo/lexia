@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { CreatePersonForm } from '@/components/people/create-person-form'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 
 interface CreatePersonPageProps {
   searchParams: Promise<{ company_id?: string }>
@@ -52,10 +53,11 @@ export default async function CreatePersonPage({ searchParams }: CreatePersonPag
   await validateAccess()
   const params = await searchParams
   const companyId = params?.company_id
+  const organizationId = await getCurrentUserOrganizationId()
 
   return (
     <Suspense fallback={<CreatePersonSkeleton />}>
-      <CreatePersonForm preselectedCompanyId={companyId} />
+      <CreatePersonForm preselectedCompanyId={companyId} organizationId={organizationId} />
     </Suspense>
   )
 }

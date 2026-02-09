@@ -26,14 +26,19 @@ interface Company {
   name: string | null
 }
 
-export function CreateCaseForm() {
+interface CreateCaseFormProps {
+  companies?: Company[]
+  organizationId?: string | null
+}
+
+export function CreateCaseForm({ companies: initialCompanies = [], organizationId }: CreateCaseFormProps = {}) {
   const router = useRouter()
   const supabase = createClient()
   
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [isLoadingCompanies, setIsLoadingCompanies] = useState(true)
+  const [companies, setCompanies] = useState<Company[]>(initialCompanies)
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(false)
 
   const [formData, setFormData] = useState({
     case_number: '',
@@ -44,14 +49,27 @@ export function CreateCaseForm() {
     company_id: '',
   })
 
-  // Load companies on mount
+  // Only load companies if not provided as prop
   useEffect(() => {
+    if (initialCompanies.length > 0) {
+      setCompanies(initialCompanies)
+      return
+    }
+
     const loadCompanies = async () => {
+      setIsLoadingCompanies(true)
       try {
-        const { data, error } = await supabase
+        const query = supabase
           .from('companies')
           .select('id, company_name, name')
           .order('company_name')
+
+        // If organizationId is provided, filter by it
+        if (organizationId) {
+          query.eq('organization_id', organizationId)
+        }
+
+        const { data, error } = await query
 
         if (error) throw error
         setCompanies(data || [])
@@ -64,7 +82,7 @@ export function CreateCaseForm() {
     }
 
     loadCompanies()
-  }, [])
+  }, [initialCompanies, organizationId, supabase])
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -91,19 +109,25 @@ export function CreateCaseForm() {
       }
 
       // Create case
+      // organization_id will be auto-assigned by trigger, but we include it explicitly if available
+      const insertData: any = {
+        case_number: formData.case_number.trim(),
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        case_type: formData.case_type.trim() || null,
+        status: formData.status,
+        company_id: formData.company_id,
+        // created_at and updated_at have defaults in DB, no need to send explicitly
+      }
+
+      // Include organization_id if provided (trigger will handle it if not)
+      if (organizationId) {
+        insertData.organization_id = organizationId
+      }
+
       const { data: newCase, error: createError } = await supabase
         .from('cases')
-        .insert([
-          {
-            case_number: formData.case_number.trim(),
-            title: formData.title.trim(),
-            description: formData.description.trim() || null,
-            case_type: formData.case_type.trim() || null,
-            status: formData.status,
-            company_id: formData.company_id,
-            // created_at and updated_at have defaults in DB, no need to send explicitly
-          },
-        ])
+        .insert([insertData])
         .select()
         .single()
 

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { CreateCompanyForm } from '@/components/companies/create-company-form'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 
 export const metadata = {
   title: 'Nueva Empresa',
@@ -46,10 +47,11 @@ function CreateCompanySkeleton() {
 
 export default async function CreateCompanyPage() {
   await validateAccess()
+  const organizationId = await getCurrentUserOrganizationId()
 
   return (
     <Suspense fallback={<CreateCompanySkeleton />}>
-      <CreateCompanyForm />
+      <CreateCompanyForm organizationId={organizationId} />
     </Suspense>
   )
 }
