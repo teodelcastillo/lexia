@@ -232,10 +232,24 @@ export function useAuth(): UseAuthReturn {
       }
     }, 1500)
 
+    // Safety: never leave isLoading true indefinitely (e.g. after returning from
+    // portal with corrupted session). Force resolve after 3s so sidebar doesn't hang.
+    const maxLoadingTimeout = setTimeout(() => {
+      if (!mountedRef.current) return
+      setState((prev) => {
+        if (!prev.isLoading) return prev
+        return {
+          ...prev,
+          isLoading: false,
+        }
+      })
+    }, 3000)
+
     return () => {
       mountedRef.current = false
       subscription.unsubscribe()
       clearTimeout(fallbackTimeout)
+      clearTimeout(maxLoadingTimeout)
     }
   }, [fetchProfile])
 

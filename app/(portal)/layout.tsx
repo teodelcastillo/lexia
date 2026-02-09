@@ -14,7 +14,8 @@ interface PortalLayoutProps {
 }
 
 /**
- * Validates that the user is a client and redirects if not
+ * Validates that the user can access the portal: clients (their own view) or
+ * admins (preview of what clients see). Other roles are redirected to dashboard.
  */
 async function validateClientAccess() {
   const supabase = await createClient()
@@ -28,8 +29,10 @@ async function validateClientAccess() {
     .eq('id', user.id)
     .single()
 
-  // Only clients can access the portal
-  if (profile?.system_role !== 'client') {
+  const role = profile?.system_role
+  const canAccessPortal = role === 'client' || role === 'admin_general'
+
+  if (!canAccessPortal) {
     redirect('/dashboard')
   }
 
@@ -41,9 +44,10 @@ export default async function PortalLayout({ children }: PortalLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Portal Header */}
+      {/* Portal Header (admins see "Vista previa" and link back to dashboard) */}
       <PortalHeader 
         userName={`${profile?.first_name || ''} ${profile?.last_name || ''}`}
+        isAdminPreview={profile?.system_role === 'admin_general'}
       />
 
       {/* Main Content */}

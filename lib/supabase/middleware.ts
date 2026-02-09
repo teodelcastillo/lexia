@@ -71,6 +71,9 @@ export async function updateSession(request: NextRequest) {
   // Define auth routes
   const isAuthRoute = pathname.startsWith('/auth')
 
+  // Allow admins to access /portal (to preview what clients see). Other non-clients
+  // are still redirected in the (portal) layout.
+
   // Redirect unauthenticated users from protected routes to login
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()

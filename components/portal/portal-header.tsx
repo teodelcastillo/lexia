@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Scale, LogOut, User, FileText, Briefcase, HelpCircle } from 'lucide-react'
+import { Scale, LogOut, User, FileText, Briefcase, HelpCircle, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,11 +17,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 interface PortalHeaderProps {
   userName: string
+  /** When true, show "Vista previa" and link back to dashboard (admin previewing portal) */
+  isAdminPreview?: boolean
 }
 
 /** Navigation items for the client portal */
@@ -52,7 +55,7 @@ function getInitials(name: string): string {
   return parts[0]?.charAt(0)?.toUpperCase() || 'C'
 }
 
-export function PortalHeader({ userName }: PortalHeaderProps) {
+export function PortalHeader({ userName, isAdminPreview }: PortalHeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -74,8 +77,13 @@ export function PortalHeader({ userName }: PortalHeaderProps) {
             </div>
             <div className="flex flex-col">
               <span className="font-semibold tracking-tight">LegalHub</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground flex items-center gap-2">
                 Portal de Clientes
+                {isAdminPreview && (
+                  <Badge variant="secondary" className="text-[10px] font-normal px-1.5 py-0">
+                    Vista previa
+                  </Badge>
+                )}
               </span>
             </div>
           </Link>
@@ -121,6 +129,17 @@ export function PortalHeader({ userName }: PortalHeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {isAdminPreview && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Volver al panel
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem asChild>
                 <Link href="/portal/perfil" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
