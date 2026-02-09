@@ -72,12 +72,13 @@ export async function POST(req: Request) {
     }
 
     // Create auth user with organization_id and system_role in metadata
+    // IMPORTANT: organization_id must be passed as string in metadata for trigger to read it
     const { data: authData, error: signUpError } = await supabase.auth.admin.createUser({
       email,
       password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
       email_confirm: true,
       user_metadata: {
-        organization_id: profile.organization_id, // Pass to trigger
+        organization_id: profile.organization_id ? String(profile.organization_id) : null, // Pass as string for trigger
         system_role: 'client', // Required for trigger to set correct role
         first_name: person.first_name || person.name?.split(' ')[0] || '',
         last_name: person.last_name || person.name?.split(' ')[1] || '',

@@ -57,6 +57,7 @@ export async function createTeamMember(
 
     // Create the auth user using admin API (doesn't require email confirmation)
     // This is necessary when admins create users, as signUp() requires email confirmation
+    // IMPORTANT: organization_id must be passed as string in metadata for trigger to read it
     const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
       email: data.email,
       password: tempPassword,
@@ -65,7 +66,7 @@ export async function createTeamMember(
         first_name: data.firstName,
         last_name: data.lastName,
         system_role: data.role,
-        organization_id: profile.organization_id, // Pass organization_id to trigger
+        organization_id: profile.organization_id ? String(profile.organization_id) : null, // Pass as string for trigger
       },
     })
 
