@@ -6,6 +6,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
+import { getEffectivePortalUserId } from '@/lib/portal/view-as'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,16 +44,14 @@ function getStatusDisplay(status: string): { label: string; variant: 'default' |
 export default async function PortalCasePage({ params }: PortalCasePageProps) {
   const { id } = await params
   const supabase = await createClient()
-  
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/portal-login')
+  const effectiveUserId = await getEffectivePortalUserId()
+  if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record linked to this user
+  // Get client record linked to this user (or viewed-as client when admin)
   const { data: client } = await supabase
     .from('clients')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', effectiveUserId)
     .single()
 
   // Fetch case details - only if it belongs to this client

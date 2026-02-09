@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Scale, LogOut, User, FileText, Briefcase, HelpCircle, LayoutDashboard } from 'lucide-react'
+import { Scale, LogOut, User, FileText, Briefcase, HelpCircle, LayoutDashboard, UserCog, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,10 +21,21 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+export interface PortalClientOption {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+}
+
 interface PortalHeaderProps {
   userName: string
   /** When true, show "Vista previa" and link back to dashboard (admin previewing portal) */
   isAdminPreview?: boolean
+  /** List of clients for "Ver como" selector (admin only) */
+  clientsList?: PortalClientOption[]
+  /** Currently viewed-as client user id (admin only) */
+  viewAsClientId?: string | null
 }
 
 /** Navigation items for the client portal */
@@ -55,9 +66,15 @@ function getInitials(name: string): string {
   return parts[0]?.charAt(0)?.toUpperCase() || 'C'
 }
 
-export function PortalHeader({ userName, isAdminPreview }: PortalHeaderProps) {
+function clientDisplayName(c: PortalClientOption): string {
+  const name = `${c.first_name} ${c.last_name}`.trim()
+  return name || c.email || c.id.slice(0, 8)
+}
+
+export function PortalHeader({ userName, isAdminPreview, clientsList = [], viewAsClientId }: PortalHeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const currentViewAs = viewAsClientId ? clientsList.find((c) => c.id === viewAsClientId) : null
 
   /** Handles sign out */
   const handleSignOut = async () => {
@@ -87,6 +104,39 @@ export function PortalHeader({ userName, isAdminPreview }: PortalHeaderProps) {
               </span>
             </div>
           </Link>
+
+          {/* Admin: "Ver como" client selector */}
+          {isAdminPreview && clientsList.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="hidden md:flex items-center gap-2 shrink-0">
+                  <UserCog className="h-4 w-4" />
+                  <span className="max-w-[140px] truncate">
+                    {currentViewAs ? `Ver como: ${clientDisplayName(currentViewAs)}` : 'Ver como cliente…'}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-[min(60vh,400px)] overflow-y-auto w-56">
+                <DropdownMenuItem asChild>
+                  <Link href="/portal" className="flex items-center gap-2">
+                    {currentViewAs ? 'Dejar de suplantar' : 'Seleccionar cliente'}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {clientsList.map((client) => (
+                  <DropdownMenuItem key={client.id} asChild>
+                    <Link href={`/portal?as=${client.id}`} className="flex flex-col items-start gap-0.5">
+                      <span className="font-medium">{clientDisplayName(client)}</span>
+                      {client.email && (
+                        <span className="text-xs text-muted-foreground truncate w-full">{client.email}</span>
+                      )}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {/* Navigation - Desktop */}
           <nav className="hidden md:flex items-center gap-1">

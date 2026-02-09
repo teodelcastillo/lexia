@@ -71,8 +71,36 @@ export async function updateSession(request: NextRequest) {
   // Define auth routes
   const isAuthRoute = pathname.startsWith('/auth')
 
-  // Allow admins to access /portal (to preview what clients see). Other non-clients
-  // are still redirected in the (portal) layout.
+  // "View as client" cookie: set when admin visits /portal?as=USER_ID, clear when leaving portal or no param
+  if (isClientPortalRoute && user) {
+    const viewAsParam = request.nextUrl.searchParams.get('as')
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('system_role')
+      .eq('id', user.id)
+      .single()
+
+    if (viewAsParam && currentProfile?.system_role === 'admin_general') {
+      const { data: targetProfile } = await supabase
+        .from('profiles')
+        .select('system_role')
+        .eq('id', viewAsParam)
+        .single()
+      if (targetProfile?.system_role === 'client') {
+        supabaseResponse.cookies.set('view_as_client', viewAsParam, {
+          path: '/portal',
+          maxAge: 60 * 60 * 24, // 24h
+          sameSite: 'lax',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+        })
+      }
+    } else {
+      supabaseResponse.cookies.set('view_as_client', '', { path: '/portal', maxAge: 0 })
+    }
+  } else if (!isClientPortalRoute) {
+    supabaseResponse.cookies.set('view_as_client', '', { path: '/portal', maxAge: 0 })
+  }
 
   // Redirect unauthenticated users from protected routes to login
   if (isProtectedRoute && !user) {

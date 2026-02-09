@@ -239,14 +239,24 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
           </div>
         </div>
 
-        {canEdit && (
-          <Button variant="outline" asChild>
-            <Link href={`/clientes/${id}/editar`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar Cliente
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {profile?.system_role === 'admin_general' && client.portal_user_id && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/portal?as=${client.portal_user_id}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Ver portal como este cliente
+              </Link>
+            </Button>
+          )}
+          {canEdit && (
+            <Button variant="outline" asChild>
+              <Link href={`/clientes/${id}/editar`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar Cliente
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Quick stats for cases */}

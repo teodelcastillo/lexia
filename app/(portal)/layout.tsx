@@ -7,7 +7,8 @@ import React from "react"
  */
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { PortalHeader } from '@/components/portal/portal-header'
+import { PortalHeader, type PortalClientOption } from '@/components/portal/portal-header'
+import { getViewAsClientProfile } from '@/lib/portal/view-as'
 
 interface PortalLayoutProps {
   children: React.ReactNode
@@ -41,13 +42,37 @@ async function validateClientAccess() {
 
 export default async function PortalLayout({ children }: PortalLayoutProps) {
   const { profile } = await validateClientAccess()
+  const isAdmin = profile?.system_role === 'admin_general'
+
+  const viewAsProfile = isAdmin ? await getViewAsClientProfile() : null
+  const displayName = viewAsProfile
+    ? `${viewAsProfile.first_name || ''} ${viewAsProfile.last_name || ''}`.trim() || 'Cliente'
+    : `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Usuario'
+
+  let clientsList: PortalClientOption[] = []
+  if (isAdmin) {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .eq('system_role', 'client')
+      .order('last_name', { ascending: true })
+    clientsList = (data || []).map((p) => ({
+      id: p.id,
+      first_name: p.first_name ?? '',
+      last_name: p.last_name ?? '',
+      email: p.email ?? '',
+    }))
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Portal Header (admins see "Vista previa" and link back to dashboard) */}
+      {/* Portal Header (admins see "Vista previa", selector "Ver como" and link back to dashboard) */}
       <PortalHeader 
-        userName={`${profile?.first_name || ''} ${profile?.last_name || ''}`}
-        isAdminPreview={profile?.system_role === 'admin_general'}
+        userName={displayName}
+        isAdminPreview={isAdmin}
+        clientsList={clientsList}
+        viewAsClientId={viewAsProfile?.id ?? null}
       />
 
       {/* Main Content */}

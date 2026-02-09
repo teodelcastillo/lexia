@@ -6,6 +6,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getEffectivePortalUserId } from '@/lib/portal/view-as'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -65,16 +66,14 @@ const faqItems = [
 
 export default async function PortalHelpPage() {
   const supabase = await createClient()
-  
-  // Get current user and their assigned lawyer
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/portal-login')
+  const effectiveUserId = await getEffectivePortalUserId()
+  if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record
+  // Get client record (or viewed-as client when admin)
   const { data: client } = await supabase
     .from('clients')
     .select('id, name')
-    .eq('user_id', user.id)
+    .eq('user_id', effectiveUserId)
     .single()
 
   // Get lead lawyer from any of client's cases

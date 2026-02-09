@@ -6,6 +6,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getEffectivePortalUserId } from '@/lib/portal/view-as'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,16 +45,14 @@ function getFileTypeDisplay(fileName: string): { color: string; label: string } 
 
 export default async function PortalDocumentsPage() {
   const supabase = await createClient()
-  
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/portal-login')
+  const effectiveUserId = await getEffectivePortalUserId()
+  if (!effectiveUserId) redirect('/auth/portal-login')
 
-  // Get client record linked to this user
+  // Get client record linked to this user (or viewed-as client when admin)
   const { data: client } = await supabase
     .from('clients')
     .select('id, name')
-    .eq('user_id', user.id)
+    .eq('user_id', effectiveUserId)
     .single()
 
   // Fetch all client's cases
