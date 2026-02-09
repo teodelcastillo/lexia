@@ -54,14 +54,25 @@ export default function LoginPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        const { data: profile } = await supabase
+        // Wait a moment for profile to be available (in case it was just created)
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('system_role')
           .eq('id', user.id)
           .single()
 
+        // If profile doesn't exist, show error
+        if (profileError || !profile) {
+          setError('Su perfil no se ha creado correctamente. Por favor, contacte al administrador o intente registrarse nuevamente.')
+          // Sign out to clear session
+          await supabase.auth.signOut()
+          return
+        }
+
         // Redirect clients to portal, internal users to dashboard
-        if (profile?.system_role === 'client') {
+        if (profile.system_role === 'client') {
           router.push('/portal')
         } else {
           router.push('/dashboard')

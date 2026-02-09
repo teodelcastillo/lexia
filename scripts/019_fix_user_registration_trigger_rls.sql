@@ -98,44 +98,57 @@ BEGIN
   END IF;
 
   -- Insert profile for new user
+  -- SECURITY DEFINER should bypass RLS, but we need to ensure it works
   -- Use ON CONFLICT to handle cases where profile might already exist
-  INSERT INTO public.profiles (
-    id,
-    first_name,
-    last_name,
-    email,
-    system_role,
-    organization_id,
-    is_active
-  )
-  VALUES (
-    NEW.id,
-    COALESCE(user_meta->>'first_name', ''),
-    COALESCE(user_meta->>'last_name', ''),
-    NEW.email,
-    profile_role,
-    org_id,  -- Can be NULL for admin_general without firm_name, but should be set for others
-    true
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    email = EXCLUDED.email,
-    first_name = COALESCE(NULLIF(profiles.first_name, ''), EXCLUDED.first_name),
-    last_name = COALESCE(NULLIF(profiles.last_name, ''), EXCLUDED.last_name),
-    system_role = EXCLUDED.system_role,
-    organization_id = COALESCE(profiles.organization_id, EXCLUDED.organization_id);
+  BEGIN
+    INSERT INTO public.profiles (
+      id,
+      first_name,
+      last_name,
+      email,
+      system_role,
+      organization_id,
+      is_active
+    )
+    VALUES (
+      NEW.id,
+      COALESCE(user_meta->>'first_name', ''),
+      COALESCE(user_meta->>'last_name', ''),
+      NEW.email,
+      profile_role,
+      org_id,  -- Can be NULL for admin_general without firm_name, but should be set for others
+      true
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      email = EXCLUDED.email,
+      first_name = COALESCE(NULLIF(profiles.first_name, ''), EXCLUDED.first_name),
+      last_name = COALESCE(NULLIF(profiles.last_name, ''), EXCLUDED.last_name),
+      system_role = EXCLUDED.system_role,
+      organization_id = COALESCE(profiles.organization_id, EXCLUDED.organization_id);
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- Log the error with full details for debugging
+      RAISE EXCEPTION 'Error in handle_new_user trigger for user %: % (SQLSTATE: %)', 
+        NEW.id, SQLERRM, SQLSTATE;
+  END;
 
   RETURN NEW;
-EXCEPTION
-  WHEN OTHERS THEN
-    -- Log the error but don't fail the user creation
-    RAISE WARNING 'Error in handle_new_user trigger: %', SQLERRM;
-    -- Still return NEW to allow user creation to proceed
-    -- The application code will handle profile creation as fallback
-    RETURN NEW;
 END;
 $$;
 
 COMMENT ON FUNCTION public.handle_new_user() IS 'Creates profile and organization (for admin_general) when new user registers. Handles RLS properly with SECURITY DEFINER.';
+
+-- =============================================================================
+-- 3. Ensure trigger exists and is properly configured
+-- =============================================================================
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Create trigger to auto-create profile when user signs up
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
 
 -- =============================================================================
 -- 2. Ensure RLS policies allow trigger to insert profiles
@@ -148,7 +161,7 @@ COMMENT ON FUNCTION public.handle_new_user() IS 'Creates profile and organizatio
 DROP POLICY IF EXISTS "profiles_insert_org" ON public.profiles;
 
 -- Create a more permissive insert policy that allows triggers to work
--- The trigger will always have organization_id set from metadata
+-- SECURITY DEFINER functions should bypass RLS, but we make the policy permissive anyway
 CREATE POLICY "profiles_insert_org" ON public.profiles
 FOR INSERT
 WITH CHECK (
@@ -159,6 +172,8 @@ WITH CHECK (
   -- OR if organization_id is NULL (for admin_general creating their own org)
   -- This allows the trigger to insert profiles during user creation
   OR organization_id IS NULL
+  -- OR if the profile being inserted matches the current auth user (for triggers)
+  OR id = auth.uid()
 );
 
 COMMIT;
