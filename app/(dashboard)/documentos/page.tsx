@@ -7,6 +7,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -80,8 +81,11 @@ interface DocumentsPageProps {
     visibility?: string
     search?: string
     view?: 'list' | 'grid' | 'tree'
+    page?: string
   }>
 }
+
+const ITEMS_PER_PAGE = 50
 
 /** Document type configuration with labels and colors */
 const DOCUMENT_TYPES = {
@@ -161,8 +165,11 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   }
 
   const isAdmin = profile?.system_role === 'admin_general'
+  const organizationId = await getCurrentUserOrganizationId()
+  const page = params.page ? parseInt(params.page) : 1
+  const offset = (page - 1) * ITEMS_PER_PAGE
 
-  // Fetch documents with filters
+  // Fetch documents with filters, pagination, and organization filter
   let query = supabase
     .from('documents')
     .select(`
@@ -174,8 +181,14 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
         companies(id, company_name)
       ),
       uploaded_by_user:profiles!documents_uploaded_by_fkey(id, first_name, last_name)
-    `)
+    `, { count: 'exact' })
     .order('created_at', { ascending: false })
+    .range(offset, offset + ITEMS_PER_PAGE - 1)
+
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query = query.eq('organization_id', organizationId)
+  }
 
   if (params.case_id) {
     query = query.eq('case_id', params.case_id)
@@ -190,18 +203,32 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     query = query.ilike('name', `%${params.search}%`)
   }
 
-  const { data: documents } = await query.limit(100)
+  const { data: documents, count } = await query
+  const total = count || 0
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
-  // Fetch cases and companies for filter dropdowns
-  const { data: cases } = await supabase
+  // Fetch cases and companies for filter dropdowns (filtered by organization)
+  const casesQuery = supabase
     .from('cases')
     .select('id, case_number, title, companies(id, company_name, name)')
     .order('case_number', { ascending: false })
 
-  const { data: companies } = await supabase
+  if (organizationId) {
+    casesQuery.eq('organization_id', organizationId)
+  }
+
+  const { data: cases } = await casesQuery
+
+  const companiesQuery = supabase
     .from('companies')
     .select('id, company_name, name')
     .order('company_name')
+
+  if (organizationId) {
+    companiesQuery.eq('organization_id', organizationId)
+  }
+
+  const { data: companies } = await companiesQuery
 
   // Calculate statistics
   const stats = {
@@ -742,6 +769,49 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {documents?.length || 0} de {total} documentos · Página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              asChild={page > 1}
+            >
+              {page > 1 ? (
+                <Link 
+                  href={`/documentos?page=${page - 1}${params.case_id ? `&case_id=${params.case_id}` : ''}${params.type ? `&type=${params.type}` : ''}${params.visibility ? `&visibility=${params.visibility}` : ''}${params.search ? `&search=${params.search}` : ''}${params.view ? `&view=${params.view}` : ''}`}
+                >
+                  Anterior
+                </Link>
+              ) : (
+                'Anterior'
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              asChild={page < totalPages}
+            >
+              {page < totalPages ? (
+                <Link 
+                  href={`/documentos?page=${page + 1}${params.case_id ? `&case_id=${params.case_id}` : ''}${params.type ? `&type=${params.type}` : ''}${params.visibility ? `&visibility=${params.visibility}` : ''}${params.search ? `&search=${params.search}` : ''}${params.view ? `&view=${params.view}` : ''}`}
+                >
+                  Siguiente
+                </Link>
+              ) : (
+                'Siguiente'
+              )}
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   )

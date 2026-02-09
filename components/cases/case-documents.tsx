@@ -78,6 +78,7 @@ async function getCaseDocuments(caseId: string) {
     `)
     .eq('case_id', caseId)
     .order('created_at', { ascending: false })
+    .limit(100) // Limit to prevent performance issues with large document lists
 
   if (error) {
     console.error('Error fetching documents:', error)

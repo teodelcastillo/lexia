@@ -5,6 +5,8 @@ import React from "react"
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { validateCUIT, validateEmail, validatePhone } from '@/lib/utils/validation'
+import { createValidationError, getErrorMessage } from '@/lib/utils/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -100,7 +102,28 @@ export function CreateCompanyForm({ organizationId }: CreateCompanyFormProps = {
     try {
       // Validations
       if (!formData.company_name?.trim()) {
-        throw new Error('El nombre de la empresa es requerido')
+        throw createValidationError('El nombre de la empresa es requerido', 'Nombre de empresa')
+      }
+
+      // Validate CUIT if provided
+      if (formData.cuit?.trim()) {
+        if (!validateCUIT(formData.cuit.trim())) {
+          throw createValidationError('El CUIT ingresado no es válido. Debe tener formato XX-XXXXXXXX-X', 'CUIT')
+        }
+      }
+
+      // Validate email if provided
+      if (formData.email?.trim()) {
+        if (!validateEmail(formData.email.trim())) {
+          throw createValidationError('El email ingresado no es válido', 'Email')
+        }
+      }
+
+      // Validate phone if provided
+      if (formData.phone?.trim()) {
+        if (!validatePhone(formData.phone.trim())) {
+          throw createValidationError('El teléfono ingresado no es válido', 'Teléfono')
+        }
       }
 
       // Insert company (do not send `name` - it is a generated column: COALESCE(company_name, legal_name))
@@ -141,13 +164,7 @@ export function CreateCompanyForm({ organizationId }: CreateCompanyFormProps = {
       router.push(`/empresas/${newCompany.id}`)
     } catch (err) {
       console.error('[CreateCompanyForm] Error creating company:', err)
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : err instanceof Error
-            ? err.message
-            : 'Error al crear la empresa'
-      setError(message)
+      setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }

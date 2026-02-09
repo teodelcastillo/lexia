@@ -5,6 +5,8 @@ import React from "react"
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { validateCUIT, validateDNI, validateEmail, validatePhone } from '@/lib/utils/validation'
+import { createValidationError, getErrorMessage } from '@/lib/utils/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -129,7 +131,7 @@ export function CreatePersonForm({ preselectedCompanyId, organizationId }: Creat
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSelectChange = (value: string) => {
+  const handlePersonTypeChange = (value: string) => {
     setFormData(prev => ({ ...prev, person_type: value as PersonType }))
   }
 
@@ -155,7 +157,42 @@ export function CreatePersonForm({ preselectedCompanyId, organizationId }: Creat
     try {
       // Validations
       if (!formData.first_name?.trim()) {
-        throw new Error('El nombre es requerido')
+        throw createValidationError('El nombre es requerido', 'Nombre')
+      }
+
+      // Validate email if provided
+      if (formData.email?.trim()) {
+        if (!validateEmail(formData.email.trim())) {
+          throw createValidationError('El email ingresado no es válido', 'Email')
+        }
+      }
+
+      // Validate phone if provided
+      if (formData.phone?.trim()) {
+        if (!validatePhone(formData.phone.trim())) {
+          throw createValidationError('El teléfono ingresado no es válido', 'Teléfono')
+        }
+      }
+
+      // Validate secondary phone if provided
+      if (formData.secondary_phone?.trim()) {
+        if (!validatePhone(formData.secondary_phone.trim())) {
+          throw createValidationError('El teléfono secundario ingresado no es válido', 'Teléfono secundario')
+        }
+      }
+
+      // Validate CUIT if provided
+      if (formData.cuit?.trim()) {
+        if (!validateCUIT(formData.cuit.trim())) {
+          throw createValidationError('El CUIT ingresado no es válido. Debe tener formato XX-XXXXXXXX-X', 'CUIT')
+        }
+      }
+
+      // Validate DNI if provided
+      if (formData.dni?.trim()) {
+        if (!validateDNI(formData.dni.trim())) {
+          throw createValidationError('El DNI ingresado no es válido. Debe tener 7 u 8 dígitos', 'DNI')
+        }
       }
 
       // Insert person (do not send `name` - it is a generated column)
@@ -198,8 +235,8 @@ export function CreatePersonForm({ preselectedCompanyId, organizationId }: Creat
         router.push(`/personas/${newPerson.id}`)
       }
     } catch (err) {
-      console.error('[v0] Error creating person:', err)
-      setError(err instanceof Error ? err.message : 'Error al crear la persona')
+      console.error('[CreatePersonForm] Error creating person:', err)
+      setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
@@ -438,7 +475,7 @@ export function CreatePersonForm({ preselectedCompanyId, organizationId }: Creat
                   </Label>
                   <Select 
                     value={formData.person_type} 
-                    onValueChange={(value) => handleSelectChange('person_type', value)} 
+                    onValueChange={handlePersonTypeChange} 
                     disabled={isLoading}
                   >
                     <SelectTrigger id="person_type">

@@ -60,6 +60,7 @@ async function getCaseTasks(caseId: string) {
     .eq('case_id', caseId)
     .order('status', { ascending: true })
     .order('due_date', { ascending: true, nullsFirst: false })
+    .limit(100) // Limit to prevent performance issues with large task lists
 
   if (error) {
     console.error('Error fetching tasks:', error)

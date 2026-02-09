@@ -6,6 +6,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,11 +29,14 @@ export const metadata = {
 }
 
 interface TasksPageProps {
-  searchParams:{
+  searchParams: Promise<{
     search?: string
     status?: string
-  }
+    page?: string
+  }>
 }
+
+const ITEMS_PER_PAGE = 20
 
 /**
  * Status configuration
@@ -77,10 +81,18 @@ async function validateAccess() {
 }
 
 /**
- * Fetches tasks for the current user
+ * Fetches tasks for the current user with pagination and organization filter
  */
-async function getTasks(userId: string, search?: string, status?: string) {
+async function getTasks(
+  userId: string, 
+  organizationId: string | null,
+  search?: string, 
+  status?: string,
+  page: number = 1,
+  limit: number = ITEMS_PER_PAGE
+) {
   const supabase = await createClient()
+  const offset = (page - 1) * limit
 
   let query = supabase
     .from('tasks')
@@ -102,10 +114,16 @@ async function getTasks(userId: string, search?: string, status?: string) {
         first_name,
         last_name
       )
-    `)
+    `, { count: 'exact' })
     .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
     .order('due_date', { ascending: true, nullsFirst: false })
     .order('priority', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  // Add organization filter for defense in depth
+  if (organizationId) {
+    query = query.eq('organization_id', organizationId)
+  }
 
   if (search) {
     query = query.ilike('title', `%${search}%`)
@@ -119,14 +137,18 @@ async function getTasks(userId: string, search?: string, status?: string) {
     }
   }
 
-  const { data: tasks, error } = await query
+  const { data: tasks, count, error } = await query
 
   if (error) {
     console.error('Error fetching tasks:', error)
-    return []
+    return { tasks: [], total: 0, totalPages: 0 }
   }
 
-  return tasks
+  return {
+    tasks: tasks || [],
+    total: count || 0,
+    totalPages: Math.ceil((count || 0) / limit),
+  }
 }
 
 /**
@@ -156,9 +178,18 @@ function formatDueDate(dateString: string | null): { text: string; isOverdue: bo
 
 export default async function TasksPage({ searchParams }: TasksPageProps) {
   const { user } = await validateAccess()
-  const params = searchParams
+  const organizationId = await getCurrentUserOrganizationId()
+  const params = await searchParams
+  const page = params.page ? parseInt(params.page) : 1
   
-  const tasks = await getTasks(user.id, params.search, params.status)
+  const { tasks, total, totalPages } = await getTasks(
+    user.id, 
+    organizationId,
+    params.search, 
+    params.status,
+    page,
+    ITEMS_PER_PAGE
+  )
 
   // Group tasks
   const pendingTasks = tasks.filter(t => t.status === 'pending')
@@ -277,6 +308,49 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
             )}
         </TabsContent>
       </Tabs>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {tasks.length} de {total} tareas · Página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              asChild={page > 1}
+            >
+              {page > 1 ? (
+                <Link 
+                  href={`/tareas?page=${page - 1}${params.status ? `&status=${params.status}` : ''}${params.search ? `&search=${params.search}` : ''}`}
+                >
+                  Anterior
+                </Link>
+              ) : (
+                'Anterior'
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              asChild={page < totalPages}
+            >
+              {page < totalPages ? (
+                <Link 
+                  href={`/tareas?page=${page + 1}${params.status ? `&status=${params.status}` : ''}${params.search ? `&search=${params.search}` : ''}`}
+                >
+                  Siguiente
+                </Link>
+              ) : (
+                'Siguiente'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

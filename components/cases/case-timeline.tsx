@@ -96,6 +96,7 @@ async function getCaseTimelineEvents(caseId: string): Promise<TimelineEvent[]> {
   `)
     .eq('case_id', caseId)
     .order('due_date', { ascending: true })
+    .limit(200) // Limit to prevent performance issues with large timeline lists
 
   if (error) {
     console.error('Error fetching timeline events:', error)

@@ -9,7 +9,8 @@
 import React from "react"
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useState, useTransition, useEffect } from 'react'
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -60,6 +61,14 @@ export function CasesFilters({
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
   const [searchValue, setSearchValue] = useState(currentSearch || '')
+  const debouncedSearchValue = useDebouncedValue(searchValue, 500)
+
+  // Update URL when debounced search value changes
+  useEffect(() => {
+    if (debouncedSearchValue !== currentSearch) {
+      updateFilters({ search: debouncedSearchValue || null })
+    }
+  }, [debouncedSearchValue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Updates URL with new search params
