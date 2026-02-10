@@ -1,9 +1,9 @@
 /**
  * Application Sidebar
- * 
+ *
  * Main navigation sidebar for the dashboard.
  * Displays navigation items based on user's permissions.
- * 
+ *
  * Navigation Structure:
  * - OPERACIONAL: Core daily workflow modules (Dashboard, Cases, Clients, Tasks)
  * - DOCUMENTACIÓN: Document management and calendar
@@ -204,10 +204,16 @@ const navigationSections: NavSection[] = [
 ]
 
 /**
- * Gets the user's initials for the avatar fallback
+ * Gets the user's initials for the avatar fallback.
+ * Defensive against missing/empty names so it never throws.
  */
 function getInitials(firstName: string, lastName: string): string {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+  const safeFirst = (firstName || '').trim()
+  const safeLast = (lastName || '').trim()
+
+  if (!safeFirst && !safeLast) return 'U'
+
+  return `${safeFirst.charAt(0)}${safeLast.charAt(0)}`.toUpperCase()
 }
 
 /**
@@ -304,8 +310,13 @@ export function AppSidebar() {
     )
   }
 
-  // ✅ Rol normalizado (si profile es null, userRole queda vacío y admin no se muestra)
-  const userRole = (profile?.system_role || '').trim().toLowerCase() as SystemRole | ''
+  // ✅ Valores seguros para el perfil (puede ser null si la carga de perfil falló)
+  const safeFirstName = profile?.first_name || 'Usuario'
+  const safeLastName = profile?.last_name || ''
+  const safeRole = (profile?.system_role || '').trim().toLowerCase()
+
+  // ✅ Rol normalizado (si no hay rol, userRole queda vacío y se oculta lo que requiera rol específico)
+  const userRole = safeRole as SystemRole | ''
 
   const isNavItemVisible = (item: NavItem): boolean => {
     if (!item.requiredRoles || item.requiredRoles.length === 0) return true
@@ -407,19 +418,19 @@ export function AppSidebar() {
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={profile.avatar_url || undefined}
-                      alt={profile.first_name || 'Usuario'}
+                      src={profile?.avatar_url || undefined}
+                      alt={safeFirstName || 'Usuario'}
                     />
                     <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                      {getInitials(profile.first_name, profile.last_name)}
+                      {getInitials(safeFirstName, safeLastName)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-1 flex-col text-left text-sm leading-tight">
                     <span className="truncate font-medium">
-                      {profile.first_name} {profile.last_name}
+                      {safeFirstName} {safeLastName}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {formatRole(profile.system_role)}
+                      {formatRole(safeRole)}
                     </span>
                   </div>
                   <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />

@@ -45,10 +45,9 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ title, description }: DashboardHeaderProps) {
   const router = useRouter()
-  const { permissions, user, profile } = useAuth()
+  // Usamos una sola instancia de useAuth para evitar estados duplicados/inconsistentes
+  const { permissions, user, profile, signOut } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
-
-  const { signOut } = useAuth()
 
   const handleLogout = async () => {
     await signOut()
