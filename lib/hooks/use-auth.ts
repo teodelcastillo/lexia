@@ -1,12 +1,14 @@
 /**
- * Authentication Hook
- * 
- * Provides authentication state and helper functions for client components.
- * Handles user session management and profile data.
+ * Authentication Context & Hook
+ *
+ * Single source of truth for auth state on the client.
+ * The server (via proxy + lib/supabase/server) is the primary source of truth
+ * for the session; this module synchronizes a shared client-side view of that
+ * session for all dashboard components.
  */
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, createContext, useContext } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { UserProfile, GlobalPermissions } from '@/lib/types'
@@ -33,17 +35,19 @@ interface UseAuthReturn extends AuthState {
   permissions: GlobalPermissions
 }
 
+const AuthContext = createContext<UseAuthReturn | null>(null)
+
 /**
- * Hook for managing authentication state in client components.
- * Automatically syncs with Supabase auth state changes.
+ * Internal implementation hook that manages Supabase auth state.
+ * It can optionally be seeded with a server-resolved user/profile snapshot.
  */
-export function useAuth(): UseAuthReturn {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    profile: null,
-    isLoading: true,
+function useAuthImpl(initialUser: User | null, initialProfile: UserProfile | null): UseAuthReturn {
+  const [state, setState] = useState<AuthState>(() => ({
+    user: initialUser,
+    profile: initialProfile,
+    isLoading: !initialUser,
     error: null,
-  })
+  }))
 
   // Use ref to store supabase client to avoid re-creating on every render
   const supabaseRef = useRef(createClient())
@@ -180,6 +184,11 @@ export function useAuth(): UseAuthReturn {
       async (event, session) => {
         if (!mountedRef.current) return
 
+        if (process.env.NODE_ENV !== 'production') {
+          // Lightweight debug log to help trace intermittent auth issues in development.
+          console.log('[useAuth] auth event', { event, hasSessionUser: !!session?.user })
+        }
+
         // INITIAL_SESSION fires on page load/refresh with existing session
         // SIGNED_IN fires after login
         // TOKEN_REFRESHED fires when token is refreshed
@@ -260,4 +269,36 @@ export function useAuth(): UseAuthReturn {
     hasRole,
     permissions,
   }
+}
+
+/**
+ * AuthProvider
+ *
+ * Wraps dashboard client components with a shared auth context.
+ * Should be seeded from the server with the current user/profile snapshot.
+ */
+export function AuthProvider({
+  initialUser,
+  initialProfile,
+  children,
+}: {
+  initialUser: User | null
+  initialProfile: UserProfile | null
+  children: React.ReactNode
+}) {
+  const value = useAuthImpl(initialUser, initialProfile)
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+/**
+ * Public hook for consuming authentication state.
+ * Must be used within an <AuthProvider>.
+ */
+export function useAuth(): UseAuthReturn {
+  const ctx = useContext(AuthContext)
+  if (!ctx) {
+    throw new Error('useAuth must be used within an <AuthProvider>')
+  }
+  return ctx
 }
