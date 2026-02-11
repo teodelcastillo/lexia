@@ -9,6 +9,7 @@
 import {
   convertToModelMessages,
   validateUIMessages,
+  createIdGenerator,
   type UIMessage,
   type InferUITools,
   type UIDataTypes,
@@ -29,6 +30,11 @@ import {
   getCreditsForIntent,
   type CaseContextInput,
 } from '@/lib/ai'
+import {
+  loadMessagesForConversation,
+  saveMessages,
+  updateConversationMeta,
+} from '@/lib/lexia'
 
 export const maxDuration = 60
 
@@ -132,17 +138,34 @@ export async function POST(req: Request) {
     // 2. Parse request body
     const body = await req.json()
     const caseContextInput: CaseContextInput | null = body.caseContext || null
+    const conversationId = body.conversationId ?? body.id ?? null
 
-    // 3. Validate messages (unchanged - UI compatibility)
-    const messages = await validateUIMessages<LexiaMessage>({
-      messages: body.messages,
+    // 3. Resolve messages: load from DB if conversationId, else use client messages
+    let messages: UIMessage[]
+    if (conversationId) {
+      const previousMessages = await loadMessagesForConversation(supabase, conversationId, user.id)
+      const clientMessages = Array.isArray(body.messages) ? body.messages : []
+      if (clientMessages.length === 1) {
+        messages = [...previousMessages, clientMessages[0] as UIMessage]
+      } else if (clientMessages.length > 1) {
+        messages = clientMessages as UIMessage[]
+      } else {
+        messages = previousMessages
+      }
+    } else {
+      messages = Array.isArray(body.messages) ? (body.messages as UIMessage[]) : []
+    }
+
+    // 4. Validate messages
+    const validatedMessages = await validateUIMessages<LexiaMessage>({
+      messages,
       tools: lexiaTools,
     })
 
-    // 4. Extract latest user message for intent classification
-    const userMessage = getLatestUserMessage(messages)
+    // 5. Extract latest user message for intent classification
+    const userMessage = getLatestUserMessage(validatedMessages)
 
-    // 5. Ask controller for a decision
+    // 6. Ask controller for a decision
     let decision = processRequest(userMessage, caseContextInput, user.id)
 
     // 5b. Validate case access before enriching context
@@ -162,18 +185,23 @@ export async function POST(req: Request) {
     // 7. Finalize the decision (builds system prompt with context)
     decision = finalizeDecision(decision, caseContext)
 
-    // 8. Resolve tools based on intent classification
+    // 10. Resolve tools based on intent classification
     const activeTools = getToolsForIntent(decision.classification.toolsAllowed)
-    const modelMessages = await convertToModelMessages(messages)
+    const modelMessages = await convertToModelMessages(validatedMessages)
 
-    // 9. Orchestrator: resolve provider, stream with fallback
+    // 11. Orchestrator: resolve provider, stream with fallback
     const { result, decision: finalDecision } = await runStreamWithFallback({
       messages: modelMessages,
       decision,
       tools: activeTools,
     })
 
+    // Consume stream so onFinish runs even when client disconnects
+    result.consumeStream()
+
     return result.toUIMessageStreamResponse({
+      originalMessages: validatedMessages,
+      generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
       onFinish: async (options) => {
         const durationMs = Date.now() - startTime
         const tokensUsed = options.usage?.totalTokens ?? 0
@@ -196,11 +224,28 @@ export async function POST(req: Request) {
         const audit = createAuditEntry(
           finalDecision,
           user.id,
-          messages.length,
+          validatedMessages.length,
           tokensUsed,
           durationMs,
           toolsInvoked,
         )
+
+        // Persist messages when conversationId is present
+        if (conversationId && options.messages) {
+          try {
+            await saveMessages(supabase, conversationId, options.messages as UIMessage[], {
+              tokensUsed,
+            })
+            await updateConversationMeta(supabase, conversationId, {
+              message_count: options.messages.length,
+              last_message_at: new Date().toISOString(),
+              intent: finalDecision.classification.intent,
+              model_used: finalDecision.serviceConfig.model,
+            })
+          } catch (err) {
+            console.error('[Lexia] Error saving conversation:', err)
+          }
+        }
 
         // Log to activity_log for backward compatibility
         try {
