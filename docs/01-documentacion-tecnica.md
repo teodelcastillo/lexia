@@ -608,14 +608,23 @@ Lexia es el asistente legal de IA integrado, basado en Vercel AI SDK 6 con GPT-4
 ### 7.2 Puntos de Integracion
 
 ```
-app/api/lexia/route.ts              - API Route principal (streaming)
-app/api/ai-assistant/route.ts       - API Route alternativa (AI assistant)
-app/(dashboard)/lexia/page.tsx       - Interfaz de chat completa
-components/lexia/lexia-chat-message.tsx   - Componente de mensaje
-components/lexia/lexia-context-panel.tsx  - Panel de contexto del caso
-components/lexia/lexia-tool-card.tsx      - Tarjetas de herramientas
-components/cases/case-lexia-button.tsx    - Boton "Consultar a Lexia" desde caso
+app/api/lexia/route.ts                    - API principal (streaming, persistencia)
+app/api/lexia/conversations/route.ts      - GET lista, POST crear
+app/api/lexia/conversations/[id]/route.ts - GET conversacion+mensajes, PATCH actualizar
+app/(dashboard)/lexia/page.tsx           - Redirige a /lexia/chat
+app/(dashboard)/lexia/chat/page.tsx      - Crea conversacion, redirige a /lexia/chat/[id]
+app/(dashboard)/lexia/chat/[id]/page.tsx  - Chat con historial persistido
+components/lexia/lexia-layout-client.tsx - Layout dos columnas
+components/lexia/lexia-sidebar.tsx       - Sidebar con historial
+components/lexia/lexia-conversation-list.tsx - Lista de conversaciones
+components/lexia/lexia-chat.tsx          - Chat con useChat y persistencia
+components/lexia/lexia-chat-message.tsx  - Componente de mensaje
+components/lexia/lexia-context-panel.tsx - Panel de contexto del caso
+components/lexia/lexia-tool-card.tsx     - Tarjetas de herramientas
+components/cases/case-lexia-button.tsx   - Boton "Consultar a Lexia" desde caso
 ```
+
+**Historial de conversaciones (v3.0):** Las conversaciones se persisten en `lexia_conversations` y `lexia_messages`. El usuario puede crear nuevas conversaciones, volver a anteriores y filtrar por caso.
 
 ### 7.3 Herramientas Disponibles
 
@@ -794,6 +803,7 @@ profiles (1) ---< (N) deadlines
 profiles (1) ---< (N) documents
 profiles (1) ---< (N) notifications
 profiles (1) ---< (N) activity_log
+profiles (1) ---< (N) lexia_conversations
 
 cases (1) ---< (N) case_assignments
 cases (1) ---< (N) case_participants (N) >--- (1) people
@@ -802,7 +812,10 @@ cases (1) ---< (N) tasks
 cases (1) ---< (N) deadlines
 cases (1) ---< (N) documents
 cases (1) ---< (N) activity_log
+cases (1) ---< (N) lexia_conversations
 cases (N) >--- (1) companies
+
+lexia_conversations (1) ---< (N) lexia_messages
 
 people (N) >--- (1) companies
 people (1) ---< (N) case_participants
@@ -810,7 +823,7 @@ people (1) ---< (N) case_participants
 documents (N) >--- (1) documents (parent_document_id - versionamiento)
 ```
 
-### 11.2 Tablas Totales: 14
+### 11.2 Tablas Totales: 16
 
 | # | Tabla | Registros Clave | RLS |
 |---|---|---|---|
@@ -826,8 +839,10 @@ documents (N) >--- (1) documents (parent_document_id - versionamiento)
 | 10 | `documents` | Documentos | Si |
 | 11 | `notifications` | Notificaciones | Si |
 | 12 | `activity_log` | Registro de actividad | Si |
-| 13 | `case_participants_detail` | Vista materializada | No |
-| 14 | `company_members` | Vista materializada | No |
+| 13 | `lexia_conversations` | Conversaciones del asistente IA (v3.0) | Si |
+| 14 | `lexia_messages` | Mensajes de conversaciones Lexia | Si |
+| 15 | `case_participants_detail` | Vista materializada | No |
+| 16 | `company_members` | Vista materializada | No |
 
 ### 11.3 Enums de PostgreSQL
 
@@ -885,6 +900,7 @@ CREATE TYPE notification_category AS ENUM ('activity', 'work');
 |   |   +-- empresas/          # Gestion de empresas
 |   |   +-- herramientas/      # Herramientas auxiliares
 |   |   +-- lexia/             # Asistente IA Lexia
+|   |   |   +-- chat/          # Chat con historial persistido
 |   |   +-- notas/             # Notas rapidas
 |   |   +-- notificaciones/    # Centro de notificaciones
 |   |   +-- perfil/            # Perfil del usuario
@@ -896,8 +912,7 @@ CREATE TYPE notification_category AS ENUM ('activity', 'work');
 |   |   +-- portal/            # Paginas del portal
 |   |   +-- layout.tsx         # Layout del portal
 |   +-- api/                   # API Routes
-|   |   +-- ai-assistant/      # API del asistente IA
-|   |   +-- lexia/             # API de Lexia
+|   |   +-- lexia/             # API de Lexia (principal + conversaciones)
 |   |   +-- notifications/     # API de notificaciones
 |   |   +-- admin/             # API de administracion
 |   +-- auth/                  # Paginas de autenticacion

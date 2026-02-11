@@ -200,32 +200,34 @@ export function LexiaChat({
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <LexiaChatMessage
                   key={message.id}
                   message={message}
                   onCopy={handleCopy}
+                  isStreaming={
+                    isLoading &&
+                    index === messages.length - 1 &&
+                    message.role === 'assistant'
+                  }
                 />
               ))}
-              {isLoading && (
-                <div className="flex gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="bg-muted rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span className="h-2 w-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]" />
-                        <span className="h-2 w-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]" />
-                        <span className="h-2 w-2 rounded-full bg-primary/40 animate-bounce" />
+              {isLoading &&
+                (!messages[messages.length - 1] ||
+                  messages[messages.length - 1].role === 'user') && (
+                  <div className="flex gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="bg-muted rounded-lg p-4">
+                      <div className="flex gap-1 py-0.5" aria-hidden="true">
+                        <span className="h-2 w-2 rounded-full bg-primary/50 animate-bounce [animation-delay:-0.33s]" />
+                        <span className="h-2 w-2 rounded-full bg-primary/50 animate-bounce [animation-delay:-0.16s]" />
+                        <span className="h-2 w-2 rounded-full bg-primary/50 animate-bounce" />
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        Lexia está pensando...
-                      </span>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </div>

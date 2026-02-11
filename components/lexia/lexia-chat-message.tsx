@@ -7,6 +7,19 @@ import type { UIMessage } from 'ai'
 interface LexiaChatMessageProps {
   message: UIMessage
   onCopy: (content: string) => void
+  /** When true and message has no text yet, show animated dots instead of empty */
+  isStreaming?: boolean
+}
+
+/** Three dots jumping sequentially - used as loading placeholder */
+function StreamingDots() {
+  return (
+    <div className="flex gap-1 py-0.5" aria-hidden="true">
+      <span className="h-2 w-2 rounded-full bg-primary/50 animate-bounce [animation-delay:-0.33s]" />
+      <span className="h-2 w-2 rounded-full bg-primary/50 animate-bounce [animation-delay:-0.16s]" />
+      <span className="h-2 w-2 rounded-full bg-primary/50 animate-bounce" />
+    </div>
+  )
 }
 
 /** Extract text content from UIMessage parts */
@@ -54,9 +67,11 @@ function renderToolPart(part: UIMessage['parts'][number], index: number) {
   return null
 }
 
-export function LexiaChatMessage({ message, onCopy }: LexiaChatMessageProps) {
+export function LexiaChatMessage({ message, onCopy, isStreaming }: LexiaChatMessageProps) {
   const isUser = message.role === 'user'
   const textContent = getMessageText(message)
+  const hasToolParts = message.parts?.some((p) => p.type?.startsWith?.('tool-'))
+  const showStreamingDots = !isUser && isStreaming && !textContent && !hasToolParts
 
   return (
     <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -72,6 +87,9 @@ export function LexiaChatMessage({ message, onCopy }: LexiaChatMessageProps) {
           ${isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}
         `}
       >
+        {/* Streaming placeholder: dots when no text yet */}
+        {showStreamingDots && <StreamingDots />}
+
         {/* Render text content */}
         {textContent && (
           <div className="whitespace-pre-wrap text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">

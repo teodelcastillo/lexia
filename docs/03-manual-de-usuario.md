@@ -412,8 +412,18 @@ Lexia es un asistente de inteligencia artificial especializado en derecho argent
 
 ### 11.2 Como acceder
 
-- **Desde la barra lateral**: Haga clic en "Lexia" para abrir el chat general.
+- **Desde la barra lateral**: Haga clic en "Lexia" para abrir el chat. Se abre una nueva conversacion automaticamente.
 - **Desde un caso**: Haga clic en "Consultar a Lexia" para cargar el contexto del caso automaticamente.
+
+### 11.2.1 Historial de conversaciones
+
+Lexia guarda automaticamente todas sus conversaciones. En el panel lateral izquierdo vera:
+
+- **Selector de caso**: Filtre el historial por un caso especifico (opcional).
+- **Nueva conversacion**: Cree una conversacion nueva.
+- **Lista de conversaciones**: Sus chats anteriores con fechas relativas (hoy, ayer, etc.).
+
+Haga clic en cualquier conversacion para volver a ella y continuar desde donde la dejo.
 
 ### 11.3 Herramientas de Lexia
 

@@ -1,6 +1,6 @@
 # LEXIA IA - Documentación Técnica del Módulo de Inteligencia Artificial
 
-**Versión:** 2.1.0  
+**Versión:** 3.0.0  
 **Última actualización:** Febrero 2026  
 **Stack IA:** Vercel AI SDK 6 + GPT-4 Turbo/o + Claude Sonnet 4 + proveedores directos (OpenAI, Anthropic). No se utiliza Vercel AI Gateway; la resolución de modelo y el fallback viven en el controlador y orquestador (`lib/ai/resolver.ts`, `lib/ai/orchestrator.ts`).
 
@@ -16,11 +16,12 @@
 6. [Sistema de Prompts](#6-sistema-de-prompts)
 7. [Rutas de API (Capa HTTP)](#7-rutas-de-api-capa-http)
 8. [Interfaz de Usuario](#8-interfaz-de-usuario)
-9. [Flujo de Datos Completo](#9-flujo-de-datos-completo)
-10. [Logging y Auditoría](#10-logging-y-auditoría)
-11. [Seguridad](#11-seguridad)
-12. [Guía de Extensión](#12-guía-de-extensión)
-13. [Roadmap de Funcionalidades Futuras](#13-roadmap-de-funcionalidades-futuras)
+9. [Historial de Conversaciones (Fase 1)](#9-historial-de-conversaciones-fase-1)
+10. [Flujo de Datos Completo](#10-flujo-de-datos-completo)
+11. [Logging y Auditoría](#11-logging-y-auditoría)
+12. [Seguridad](#12-seguridad)
+13. [Guía de Extensión](#13-guía-de-extensión)
+14. [Roadmap de Funcionalidades Futuras](#14-roadmap-de-funcionalidades-futuras)
 
 ---
 
@@ -813,57 +814,60 @@ La ruta `/api/ai-assistant` fue eliminada. Toda la funcionalidad de chat con IA 
 
 ### 8.1 Layout
 
+Desde la v3.0 el layout es de dos columnas: sidebar de conversaciones + área de chat.
+
 ```
-┌──────────────────────────────────────────────────────┐
-│  HEADER                                              │
-│  Logo Lexia | Selector de caso | Acciones            │
-├──────────────────────────────────────┬───────────────┤
-│  ÁREA PRINCIPAL                      │ PANEL LATERAL │
-│                                      │               │
-│  ┌────────────────────────────────┐ │ Context Panel │
-│  │ Mensajes del chat              │ │ (cuando hay   │
-│  │ (scroll vertical)              │ │  caso activo) │
-│  │                                │ │               │
-│  │ [Usuario mensaje]              │ │ ─────────────│
-│  │ [Lexia respuesta con tools]    │ │               │
-│  │                                │ │ Tools Panel   │
-│  └────────────────────────────────┘ │ (herramientas │
-│                                      │  rápidas)     │
-│  ┌────────────────────────────────┐ │               │
-│  │ Input de mensaje + botón enviar│ │               │
-│  └────────────────────────────────┘ │               │
-└──────────────────────────────────────┴───────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  HEADER (Logo Lexia | Selector de caso | Acciones)                           │
+├──────────────────────┬──────────────────────────────────────────────────────┤
+│  SIDEBAR             │  ÁREA DE CHAT                                        │
+│                      │                                                       │
+│  Selector de caso    │  ┌────────────────────────────────────────────────┐ │
+│  [Nueva conversación]│  │ Mensajes del chat (scroll vertical)            │ │
+│  ───────────────────│  │ [Usuario mensaje]                               │ │
+│  Historial:          │  │ [Lexia respuesta con tools]                    │ │
+│  • Conv 1 (hoy)      │  └────────────────────────────────────────────────┘ │
+│  • Conv 2 (ayer)     │                                                      │
+│  • Conv 3 (caso X)   │  ┌────────────────────┬─────────────────────────┐  │
+│  ...                 │  │ Context Panel      │ Tools Panel (herramientas │  │
+│                      │  │ (cuando hay caso)  │ rápidas)                 │  │
+│                      │  └────────────────────┴─────────────────────────┘  │
+│                      │  Input de mensaje + botón enviar                    │
+└──────────────────────┴──────────────────────────────────────────────────────┘
 ```
 
 ### 8.2 Componentes
 
-#### `app/(dashboard)/lexia/page.tsx`
+#### Rutas
 
-**Hook useChat:**
-```typescript
-const { messages, sendMessage, status } = useChat({
-  transport: new DefaultChatTransport({
-    api: '/api/lexia',
-    prepareSendMessagesRequest: ({ id, messages }) => ({
-      body: {
-        id,
-        messages,
-        caseContext: caseContext ? {
-          caseId: caseContext.id,
-          caseNumber: caseContext.caseNumber,
-          title: caseContext.title,
-          type: caseContext.type,
-        } : null,
-      },
-    }),
-  }),
-})
-```
+| Ruta | Archivo | Descripción |
+|------|---------|-------------|
+| `/lexia` | `app/(dashboard)/lexia/page.tsx` | Redirige a `/lexia/chat` (mantiene `?caso=` si existe) |
+| `/lexia/chat` | `app/(dashboard)/lexia/chat/page.tsx` | Crea conversación y redirige a `/lexia/chat/[id]` |
+| `/lexia/chat/[id]` | `app/(dashboard)/lexia/chat/[id]/page.tsx` | Chat con historial persistido |
 
-**Estados del chat:**
-- `ready`: Listo para enviar mensajes
-- `submitted`: Mensaje enviado, esperando respuesta
-- `streaming`: Recibiendo respuesta en streaming
+#### `components/lexia/lexia-layout-client.tsx`
+
+Layout cliente que coordina sidebar y contenido. Renderiza `LexiaSidebar` + `LexiaChat`.
+
+#### `components/lexia/lexia-sidebar.tsx`
+
+Sidebar con:
+- Selector de caso (opcional)
+- Botón "Nueva conversación"
+- `LexiaConversationList` (historial de conversaciones con fechas relativas)
+
+#### `components/lexia/lexia-conversation-list.tsx`
+
+Lista de conversaciones, filtrable por caso. Navegación a `/lexia/chat/[id]`.
+
+#### `components/lexia/lexia-chat.tsx`
+
+Componente de chat con:
+- `useChat` y `DefaultChatTransport` hacia `/api/lexia`
+- Body: `messages`, `caseContext`, `conversationId`
+- Quick tools (tarjetas de herramientas rápidas)
+- Persistencia: envia `conversationId` para cargar/guardar historial
 
 #### `components/lexia/lexia-chat-message.tsx`
 
@@ -893,7 +897,86 @@ Tarjetas de herramientas rápidas que insertan prompts predefinidos en el input:
 
 ---
 
-## 9. Flujo de Datos Completo
+## 9. Historial de Conversaciones (Fase 1)
+
+Desde la versión 3.0, Lexia persiste las conversaciones en base de datos. Permite historial de chats, historial por caso, y memoria contextual (todos los mensajes cargados como contexto).
+
+### 9.1 Script de Migración
+
+**Archivo:** `scripts/022_lexia_conversations.sql`
+
+- **Tabla `lexia_conversations`:** `id`, `user_id`, `case_id`, `organization_id`, `title`, `summary`, `intent`, `model_used`, `message_count`, `is_archived`, `is_pinned`, `last_message_at`, `created_at`, `updated_at`
+- **Tabla `lexia_messages`:** `id`, `conversation_id`, `role`, `content` (JSONB con UIMessage completo), `metadata`, `tokens_used`, `organization_id`, `created_at`
+- **Clave primaria de mensajes:** `(conversation_id, id)` — el `id` es el ID del mensaje del AI SDK
+- **Triggers:** `auto_assign_organization_id` para ambas tablas
+- **RLS:** Usuarios solo acceden a sus propias conversaciones, scoped por organización
+
+### 9.2 Backend de Conversaciones
+
+**Ubicación:** `lib/lexia/`
+
+| Función | Descripción |
+|---------|-------------|
+| `createConversation(supabase, userId, caseId?)` | Crea conversación, retorna `{ id }` |
+| `loadConversation(supabase, convId, userId)` | Carga conversación + mensajes (verifica permisos) |
+| `loadConversations(supabase, userId, { caseId?, limit? })` | Lista conversaciones, opcionalmente filtradas por caso |
+| `loadMessagesForConversation(supabase, convId, userId)` | Carga mensajes como `UIMessage[]` |
+| `saveMessages(supabase, convId, messages, metadata?)` | Reemplaza mensajes (delete + insert) |
+| `updateConversationMeta(supabase, convId, updates)` | Actualiza `message_count`, `last_message_at`, `intent`, `model_used` |
+| `updateConversation(supabase, convId, userId, updates)` | Actualiza `title`, `is_pinned`, `is_archived` |
+
+**Formato de mensajes:** Se almacena el UIMessage completo en JSONB para reconstruir con `validateUIMessages`.
+
+### 9.3 API de Conversaciones
+
+| Ruta | Método | Descripción |
+|------|--------|-------------|
+| `/api/lexia/conversations` | GET | Lista conversaciones. Query: `?caseId=uuid` (opcional) |
+| `/api/lexia/conversations` | POST | Crea conversación. Body: `{ caseId?: string }` |
+| `/api/lexia/conversations/[id]` | GET | Devuelve conversación + mensajes |
+| `/api/lexia/conversations/[id]` | PATCH | Actualiza `title`, `is_pinned`, `is_archived` |
+
+### 9.4 API Principal: Persistencia
+
+**Archivo:** `app/api/lexia/route.ts`
+
+**Cambios en el body:**
+- `conversationId` (o `id`): ID de la conversación para persistir
+- Si existe: carga mensajes previos desde DB, combina con el nuevo mensaje del cliente
+
+**Flujo cuando hay `conversationId`:**
+1. `loadMessagesForConversation()` carga mensajes previos
+2. Si el cliente envía solo el último mensaje: `messages = [...previousMessages, newMessage]`
+3. `validateUIMessages` sobre el array completo
+4. En `onFinish`: `saveMessages()` y `updateConversationMeta()`
+
+**Otros cambios:**
+- `createIdGenerator({ prefix: 'msg', size: 16 })` para IDs de mensajes consistentes
+- `result.consumeStream()` para que `onFinish` se ejecute aunque el cliente se desconecte
+
+### 9.5 UI: Layout y Rutas
+
+**Estructura de rutas:**
+- `/lexia` → Redirige a `/lexia/chat` (mantiene `?caso=` si existe)
+- `/lexia/chat` → Crea conversación automáticamente y redirige a `/lexia/chat/[id]`
+- `/lexia/chat/[id]` → Chat con historial persistido
+
+**Layout** (`app/(dashboard)/lexia/layout.tsx`): Dos columnas (sidebar + contenido principal).
+
+**Componentes:**
+- `LexiaSidebar`: Selector de caso, botón "Nueva conversación", lista de conversaciones
+- `LexiaConversationList`: Lista con título, caso, fecha relativa
+- `LexiaChat`: Chat con `useChat`, quick tools, persistencia (`conversationId` + `caseContext`)
+- `LexiaLayoutClient`: Wrapper que carga contexto de caso desde URL (`?caso=`)
+
+### 9.6 Flujo "Nueva conversación"
+
+1. **Click en "Nueva conversación":** `POST /api/lexia/conversations` → `router.push(/lexia/chat/[id])`
+2. **Desde `/lexia` o `/lexia?caso=xxx`:** Redirect a `/lexia/chat` → creación automática → redirect a `/lexia/chat/[id]`
+
+---
+
+## 10. Flujo de Datos Completo
 
 ```
 1. USUARIO escribe mensaje en el chat
@@ -903,13 +986,16 @@ Tarjetas de herramientas rápidas que insertan prompts predefinidos en el input:
 3. DefaultChatTransport prepara request:
    - messages[]
    - caseContext (si hay)
+   - conversationId (si hay conversación activa)
    │
 4. HTTP POST /api/lexia
    │
 5. API ROUTE:
    a. Autenticación (Supabase Auth)
-   b. Validación de mensajes
-   c. Extracción del último mensaje de usuario
+   b. Si conversationId: loadMessagesForConversation() → mensajes previos
+   c. messages = [...previos, nuevo] (si aplica)
+   d. Validación de mensajes
+   e. Extracción del último mensaje de usuario
    │
 6. CONTROLLER.processRequest():
    a. Clasifica intent (regex patterns)
@@ -954,15 +1040,17 @@ Tarjetas de herramientas rápidas que insertan prompts predefinidos en el input:
        - Tool invocations: con estados (spinner/check)
     │
 15. onFinish callback:
-    a. createAuditEntry() genera registro
-    b. Inserta en activity_log (Supabase)
+    a. saveMessages(conversationId, messages) → persiste en lexia_messages
+    b. updateConversationMeta(conversationId, ...) → actualiza lexia_conversations
+    c. createAuditEntry() genera registro
+    d. Inserta en activity_log (Supabase)
 ```
 
 ---
 
-## 10. Logging y Auditoría
+## 11. Logging y Auditoría
 
-### 10.1 Audit Entry
+### 11.1 Audit Entry
 
 Cada interacción genera un `LexiaAuditEntry`:
 
@@ -982,7 +1070,7 @@ Cada interacción genera un `LexiaAuditEntry`:
 }
 ```
 
-### 10.2 Activity Log
+### 11.2 Activity Log
 
 Se inserta un registro en `activity_log` para cada consulta:
 
@@ -997,7 +1085,7 @@ await supabase.from('activity_log').insert({
 })
 ```
 
-### 10.3 Trazabilidad
+### 11.3 Trazabilidad
 
 El `traceId` se genera en el Controller y se propaga a través de todas las capas:
 - Controller decision
@@ -1009,14 +1097,14 @@ Esto permite rastrear completamente una interacción a través del sistema.
 
 ---
 
-## 11. Seguridad
+## 12. Seguridad
 
-### 11.1 Autenticación
+### 12.1 Autenticación
 
 - Cada request valida el token de Supabase Auth
 - Si el token es inválido o ha expirado: `401 Unauthorized`
 
-### 11.2 Autorización de Contexto de Caso
+### 12.2 Autorización de Contexto de Caso
 
 Actualmente NO se valida que el usuario tenga acceso al caso. **TODO:**
 
@@ -1034,14 +1122,14 @@ if (!assignment) {
 }
 ```
 
-### 11.3 Validación de Mensajes
+### 12.3 Validación de Mensajes
 
 `validateUIMessages()` asegura que:
 - Los mensajes tienen el formato correcto (`UIMessage`)
 - Las tool invocations referencian tools válidas
 - Los roles son válidos (`user`, `assistant`)
 
-### 11.4 Rate Limiting
+### 12.4 Rate Limiting
 
 **TODO:** Implementar rate limiting en el middleware o API Gateway.
 
@@ -1054,7 +1142,7 @@ if (count > 100) {
 }
 ```
 
-### 11.5 Sanitización de Contexto
+### 12.5 Sanitización de Contexto
 
 El contexto de caso se trunca antes de enviarlo al modelo:
 - Notas: 200 caracteres cada una
@@ -1065,9 +1153,9 @@ Esto previene que el contexto crezca descontroladamente.
 
 ---
 
-## 12. Guía de Extensión
+## 13. Guía de Extensión
 
-### 12.1 Agregar un Nuevo Modelo
+### 13.1 Agregar un Nuevo Modelo
 
 **Paso 1:** Agrega el modelo al `MODEL_REGISTRY` en `lib/ai/providers.ts`:
 
@@ -1097,7 +1185,7 @@ Esto previene que el contexto crezca descontroladamente.
 
 **Listo.** El Controller automáticamente usará el nuevo modelo para ese intent.
 
-### 12.2 Agregar un Nuevo Intent
+### 13.2 Agregar un Nuevo Intent
 
 **Paso 1:** Agrega el intent al tipo en `lib/ai/types.ts`:
 
@@ -1150,7 +1238,7 @@ const INTENT_PROMPTS: Record<LexiaIntent, string> = {
 
 **Listo.** El sistema ahora reconoce y maneja el nuevo intent.
 
-### 12.3 Agregar una Nueva Tool
+### 13.3 Agregar una Nueva Tool
 
 **Paso 1:** Define la tool en `lib/ai/tools.ts`:
 
@@ -1203,7 +1291,7 @@ export const lexiaTools = {
 
 **Listo.** La tool ahora está disponible para los intents configurados.
 
-### 12.4 Cambiar el Modelo por Defecto para un Intent
+### 13.4 Cambiar el Modelo por Defecto para un Intent
 
 Simplemente edita `ROUTING_RULES` en `lib/ai/providers.ts`:
 
@@ -1218,7 +1306,7 @@ Simplemente edita `ROUTING_RULES` en `lib/ai/providers.ts`:
 
 No se requiere ningún cambio en el código de la API route.
 
-### 12.5 Agregar un Proveedor Externo (No Gateway)
+### 13.5 Agregar un Proveedor Externo (No Gateway)
 
 **Ejemplo: Anthropic Direct API**
 
@@ -1266,9 +1354,9 @@ if (decision.serviceConfig.provider === 'anthropic_direct') {
 
 ---
 
-## 13. Roadmap de Funcionalidades Futuras
+## 14. Roadmap de Funcionalidades Futuras
 
-### 13.1 Corto Plazo (Q1 2026)
+### 14.1 Corto Plazo (Q1 2026)
 
 #### 1. Clasificador de Intent Basado en Embeddings
 - Reemplazar regex patterns con embeddings + k-NN
@@ -1287,12 +1375,12 @@ if (decision.serviceConfig.provider === 'anthropic_direct') {
 - Límite de queries por hora/día según plan
 - Almacenar contadores en Redis o Edge Config
 
-### 13.2 Mediano Plazo (Q2 2026)
+### 14.2 Mediano Plazo (Q2 2026)
 
-#### 5. Memoria Conversacional
-- Almacenar conversaciones completas en la DB
-- Cargar historial cuando el usuario vuelve a Lexia
-- Implementar resumen automático de conversaciones largas
+#### 5. Memoria Conversacional (implementado en v3.0)
+- ✅ Almacenar conversaciones completas en la DB
+- ✅ Cargar historial cuando el usuario vuelve a Lexia
+- Pendiente: Resumen automático de conversaciones largas (compresión progresiva)
 
 #### 6. Tool de Búsqueda en Jurisprudencia
 - Integración con base de datos de jurisprudencia argentina
@@ -1308,7 +1396,7 @@ if (decision.serviceConfig.provider === 'anthropic_direct') {
 - Detectar si el usuario está frustrado o bajo presión
 - Ajustar el tono y prioridad de la respuesta
 
-### 13.3 Largo Plazo (Q3-Q4 2026)
+### 14.3 Largo Plazo (Q3-Q4 2026)
 
 #### 9. Multi-Caso Context
 - Comparar múltiples casos
