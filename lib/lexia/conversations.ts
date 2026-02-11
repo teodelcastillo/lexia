@@ -208,16 +208,30 @@ export async function saveMessages(
     throw new Error(`Failed to delete messages: ${deleteError.message}`)
   }
 
+  const ALLOWED_ROLES = ['user', 'assistant', 'system', 'tool'] as const
+  const sanitizeRole = (r: unknown): (typeof ALLOWED_ROLES)[number] => {
+    const s = String(r ?? '').toLowerCase()
+    if (s === 'human') return 'user'
+    return ALLOWED_ROLES.includes(s as (typeof ALLOWED_ROLES)[number])
+      ? (s as (typeof ALLOWED_ROLES)[number])
+      : 'user'
+  }
+
   const rows = messages.map((msg) => {
     // Ensure content is JSON-serializable (strip undefined, circular refs)
-    const content = JSON.parse(JSON.stringify(msg)) as Record<string, unknown>
+    let content: Record<string, unknown>
+    try {
+      content = JSON.parse(JSON.stringify(msg)) as Record<string, unknown>
+    } catch {
+      content = { id: msg.id, role: msg.role, parts: [], metadata: {} }
+    }
     return {
-      id: msg.id ?? `msg-${Math.random().toString(36).slice(2, 18)}`,
+      id: String(msg.id ?? `msg-${Math.random().toString(36).slice(2, 18)}`),
       conversation_id: convId,
-      role: msg.role,
+      role: sanitizeRole(msg.role),
       content,
-      metadata: metadata ?? {},
-      tokens_used: metadata?.tokensUsed ?? 0,
+      metadata: typeof metadata === 'object' && metadata !== null ? { ...metadata } : {},
+      tokens_used: Math.floor(Number(metadata?.tokensUsed) || 0),
     }
   })
 
@@ -226,8 +240,16 @@ export async function saveMessages(
     .insert(rows)
 
   if (insertError) {
-    console.error('[Lexia] saveMessages insert error:', insertError)
-    throw new Error(`Failed to insert messages: ${insertError.message}`)
+    // Fallback: insert one by one to isolate the failing row
+    for (let i = 0; i < rows.length; i++) {
+      const { error: singleError } = await supabase.from('lexia_messages').insert(rows[i])
+      if (singleError) {
+        console.error('[Lexia] saveMessages insert error (row index', i, '):', singleError)
+        console.error('[Lexia] Failing row sample:', JSON.stringify(rows[i], null, 2).slice(0, 500))
+        throw new Error(`Failed to insert messages: ${singleError.message} (row ${i})`)
+      }
+    }
+    return
   }
 }
 
