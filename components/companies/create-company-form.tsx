@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, AlertCircle, Building2, FileDigit, Globe, MapPin, Briefcase } from 'lucide-react'
+import { Loader2, AlertCircle, Building2, FileDigit, Globe, MapPin, Briefcase, Mail } from 'lucide-react'
 
 // Legal forms common in Argentina
 const legalFormOptions = [
