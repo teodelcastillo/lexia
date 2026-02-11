@@ -205,7 +205,7 @@ export async function saveMessages(
 
   if (deleteError) {
     console.error('[Lexia] saveMessages delete error:', deleteError)
-    throw new Error('Failed to save messages')
+    throw new Error(`Failed to delete messages: ${deleteError.message}`)
   }
 
   const rows = messages.map((msg) => {
@@ -227,7 +227,7 @@ export async function saveMessages(
 
   if (insertError) {
     console.error('[Lexia] saveMessages insert error:', insertError)
-    throw new Error('Failed to save messages')
+    throw new Error(`Failed to insert messages: ${insertError.message}`)
   }
 }
 

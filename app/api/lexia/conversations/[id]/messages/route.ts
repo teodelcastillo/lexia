@@ -71,10 +71,11 @@ export async function POST(
     return Response.json({ ok: true })
   } catch (error) {
     console.error('[Lexia] POST messages error:', error)
+    const details = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
       JSON.stringify({
         error: 'Error saving messages',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
