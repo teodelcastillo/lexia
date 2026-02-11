@@ -1,8 +1,11 @@
 /**
  * Portal "View as client" helpers
  *
- * Used when an admin previews the portal as a specific client.
- * Cookie view_as_client stores the client's user id (auth.users.id).
+ * Used when an admin previews the portal as a specific client. Cookie
+ * view_as_client is set in lib/supabase/middleware.ts when admin visits
+ * /portal?as=CLIENT_ID and is cleared when leaving /portal, so the
+ * dashboard (admin returning to /dashboard) never sees this cookie and
+ * session/layout remain correct.
  */
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'

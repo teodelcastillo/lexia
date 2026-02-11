@@ -370,6 +370,27 @@ export const documentCategoryConfig: Record<DocumentCategory, { label: string; c
 }
 
 // ============================================
+// Auth & permissions types
+// ============================================
+/** Profile row from DB; alias for use in auth/layout. */
+export type UserProfile = DBProfile
+/** System role from profiles. */
+export type SystemRole = UserRole
+
+/** Case-level role from case_assignments. */
+export type CaseRole = 'leader' | 'assistant'
+
+/** Permissions for a specific case (useCasePermissions). */
+export interface CasePermissionContext {
+  case_id: string
+  can_view: boolean
+  can_edit: boolean
+  can_manage_team: boolean
+  can_delete: boolean
+  role: CaseRole | null
+}
+
+// ============================================
 // Legacy type aliases for backwards compatibility
 // ============================================
 export type CasePriority = TaskPriority

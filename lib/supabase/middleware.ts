@@ -1,8 +1,14 @@
 /**
  * Supabase Middleware Helper
- * 
- * Handles session refresh and authentication redirects.
- * Protects routes based on user authentication and role.
+ *
+ * Handles session refresh and authentication redirects. Called by proxy.ts
+ * on every request (see proxy.ts matcher). Refreshes the Supabase session
+ * so cookies stay in sync; AuthProvider in the dashboard only reflects
+ * this state and does not re-establish session on its own.
+ *
+ * view_as_client: Set only when an admin_general visits /portal?as=CLIENT_ID
+ * (and CLIENT_ID is a client). Cleared when leaving /portal or when not on
+ * a portal route, so returning to /dashboard never sees this cookie.
  */
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
