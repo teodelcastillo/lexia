@@ -96,6 +96,9 @@ export function LexiaChat({
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
           console.error('[Lexia] Persist messages failed:', err)
+        } else {
+          // Notify sidebar to refresh (title may have been generated)
+          window.dispatchEvent(new CustomEvent('lexia-conversations-refresh'))
         }
       } catch (err) {
         console.error('[Lexia] Persist messages error:', err)

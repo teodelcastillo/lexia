@@ -81,6 +81,12 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
   }, [loadConversations, caseContext?.id])
 
   useEffect(() => {
+    const handleRefresh = () => loadConversations(caseContext?.id ?? null)
+    window.addEventListener('lexia-conversations-refresh', handleRefresh)
+    return () => window.removeEventListener('lexia-conversations-refresh', handleRefresh)
+  }, [loadConversations, caseContext?.id])
+
+  useEffect(() => {
     loadCases()
   }, [loadCases])
 

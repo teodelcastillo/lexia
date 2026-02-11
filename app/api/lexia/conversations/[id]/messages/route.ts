@@ -3,10 +3,18 @@
  *
  * Called by the client when the stream completes (useChat onFinish).
  * Ensures messages are stored even when server-side onFinish fails to run.
+ * Generates a relevant title from the first user message when still default.
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { saveMessages, updateConversationMeta } from '@/lib/lexia'
+import {
+  saveMessages,
+  updateConversationMeta,
+  updateConversation,
+  generateConversationTitle,
+  getFirstUserMessageText,
+  DEFAULT_TITLE,
+} from '@/lib/lexia'
 import { validateUIMessages } from 'ai'
 import { lexiaTools } from '@/lib/ai'
 import type { UIMessage } from 'ai'
@@ -41,6 +49,24 @@ export async function POST(
       message_count: validatedMessages.length,
       last_message_at: new Date().toISOString(),
     })
+
+    // Generate title from first user message if still default
+    const { data: conv } = await supabase
+      .from('lexia_conversations')
+      .select('title')
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (conv?.title === DEFAULT_TITLE) {
+      const firstUserText = getFirstUserMessageText(validatedMessages)
+      if (firstUserText) {
+        const title = await generateConversationTitle(firstUserText)
+        if (title) {
+          await updateConversation(supabase, conversationId, user.id, { title })
+        }
+      }
+    }
 
     return Response.json({ ok: true })
   } catch (error) {

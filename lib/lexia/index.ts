@@ -10,3 +10,9 @@ export {
   type LexiaConversationWithMessages,
   type ConversationListItem,
 } from './conversations'
+
+export {
+  generateConversationTitle,
+  getFirstUserMessageText,
+  DEFAULT_TITLE,
+} from './generate-title'
