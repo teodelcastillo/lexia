@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, AlertCircle, User, Building2, MapPin, FileDigit, Phone } from 'lucide-react'
+import { Loader2, AlertCircle, User, Building2, MapPin, FileDigit, Phone, Briefcase } from 'lucide-react'
 import type { PersonType } from '@/lib/types'
 
 interface Company {
