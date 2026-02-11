@@ -19,12 +19,24 @@ import { validateUIMessages } from 'ai'
 import { lexiaTools } from '@/lib/ai'
 import type { UIMessage } from 'ai'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: conversationId } = await params
+    if (!UUID_REGEX.test(conversationId)) {
+      return Response.json(
+        {
+          error: 'Invalid conversation ID',
+          details: 'Expected UUID format (e.g. 14d61689-a7ec-46a7-9e54-b3527471ab3f). The URL may have the wrong id.',
+        },
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 

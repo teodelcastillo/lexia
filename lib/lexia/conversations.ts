@@ -189,6 +189,8 @@ export async function loadMessagesForConversation(
  * Saves all messages for a conversation.
  * Replaces existing messages with the new set (delete + insert for simplicity).
  */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function saveMessages(
   supabase: SupabaseClient,
   convId: string,
@@ -196,6 +198,9 @@ export async function saveMessages(
   metadata?: { tokensUsed?: number }
 ): Promise<void> {
   if (messages.length === 0) return
+  if (!UUID_REGEX.test(convId)) {
+    throw new Error(`Invalid conversation_id: expected UUID, got "${convId}"`)
+  }
 
   // Delete existing messages and insert new ones
   const { error: deleteError } = await supabase
