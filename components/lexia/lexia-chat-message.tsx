@@ -92,14 +92,19 @@ export function LexiaChatMessage({ message, onCopy, isStreaming }: LexiaChatMess
         {/* Streaming placeholder: dots when no text yet */}
         {showStreamingDots && <StreamingDots />}
 
-        {/* Render text content as markdown */}
-        {textContent && (
-          <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {/* Render text content: markdown+prose for assistant, plain text for user (keeps contrast on primary bubble) */}
+        {textContent &&
+          (isUser ? (
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-inherit">
               {textContent}
-            </ReactMarkdown>
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {textContent}
+              </ReactMarkdown>
+            </div>
+          ))}
 
         {/* Render tool invocations */}
         {message.parts?.map((part, index) => renderToolPart(part, index))}
