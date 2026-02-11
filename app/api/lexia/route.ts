@@ -35,9 +35,15 @@ import {
   loadMessagesForConversation,
   saveMessages,
   updateConversationMeta,
+  updateConversation,
+  generateConversationTitle,
+  getFirstUserMessageText,
+  DEFAULT_TITLE,
 } from '@/lib/lexia'
 
 export const maxDuration = 60
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const LEXIA_CREDITS_ENFORCEMENT = process.env.LEXIA_CREDITS_ENFORCEMENT === 'true'
 
@@ -232,13 +238,13 @@ export async function POST(req: Request) {
           toolsInvoked,
         )
 
-        // Persist messages when conversationId is present
+        // Persist messages when conversationId is present (single source of truth)
         const messagesToSave =
           (options.messages?.length ? options.messages : undefined) ??
           (options.responseMessage
             ? ([...validatedMessages, options.responseMessage] as UIMessage[])
             : undefined)
-        if (conversationId && messagesToSave?.length) {
+        if (conversationId && messagesToSave?.length && UUID_REGEX.test(conversationId)) {
           try {
             await saveMessages(supabase, conversationId, messagesToSave, {
               tokensUsed,
@@ -249,9 +255,27 @@ export async function POST(req: Request) {
               intent: finalDecision.classification.intent,
               model_used: finalDecision.serviceConfig.model,
             })
+            // Generate title from first user message if still default
+            const { data: conv } = await supabase
+              .from('lexia_conversations')
+              .select('title')
+              .eq('id', conversationId)
+              .eq('user_id', user.id)
+              .single()
+            if (conv?.title === DEFAULT_TITLE) {
+              const firstUserText = getFirstUserMessageText(messagesToSave)
+              if (firstUserText) {
+                const title = await generateConversationTitle(firstUserText)
+                if (title) {
+                  await updateConversation(supabase, conversationId, user.id, { title })
+                }
+              }
+            }
           } catch (err) {
             console.error('[Lexia] Error saving conversation:', err)
           }
+        } else if (conversationId && !UUID_REGEX.test(conversationId)) {
+          console.warn('[Lexia] Skip saveMessages: invalid conversationId format', conversationId)
         }
 
         // Log to activity_log for backward compatibility

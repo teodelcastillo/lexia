@@ -69,10 +69,10 @@ export function LexiaChat({
     messages: (initialMessages || []) as Parameters<typeof useChat>[0]['messages'],
     transport: new DefaultChatTransport({
       api: '/api/lexia',
-      prepareSendMessagesRequest: ({ id, messages: msgs }) => ({
+      prepareSendMessagesRequest: ({ messages: msgs }) => ({
         body: {
-          id,
-          conversationId: id,
+          id: conversationId,
+          conversationId,
           messages: msgs,
           caseContext: caseContext
             ? {
@@ -85,23 +85,10 @@ export function LexiaChat({
         },
       }),
     }),
-    onFinish: async ({ messages: finishedMessages }) => {
-      if (finishedMessages.length === 0 || !conversationId) return
-      try {
-        const res = await fetch(`/api/lexia/conversations/${conversationId}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: finishedMessages }),
-        })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          console.error('[Lexia] Persist messages failed:', err)
-        } else {
-          // Notify sidebar to refresh (title may have been generated)
-          window.dispatchEvent(new CustomEvent('lexia-conversations-refresh'))
-        }
-      } catch (err) {
-        console.error('[Lexia] Persist messages error:', err)
+    onFinish: () => {
+      // Server persists in api/lexia onFinish. Refresh sidebar when stream completes.
+      if (conversationId) {
+        window.dispatchEvent(new CustomEvent('lexia-conversations-refresh'))
       }
     },
   })
