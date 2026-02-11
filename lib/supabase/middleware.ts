@@ -22,10 +22,24 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  // Ensure Supabase env vars are set (avoids cryptic "Server Components render" in production)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(
+      '[Supabase] Missing env vars: NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
+      'Add them to .env.local. See https://supabase.com/dashboard/project/_/settings/api'
+    )
+    return new NextResponse(
+      'Supabase configuration missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local',
+      { status: 500 }
+    )
+  }
+
   // Create a new Supabase client on each request (important for Fluid compute)
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -57,6 +71,7 @@ export async function updateSession(request: NextRequest) {
   const isProtectedRoute = pathname.startsWith('/dashboard') || 
                            pathname.startsWith('/casos') ||
                            pathname.startsWith('/clientes') ||
+                           pathname.startsWith('/companias') ||
                            pathname.startsWith('/personas') ||
                            pathname.startsWith('/empresas') ||
                            pathname.startsWith('/tareas') ||

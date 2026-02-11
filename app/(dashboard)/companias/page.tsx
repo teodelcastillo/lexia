@@ -86,7 +86,19 @@ async function getCompanies(search?: string) {
     return []
   }
 
-  return companies || []
+  return companies ?? []
+}
+
+function getCasesCount(company: { cases?: unknown }): number {
+  const cases = company.cases
+  if (cases == null) return 0
+  if (Array.isArray(cases) && cases[0] != null && typeof cases[0] === 'object' && 'count' in cases[0]) {
+    return Number((cases[0] as { count: number }).count) || 0
+  }
+  if (typeof cases === 'object' && cases !== null && 'count' in cases) {
+    return Number((cases as { count: number }).count) || 0
+  }
+  return 0
 }
 
 function GridSkeleton() {
@@ -209,8 +221,7 @@ export default async function CompaniasPage({ searchParams }: CompaniasPageProps
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {clientes.map((company) => {
-                  const casesCount = (company.cases as unknown as { count: number }[])?.[0]
-                    ?.count || 0
+                  const casesCount = getCasesCount(company)
                   return (
                     <Link key={company.id} href={`/empresas/${company.id}`}>
                       <Card className="h-full border-border/60 transition-colors hover:border-primary/50 hover:bg-muted/30">
@@ -285,8 +296,7 @@ export default async function CompaniasPage({ searchParams }: CompaniasPageProps
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {proveedores.map((company) => {
-                  const casesCount = (company.cases as unknown as { count: number }[])?.[0]
-                    ?.count || 0
+                  const casesCount = getCasesCount(company)
                   return (
                     <Link key={company.id} href={`/empresas/${company.id}`}>
                       <Card className="h-full border-border/60 transition-colors hover:border-primary/50 hover:bg-muted/30">
