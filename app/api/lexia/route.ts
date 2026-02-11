@@ -10,6 +10,7 @@ import {
   convertToModelMessages,
   validateUIMessages,
   createIdGenerator,
+  consumeStream,
   type UIMessage,
   type InferUITools,
   type UIDataTypes,
@@ -196,12 +197,13 @@ export async function POST(req: Request) {
       tools: activeTools,
     })
 
-    // Consume stream so onFinish runs even when client disconnects
-    result.consumeStream()
-
     return result.toUIMessageStreamResponse({
       originalMessages: validatedMessages,
       generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
+      // Consume a copy of the stream on the server so onFinish runs when the response completes
+      consumeSseStream: async ({ stream }) => {
+        await consumeStream({ stream })
+      },
       onFinish: async (options) => {
         const durationMs = Date.now() - startTime
         const tokensUsed = options.usage?.totalTokens ?? 0
@@ -231,13 +233,18 @@ export async function POST(req: Request) {
         )
 
         // Persist messages when conversationId is present
-        if (conversationId && options.messages) {
+        const messagesToSave =
+          (options.messages?.length ? options.messages : undefined) ??
+          (options.responseMessage
+            ? ([...validatedMessages, options.responseMessage] as UIMessage[])
+            : undefined)
+        if (conversationId && messagesToSave?.length) {
           try {
-            await saveMessages(supabase, conversationId, options.messages as UIMessage[], {
+            await saveMessages(supabase, conversationId, messagesToSave, {
               tokensUsed,
             })
             await updateConversationMeta(supabase, conversationId, {
-              message_count: options.messages.length,
+              message_count: messagesToSave.length,
               last_message_at: new Date().toISOString(),
               intent: finalDecision.classification.intent,
               model_used: finalDecision.serviceConfig.model,

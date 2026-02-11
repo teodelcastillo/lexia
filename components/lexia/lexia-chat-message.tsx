@@ -92,10 +92,10 @@ export function LexiaChatMessage({ message, onCopy, isStreaming }: LexiaChatMess
         {/* Streaming placeholder: dots when no text yet */}
         {showStreamingDots && <StreamingDots />}
 
-        {/* Render text content: markdown+prose for assistant, plain text for user (keeps contrast on primary bubble) */}
+        {/* Render text content: markdown+prose for assistant, plain text for user (white for contrast) */}
         {textContent &&
           (isUser ? (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-inherit">
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-white">
               {textContent}
             </div>
           ) : (
