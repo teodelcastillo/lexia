@@ -209,12 +209,13 @@ export async function saveMessages(
   }
 
   const rows = messages.map((msg) => {
-    const content = msg as Record<string, unknown>
+    // Ensure content is JSON-serializable (strip undefined, circular refs)
+    const content = JSON.parse(JSON.stringify(msg)) as Record<string, unknown>
     return {
-      id: msg.id ?? String(Math.random()),
+      id: msg.id ?? `msg-${Math.random().toString(36).slice(2, 18)}`,
       conversation_id: convId,
       role: msg.role,
-      content: content as unknown,
+      content,
       metadata: metadata ?? {},
       tokens_used: metadata?.tokensUsed ?? 0,
     }

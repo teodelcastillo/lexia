@@ -85,6 +85,22 @@ export function LexiaChat({
         },
       }),
     }),
+    onFinish: async ({ messages: finishedMessages }) => {
+      if (finishedMessages.length === 0 || !conversationId) return
+      try {
+        const res = await fetch(`/api/lexia/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: finishedMessages }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          console.error('[Lexia] Persist messages failed:', err)
+        }
+      } catch (err) {
+        console.error('[Lexia] Persist messages error:', err)
+      }
+    },
   })
 
   const isLoading = status === 'streaming' || status === 'submitted'
