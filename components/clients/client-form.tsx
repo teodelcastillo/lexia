@@ -16,11 +16,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { 
-  User, 
-  Building2, 
-  Mail, 
-  Phone, 
+import {
+  User,
+  Building2,
+  Mail,
+  Phone,
   MapPin,
   FileDigit,
   Save,
