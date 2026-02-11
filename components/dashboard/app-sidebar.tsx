@@ -21,6 +21,7 @@ import {
   Briefcase,
   Users,
   Building2,
+  Landmark,
   CheckSquare,
   FileText,
   Calendar,
@@ -122,6 +123,11 @@ const navigationSections: NavSection[] = [
         title: 'Personas',
         href: '/personas',
         icon: Users,
+      },
+      {
+        title: 'Compañías',
+        href: '/companias',
+        icon: Landmark,
       },
       {
         title: 'Tareas',

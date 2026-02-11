@@ -128,7 +128,7 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/clientes?tab=empresas">
+          <Link href="/companias">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -141,6 +141,11 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                 {company.company_name || company.name || 'Sin nombre'}
               </h1>
+              <div className="mt-1">
+                <Badge variant="outline" className="text-xs">
+                  {company.company_type === 'supplier' ? 'Proveedor' : 'Cliente'}
+                </Badge>
+              </div>
             </div>
           </div>
         </div>

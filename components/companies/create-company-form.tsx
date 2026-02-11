@@ -69,6 +69,7 @@ export function CreateCompanyForm({ organizationId }: CreateCompanyFormProps = {
 
   const [formData, setFormData] = useState({
     company_name: '',
+    company_type: 'client' as 'client' | 'supplier',
     legal_name: '',
     cuit: '',
     tax_id: '',
@@ -130,6 +131,7 @@ export function CreateCompanyForm({ organizationId }: CreateCompanyFormProps = {
       // organization_id will be auto-assigned by trigger, but we include it explicitly if available
       const insertData: any = {
         company_name: formData.company_name.trim(),
+        company_type: formData.company_type,
         legal_name: formData.legal_name?.trim() || null,
         cuit: formData.cuit?.trim() || null,
         tax_id: formData.tax_id?.trim() || null,
@@ -200,6 +202,25 @@ export function CreateCompanyForm({ organizationId }: CreateCompanyFormProps = {
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Building2 className="h-4 w-4" />
                 Información de la Empresa
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo de compañía</Label>
+                <Select
+                  value={formData.company_type}
+                  onValueChange={(value: 'client' | 'supplier') =>
+                    setFormData((prev) => ({ ...prev, company_type: value }))
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="client">Cliente</SelectItem>
+                    <SelectItem value="supplier">Proveedor</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="grid gap-4 md:grid-cols-2">
