@@ -1,5 +1,7 @@
 'use client'
 
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Copy, ThumbsUp, ThumbsDown, Sparkles, User, CheckCircle2, Loader2, FileEdit, ListChecks, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { UIMessage } from 'ai'
@@ -90,10 +92,12 @@ export function LexiaChatMessage({ message, onCopy, isStreaming }: LexiaChatMess
         {/* Streaming placeholder: dots when no text yet */}
         {showStreamingDots && <StreamingDots />}
 
-        {/* Render text content */}
+        {/* Render text content as markdown */}
         {textContent && (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-            {textContent}
+          <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {textContent}
+            </ReactMarkdown>
           </div>
         )}
 
