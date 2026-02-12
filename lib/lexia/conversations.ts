@@ -230,8 +230,11 @@ export async function saveMessages(
     } catch {
       content = { id: msg.id, role: msg.role, parts: [], metadata: {} }
     }
+    // Use UUID for row id to avoid 22P02 when message id (e.g. "arbeU2rrOcb832l7") gets
+    // misinterpreted as UUID. Original id stays in content for UIMessage reconstruction.
+    const rowId = crypto.randomUUID()
     return {
-      id: String(msg.id ?? `msg-${Math.random().toString(36).slice(2, 18)}`),
+      id: rowId,
       conversation_id: convId,
       role: sanitizeRole(msg.role),
       content,
