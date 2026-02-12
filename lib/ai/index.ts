@@ -58,6 +58,23 @@ export {
 // Prompts (for testing/debugging)
 export { buildSystemPrompt } from './prompts'
 
+// Draft module (Redactor Jurídico)
+export {
+  buildDraftPrompt,
+  buildDraftUserMessage,
+  type BuildDraftPromptParams,
+} from './draft-prompts'
+export {
+  DOCUMENT_TYPES,
+  DOCUMENT_TYPE_SCHEMAS,
+  getSchemaForDocumentType,
+  getFieldsForDocumentType,
+  validateFormData,
+  isDocumentType,
+  type DocumentType,
+  type FormFieldDefinition,
+} from './draft-schemas'
+
 // Resolver (model string -> LanguageModel)
 export { resolveModel } from './resolver'
 

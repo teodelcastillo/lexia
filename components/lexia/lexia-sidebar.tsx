@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   Sparkles,
   Plus,
   FolderOpen,
   Loader2,
   MessageSquare,
+  PenTool,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -40,6 +42,9 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
 
   const convIdMatch = pathname.match(/\/lexia\/chat\/([^/]+)/)
   const activeConversationId = convIdMatch?.[1] ?? null
+  const isRedactor = pathname.startsWith('/lexia/redactor')
+  const caseIdFromUrl = searchParams.get('caso')
+  const effectiveCaseId = caseContext?.id ?? caseIdFromUrl
 
   const loadConversations = useCallback(async (caseId?: string | null) => {
     setIsLoadingConversations(true)
@@ -125,6 +130,31 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
           </div>
         </div>
 
+        <div className="flex gap-1 p-1 rounded-lg bg-muted/50">
+          <Link
+            href={effectiveCaseId ? `/lexia/chat?caso=${effectiveCaseId}` : '/lexia/chat'}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              !isRedactor
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat
+          </Link>
+          <Link
+            href={effectiveCaseId ? `/lexia/redactor?caso=${effectiveCaseId}` : '/lexia/redactor'}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              isRedactor
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <PenTool className="h-4 w-4" />
+            Redactor
+          </Link>
+        </div>
+
         <Select
           value={caseContext?.id ?? 'none'}
           onValueChange={(v) => {
@@ -134,8 +164,9 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
             } else {
               params.set('caso', v)
             }
+            const base = isRedactor ? '/lexia/redactor' : pathname.replace(/\/lexia\/chat\/[^/]+/, '/lexia/chat')
             const q = params.toString()
-            router.push(q ? `${pathname}?${q}` : pathname)
+            router.push(q ? `${base}?${q}` : base)
           }}
         >
           <SelectTrigger className="w-full">
@@ -153,38 +184,44 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
           </SelectContent>
         </Select>
 
-        <Button
-          className="w-full"
-          onClick={handleNewConversation}
-          disabled={isCreating}
-        >
-          {isCreating ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="mr-2 h-4 w-4" />
-          )}
-          Nueva conversación
-        </Button>
+        {!isRedactor && (
+          <Button
+            className="w-full"
+            onClick={handleNewConversation}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 h-4 w-4" />
+            )}
+            Nueva conversación
+          </Button>
+        )}
       </div>
 
-      <Separator />
+      {!isRedactor && (
+        <>
+          <Separator />
 
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col p-2">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col p-2">
         <div className="flex items-center gap-2 px-2 py-1.5 flex-shrink-0">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">Historial</span>
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <LexiaConversationList
-            conversations={conversations}
-            activeId={activeConversationId}
-            caseFilter={caseContext?.id ?? null}
-            isLoading={isLoadingConversations}
-            onSelect={handleSelectConversation}
-            onCaseFilterChange={() => {}}
-          />
-        </div>
-      </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <LexiaConversationList
+                conversations={conversations}
+                activeId={activeConversationId}
+                caseFilter={caseContext?.id ?? null}
+                isLoading={isLoadingConversations}
+                onSelect={handleSelectConversation}
+                onCaseFilterChange={() => {}}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
