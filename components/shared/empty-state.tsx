@@ -16,7 +16,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Briefcase, Users, CheckSquare, FileText, Calendar, MessageSquare, Clock, Search, FolderOpen, Bell, AlertCircle, Type as type, LucideIcon } from 'lucide-react'
+import { Briefcase, Users, CheckSquare, FileText, Calendar, MessageSquare, Clock, Search, FolderOpen, Bell, AlertCircle, Type as type, LucideIcon, Building2, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils'
 type EmptyStateType =
   | 'cases'
   | 'clients'
+  | 'companies'
+  | 'suppliers'
   | 'tasks'
   | 'documents'
   | 'deadlines'
@@ -52,6 +54,16 @@ const emptyStateDefaults: Record<
     icon: Users,
     title: 'No hay clientes',
     description: 'Aún no hay clientes registrados en el sistema.',
+  },
+  companies: {
+    icon: Building2,
+    title: 'No hay empresas clientes',
+    description: 'Agregue una nueva empresa como cliente.',
+  },
+  suppliers: {
+    icon: Package,
+    title: 'No hay empresas proveedoras',
+    description: 'Agregue una empresa y márquela como proveedor.',
   },
   tasks: {
     icon: CheckSquare,

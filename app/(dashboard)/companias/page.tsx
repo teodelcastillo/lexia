@@ -200,7 +200,7 @@ export default async function CompaniasPage({ searchParams }: CompaniasPageProps
           <Suspense fallback={<GridSkeleton />}>
             {clientes.length === 0 ? (
               <EmptyState
-                icon={Building2}
+                type="companies"
                 title="No hay empresas clientes"
                 description={
                   params.search
@@ -275,7 +275,7 @@ export default async function CompaniasPage({ searchParams }: CompaniasPageProps
           <Suspense fallback={<GridSkeleton />}>
             {proveedores.length === 0 ? (
               <EmptyState
-                icon={Package}
+                type="suppliers"
                 title="No hay empresas proveedoras"
                 description={
                   params.search
