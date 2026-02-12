@@ -113,7 +113,7 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
   }
 
   return (
-    <div className="flex w-[280px] flex-shrink-0 flex-col border-r border-border bg-muted/30">
+    <div className="flex w-[280px] flex-shrink-0 flex-col min-h-0 border-r border-border bg-muted/30">
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
@@ -169,12 +169,12 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
 
       <Separator />
 
-      <div className="flex-1 overflow-hidden flex flex-col p-2">
-        <div className="flex items-center gap-2 px-2 py-1.5">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col p-2">
+        <div className="flex items-center gap-2 px-2 py-1.5 flex-shrink-0">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">Historial</span>
         </div>
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <LexiaConversationList
             conversations={conversations}
             activeId={activeConversationId}

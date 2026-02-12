@@ -45,7 +45,7 @@ export function LexiaConversationList({
   }
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full min-h-0">
       <div className="space-y-1 pr-2">
         {conversations.map((conv) => (
           <button
