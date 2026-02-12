@@ -9,10 +9,12 @@ import { RedactorDocumentTypeSelect } from '@/components/lexia/redactor/redactor
 import { RedactorForm } from '@/components/lexia/redactor/redactor-form'
 import { RedactorDraftView } from '@/components/lexia/redactor/redactor-draft-view'
 import { RedactorIterationChat } from '@/components/lexia/redactor/redactor-iteration-chat'
+import { SaveDraftDialog } from '@/components/lexia/redactor/save-draft-dialog'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
 import type { ClientRole } from '@/lib/lexia/case-party-data'
+import { getDefaultDraftTitle } from '@/lib/lexia/draft-title'
 
 type Step = 'select' | 'form' | 'draft'
 
@@ -54,6 +56,8 @@ export default function RedactorPage() {
   >(null)
   const [isOrgTemplate, setIsOrgTemplate] = useState(false)
   const [templateLoaded, setTemplateLoaded] = useState(false)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [loadingDraft, setLoadingDraft] = useState(false)
 
   const loadCaseContext = useCallback(async () => {
     if (!caseId) return null
@@ -81,6 +85,28 @@ export default function RedactorPage() {
     return null
   }, [caseId])
 
+  const loadCaseById = useCallback(async (id: string) => {
+    try {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('cases')
+        .select('id, case_number, title, case_type')
+        .eq('id', id)
+        .single()
+      if (!error && data) {
+        setCaseContext({
+          id: data.id,
+          caseNumber: data.case_number,
+          title: data.title,
+          type: data.case_type,
+        })
+      }
+    } catch (err) {
+      console.error('[Redactor] Error loading case:', err)
+    }
+  }, [])
+
   const loadCasePartyData = useCallback(async () => {
     if (!caseId) return
     try {
@@ -100,6 +126,34 @@ export default function RedactorPage() {
       loadCasePartyData()
     }
   }, [caseId, loadCaseContext, loadCasePartyData])
+
+  const draftId = searchParams.get('borrador')
+
+  useEffect(() => {
+    if (!draftId) return
+    setLoadingDraft(true)
+    fetch(`/api/lexia/drafts/${draftId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Borrador no encontrado')
+        return res.json()
+      })
+      .then(async (draft) => {
+        const type = draft.document_type as DocumentType
+        setDocumentType(type)
+        setFormData((draft.form_data || {}) as Record<string, string>)
+        setDraftContent(draft.content || '')
+        setStep('draft')
+        setShowIteration(true)
+        if (draft.case_id) {
+          loadCaseById(draft.case_id)
+        }
+        loadTemplate(type)
+      })
+      .catch((err) => {
+        toast.error(err.message || 'Error al cargar el borrador')
+      })
+      .finally(() => setLoadingDraft(false))
+  }, [draftId, loadCaseById])
 
   const generateDraft = useCallback(
     async (data: Record<string, string>, previousDraft?: string, iterationInstruction?: string) => {
@@ -280,25 +334,49 @@ export default function RedactorPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setStep('form')}
-                  disabled={isGenerating}
+                  disabled={isGenerating || loadingDraft}
                 >
                   Volver al formulario
                 </Button>
               </div>
-              <RedactorDraftView
+              {loadingDraft ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                  Cargando borrador...
+                </div>
+              ) : (
+                <>
+                  <RedactorDraftView
+                    documentType={documentType}
+                    content={draftContent}
+                    isStreaming={isGenerating}
+                    onContentChange={(c) => setDraftContent(c)}
+                    onSaveClick={() => setSaveDialogOpen(true)}
+                  />
+                  {showIteration && (
+                    <div className="border-t border-border pt-4">
+                      <p className="text-sm font-medium mb-2">Modificar borrador</p>
+                      <RedactorIterationChat
+                        onSend={handleIterate}
+                        isGenerating={isGenerating}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+              <SaveDraftDialog
+                open={saveDialogOpen}
+                onOpenChange={setSaveDialogOpen}
                 documentType={documentType}
                 content={draftContent}
-                isStreaming={isGenerating}
+                formData={formData}
+                preselectedCaseId={caseContext?.id ?? caseId}
+                defaultTitle={getDefaultDraftTitle(documentType, formData)}
+                onSaved={(id) => {
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('borrador', id)
+                  window.history.replaceState({}, '', url.toString())
+                }}
               />
-              {showIteration && (
-                <div className="border-t border-border pt-4">
-                  <p className="text-sm font-medium mb-2">Modificar borrador</p>
-                  <RedactorIterationChat
-                    onSend={handleIterate}
-                    isGenerating={isGenerating}
-                  />
-                </div>
-              )}
             </div>
           )}
         </Card>

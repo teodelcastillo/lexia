@@ -1,8 +1,11 @@
 'use client'
 
-import { useRef } from 'react'
-import { Copy, FileDown, FileText, Loader2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Copy, FileDown, FileText, Loader2, Pencil, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
 
@@ -22,14 +25,19 @@ interface RedactorDraftViewProps {
   documentType: DocumentType
   content: string
   isStreaming?: boolean
+  onContentChange?: (content: string) => void
+  onSaveClick?: () => void
 }
 
 export function RedactorDraftView({
   documentType,
   content,
   isStreaming = false,
+  onContentChange,
+  onSaveClick,
 }: RedactorDraftViewProps) {
   const contentRef = useRef<HTMLDivElement>(null)
+  const [isEditing, setIsEditing] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -93,9 +101,37 @@ export function RedactorDraftView({
     toast.success('Abre la ventana de impresión y elige "Guardar como PDF"')
   }
 
+  const proseClasses =
+    'prose prose-sm dark:prose-invert max-w-none prose-p:text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-pre:whitespace-pre-wrap prose-pre:bg-muted/50 prose-pre:p-4 prose-pre:rounded-lg prose-pre:text-foreground'
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-border">
+        {onContentChange && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditing((e) => !e)}
+            disabled={!content || isStreaming}
+          >
+            {isEditing ? (
+              <>
+                <Eye className="h-4 w-4 mr-2" />
+                Vista previa
+              </>
+            ) : (
+              <>
+                <Pencil className="h-4 w-4 mr-2" />
+                Editar
+              </>
+            )}
+          </Button>
+        )}
+        {onSaveClick && (
+          <Button variant="outline" size="sm" onClick={onSaveClick} disabled={!content || isStreaming}>
+            Guardar borrador
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={handleCopy} disabled={!content || isStreaming}>
           <Copy className="h-4 w-4 mr-2" />
           Copiar
@@ -111,25 +147,37 @@ export function RedactorDraftView({
       </div>
 
       <div className="flex-1 overflow-auto mt-4">
-        <div
-          ref={contentRef}
-          className="prose prose-sm dark:prose-invert max-w-none prose-pre:whitespace-pre-wrap prose-pre:bg-muted/50 prose-pre:p-4 prose-pre:rounded-lg"
-        >
-          {content ? (
-            <pre className="m-0 font-sans text-sm leading-relaxed">{content}</pre>
+        {content ? (
+          isEditing && onContentChange ? (
+            <Textarea
+              value={content}
+              onChange={(e) => onContentChange(e.target.value)}
+              disabled={isStreaming}
+              className="min-h-[400px] font-sans text-sm leading-relaxed text-foreground resize-none"
+              placeholder="El borrador aparecerá aquí..."
+            />
           ) : (
-            <div className="flex items-center gap-2 text-muted-foreground py-8">
-              {isStreaming ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Generando borrador...</span>
-                </>
-              ) : (
-                <span>El borrador aparecerá aquí</span>
-              )}
+            <div
+              ref={contentRef}
+              className={`${proseClasses} text-foreground`}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="flex items-center gap-2 text-muted-foreground py-8">
+            {isStreaming ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Generando borrador...</span>
+              </>
+            ) : (
+              <span>El borrador aparecerá aquí</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
