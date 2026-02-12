@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PenTool } from 'lucide-react'
+import Link from 'next/link'
+import { PenTool, Briefcase } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RedactorDocumentTypeSelect } from '@/components/lexia/redactor/redactor-document-type-select'
 import { RedactorForm } from '@/components/lexia/redactor/redactor-form'
@@ -11,8 +12,19 @@ import { RedactorIterationChat } from '@/components/lexia/redactor/redactor-iter
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
+import type { ClientRole } from '@/lib/lexia/case-party-data'
 
 type Step = 'select' | 'form' | 'draft'
+
+/** Tipos de documento que tienen actor/demandado y permiten elegir el rol del cliente */
+const DOC_TYPES_WITH_CLIENT_ROLE: DocumentType[] = [
+  'demanda',
+  'contestacion',
+  'apelacion',
+  'casacion',
+  'recurso_extraordinario',
+  'carta_documento',
+]
 
 interface CaseContext {
   id: string
@@ -32,6 +44,11 @@ export default function RedactorPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showIteration, setShowIteration] = useState(false)
   const [caseContext, setCaseContext] = useState<CaseContext | null>(null)
+  const [formDefaultsByRole, setFormDefaultsByRole] = useState<{
+    actor: Record<string, Record<string, string>>
+    demandado: Record<string, Record<string, string>>
+  }>({ actor: {}, demandado: {} })
+  const [clientRole, setClientRole] = useState<ClientRole>('actor')
 
   const loadCaseContext = useCallback(async () => {
     if (!caseId) return null
@@ -59,9 +76,25 @@ export default function RedactorPage() {
     return null
   }, [caseId])
 
+  const loadCasePartyData = useCallback(async () => {
+    if (!caseId) return
+    try {
+      const res = await fetch(`/api/lexia/case-party-data?caseId=${encodeURIComponent(caseId)}`)
+      if (res.ok) {
+        const { formDefaultsByRole: defaults } = await res.json()
+        setFormDefaultsByRole(defaults ?? { actor: {}, demandado: {} })
+      }
+    } catch (err) {
+      console.error('[Redactor] Error loading case party data:', err)
+    }
+  }, [caseId])
+
   useEffect(() => {
-    if (caseId) loadCaseContext()
-  }, [caseId, loadCaseContext])
+    if (caseId) {
+      loadCaseContext()
+      loadCasePartyData()
+    }
+  }, [caseId, loadCaseContext, loadCasePartyData])
 
   const generateDraft = useCallback(
     async (data: Record<string, string>, previousDraft?: string, iterationInstruction?: string) => {
@@ -118,8 +151,25 @@ export default function RedactorPage() {
   const handleSelectType = (type: DocumentType) => {
     setDocumentType(type)
     setFormData({})
+    setClientRole(type === 'contestacion' ? 'demandado' : 'actor')
     setStep('form')
   }
+
+  const effectiveDefaults =
+    documentType && formDefaultsByRole
+      ? formDefaultsByRole[clientRole]?.[documentType] ?? {}
+      : {}
+  const hasPartyData =
+    documentType &&
+    ((formDefaultsByRole.actor?.[documentType] &&
+      Object.keys(formDefaultsByRole.actor[documentType]).length > 0) ||
+      (formDefaultsByRole.demandado?.[documentType] &&
+        Object.keys(formDefaultsByRole.demandado[documentType]).length > 0))
+  const showClientRoleSelector =
+    !!caseContext &&
+    !!documentType &&
+    DOC_TYPES_WITH_CLIENT_ROLE.includes(documentType) &&
+    !!hasPartyData
 
   const handleBack = () => {
     if (step === 'form') {
@@ -144,10 +194,24 @@ export default function RedactorPage() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <PenTool className="h-4 w-4 text-primary" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="font-semibold">Redactor Jurídico</h1>
             <p className="text-xs text-muted-foreground">
-              Genera documentos legales con formularios guiados
+              {caseContext ? (
+                <>
+                  Caso asociado:{' '}
+                  <Link
+                    href={`/casos/${caseContext.id}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Briefcase className="h-3 w-3" />
+                    {caseContext.caseNumber} - {caseContext.title}
+                  </Link>
+                  {' '}(podés elegir si representás al actor o al demandado)
+                </>
+              ) : (
+                'Genera documentos legales con formularios guiados'
+              )}
             </p>
           </div>
         </div>
@@ -165,6 +229,9 @@ export default function RedactorPage() {
               onBack={handleBack}
               onSubmit={handleFormSubmit}
               isSubmitting={isGenerating}
+              defaultValues={effectiveDefaults}
+              clientRole={showClientRoleSelector ? clientRole : undefined}
+              onClientRoleChange={showClientRoleSelector ? setClientRole : undefined}
             />
           )}
 
