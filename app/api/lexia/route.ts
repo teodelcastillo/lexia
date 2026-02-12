@@ -211,13 +211,6 @@ export async function POST(req: Request) {
         await consumeStream({ stream })
       },
       onFinish: async (options) => {
-        console.log('[Lexia] onFinish called', {
-          conversationId,
-          hasMessages: !!(options.messages?.length),
-          messageCount: options.messages?.length ?? 0,
-          hasResponseMessage: !!options.responseMessage,
-          validUUID: conversationId ? UUID_REGEX.test(conversationId) : false,
-        })
         const durationMs = Date.now() - startTime
         const tokensUsed = options.usage?.totalTokens ?? 0
         const creditsCharged = getCreditsForIntent(finalDecision.classification.intent)
@@ -262,20 +255,19 @@ export async function POST(req: Request) {
               intent: finalDecision.classification.intent,
               model_used: finalDecision.serviceConfig.model,
             })
-            // Generate title from first user message if still default
+            // Generate title only once, from the 1st user message (not on every send)
+            const userMessageCount = messagesToSave.filter((m) => m.role === 'user').length
+            const firstUserText = getFirstUserMessageText(messagesToSave)
             const { data: conv } = await supabase
               .from('lexia_conversations')
               .select('title')
               .eq('id', conversationId)
               .eq('user_id', user.id)
               .single()
-            if (conv?.title === DEFAULT_TITLE) {
-              const firstUserText = getFirstUserMessageText(messagesToSave)
-              if (firstUserText) {
-                const title = await generateConversationTitle(firstUserText)
-                if (title) {
-                  await updateConversation(supabase, conversationId, user.id, { title })
-                }
+            if (conv?.title === DEFAULT_TITLE && userMessageCount === 1 && firstUserText) {
+              const title = await generateConversationTitle(firstUserText)
+              if (title) {
+                await updateConversation(supabase, conversationId, user.id, { title })
               }
             }
           } catch (err) {

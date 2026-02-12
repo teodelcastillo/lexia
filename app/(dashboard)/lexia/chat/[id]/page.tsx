@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { LexiaChat } from '@/components/lexia/lexia-chat'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface CaseContext {
   id: string
@@ -16,6 +17,7 @@ interface CaseContext {
 export default function LexiaChatByIdPage() {
   const params = useParams()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const caseId = searchParams.get('caso')
   const convId = params.id as string
 
@@ -25,6 +27,7 @@ export default function LexiaChatByIdPage() {
   } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
@@ -87,6 +90,26 @@ export default function LexiaChatByIdPage() {
     load()
   }, [convId, caseId, supabase])
 
+  const handleNewConversation = async () => {
+    setIsCreating(true)
+    try {
+      const res = await fetch('/api/lexia/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseId || null }),
+      })
+      if (res.ok) {
+        const { id } = await res.json()
+        const q = caseId ? `?caso=${caseId}` : ''
+        router.replace(`/lexia/chat/${id}${q}`)
+      }
+    } catch (err) {
+      console.error('[Lexia] Error creating conversation:', err)
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-full">
@@ -98,7 +121,15 @@ export default function LexiaChatByIdPage() {
   if (error || !conversation) {
     return (
       <div className="flex flex-col items-center justify-center min-h-full text-center p-8">
-        <p className="text-destructive">{error || 'Error desconocido'}</p>
+        <p className="text-muted-foreground mb-6">{error || 'Error desconocido'}</p>
+        <Button onClick={handleNewConversation} disabled={isCreating}>
+          {isCreating ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="mr-2 h-4 w-4" />
+          )}
+          Nueva conversación
+        </Button>
       </div>
     )
   }
