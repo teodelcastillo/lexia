@@ -9,10 +9,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Badge } from '@/components/ui/badge'
 import {
   getFieldsForDocumentType,
   getSchemaForDocumentType,
+  buildSchemaFromFields,
   type DocumentType,
+  type FormFieldDefinition,
 } from '@/lib/ai/draft-schemas'
 import type { ClientRole } from '@/lib/lexia/case-party-data'
 
@@ -27,6 +30,10 @@ interface RedactorFormProps {
   clientRole?: ClientRole
   /** Callback al cambiar el rol del cliente */
   onClientRoleChange?: (role: ClientRole) => void
+  /** Campos del formulario (override desde plantilla) */
+  fieldsOverride?: FormFieldDefinition[]
+  /** Si se usa plantilla del estudio */
+  isOrgTemplate?: boolean
 }
 
 export function RedactorForm({
@@ -37,9 +44,14 @@ export function RedactorForm({
   defaultValues = {},
   clientRole,
   onClientRoleChange,
+  fieldsOverride,
+  isOrgTemplate = false,
 }: RedactorFormProps) {
-  const schema = getSchemaForDocumentType(documentType)
-  const fields = getFieldsForDocumentType(documentType)
+  const fields = fieldsOverride ?? getFieldsForDocumentType(documentType)
+  const schema =
+    fieldsOverride && fieldsOverride.length > 0
+      ? buildSchemaFromFields(fields)
+      : getSchemaForDocumentType(documentType)
 
   const baseDefaults = fields.reduce(
     (acc, f) => ({ ...acc, [f.key]: '' }),
@@ -64,11 +76,16 @@ export function RedactorForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-1" />
           Volver
         </Button>
+        {isOrgTemplate && (
+          <Badge variant="secondary" className="text-xs">
+            Plantilla del estudio
+          </Badge>
+        )}
       </div>
 
       {clientRole !== undefined && onClientRoleChange && (

@@ -182,6 +182,34 @@ export const DOCUMENT_TYPE_SCHEMAS: Record<
 }
 
 // ============================================
+// Structure Schema (from DB templates)
+// ============================================
+
+/** Simple: field keys only - filter/order from DOCUMENT_TYPE_SCHEMAS */
+export interface StructureSchemaSimple {
+  fields: string[]
+}
+
+/** Full: complete form definitions - override DOCUMENT_TYPE_SCHEMAS */
+export interface StructureSchemaFull {
+  fields: FormFieldDefinition[]
+}
+
+export type StructureSchema =
+  | StructureSchemaSimple
+  | StructureSchemaFull
+  | null
+  | undefined
+
+function isFullStructureSchema(
+  s: StructureSchema
+): s is StructureSchemaFull {
+  if (!s?.fields?.length) return false
+  const first = s.fields[0]
+  return typeof first === 'object' && first !== null && 'key' in first
+}
+
+// ============================================
 // Validation Helpers
 // ============================================
 
@@ -189,15 +217,66 @@ export function getSchemaForDocumentType(type: DocumentType): z.ZodObject<z.ZodR
   return DOCUMENT_TYPE_SCHEMAS[type].schema
 }
 
-export function getFieldsForDocumentType(type: DocumentType): FormFieldDefinition[] {
-  return DOCUMENT_TYPE_SCHEMAS[type].fields
+/**
+ * Returns form fields for a document type.
+ * If structureSchema is provided:
+ * - Simple (fields: string[]): filter and order from DOCUMENT_TYPE_SCHEMAS
+ * - Full (fields: FormFieldDefinition[]): use directly
+ */
+export function getFieldsForDocumentType(
+  type: DocumentType,
+  structureSchema?: StructureSchema | null
+): FormFieldDefinition[] {
+  const defaultFields = DOCUMENT_TYPE_SCHEMAS[type].fields
+
+  if (!structureSchema?.fields?.length) {
+    return defaultFields
+  }
+
+  if (isFullStructureSchema(structureSchema)) {
+    return structureSchema.fields.map((f) => ({
+      key: String(f.key),
+      label: f.label ?? f.key,
+      type: (f.type === 'textarea' ? 'textarea' : 'text') as 'text' | 'textarea',
+      required: Boolean(f.required),
+      placeholder: f.placeholder,
+    }))
+  }
+
+  const keys = structureSchema.fields.filter((k): k is string => typeof k === 'string')
+  const keySet = new Set(keys)
+  const ordered = keys
+    .map((k) => defaultFields.find((f) => f.key === k))
+    .filter((f): f is FormFieldDefinition => f != null)
+  const remaining = defaultFields.filter((f) => !keySet.has(f.key))
+  return [...ordered, ...remaining]
 }
 
+/** Build a Zod schema from form field definitions (exported for RedactorForm) */
+export function buildSchemaFromFields(fields: FormFieldDefinition[]): z.ZodObject<z.ZodRawShape> {
+  const shape: z.ZodRawShape = {}
+  for (const f of fields) {
+    const base = z.string()
+    shape[f.key] = f.required ? base.min(1, 'Requerido') : base.optional()
+  }
+  return z.object(shape)
+}
+
+/**
+ * Validates form data against the document type schema.
+ * If structureSchema is provided, builds schema from resolved fields.
+ */
 export function validateFormData(
   documentType: DocumentType,
-  formData: Record<string, string>
+  formData: Record<string, string>,
+  structureSchema?: StructureSchema | null
 ): { success: true; data: Record<string, string> } | { success: false; errors: Record<string, string> } {
-  const schema = getSchemaForDocumentType(documentType)
+  const fields = getFieldsForDocumentType(documentType, structureSchema)
+  const schema =
+    structureSchema?.fields?.length
+      ? buildSchemaFromFields(fields)
+      : getSchemaForDocumentType(documentType)
+
   const result = schema.safeParse(formData)
 
   if (result.success) {

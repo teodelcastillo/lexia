@@ -1,76 +1,15 @@
 'use client'
 
-import {
-  FileText,
-  Scale,
-  Mail,
-  Gavel,
-  FileSignature,
-  Send,
-  Handshake,
-  Building2,
-  type LucideIcon,
-} from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
-
-const DOCUMENT_TYPE_CONFIG: Record<
-  DocumentType,
-  { label: string; icon: LucideIcon; description: string }
-> = {
-  demanda: {
-    label: 'Demanda',
-    icon: FileText,
-    description: 'Escrito de demanda judicial',
-  },
-  contestacion: {
-    label: 'Contestación',
-    icon: FileText,
-    description: 'Contestación de demanda',
-  },
-  apelacion: {
-    label: 'Apelación',
-    icon: Scale,
-    description: 'Recurso de apelación',
-  },
-  casacion: {
-    label: 'Casación',
-    icon: Scale,
-    description: 'Recurso de casación',
-  },
-  recurso_extraordinario: {
-    label: 'Recurso Extraordinario',
-    icon: Scale,
-    description: 'Recurso extraordinario',
-  },
-  contrato: {
-    label: 'Contrato',
-    icon: FileSignature,
-    description: 'Contrato civil o comercial',
-  },
-  carta_documento: {
-    label: 'Carta Documento',
-    icon: Mail,
-    description: 'Notificación fehaciente',
-  },
-  mediacion: {
-    label: 'Mediación',
-    icon: Handshake,
-    description: 'Escrito de mediación',
-  },
-  oficio_judicial: {
-    label: 'Oficio Judicial',
-    icon: Building2,
-    description: 'Oficio dirigido al tribunal',
-  },
-}
+import { DOCUMENT_TYPE_CONFIG } from '@/lib/lexia/document-type-config'
 
 interface RedactorDocumentTypeSelectProps {
   onSelect: (type: DocumentType) => void
 }
 
 export function RedactorDocumentTypeSelect({ onSelect }: RedactorDocumentTypeSelectProps) {
-  const types = Object.entries(DOCUMENT_TYPE_CONFIG) as [DocumentType, typeof DOCUMENT_TYPE_CONFIG[DocumentType]][]
+  const types = Object.entries(DOCUMENT_TYPE_CONFIG) as [DocumentType, (typeof DOCUMENT_TYPE_CONFIG)[DocumentType]][]
 
   return (
     <div className="space-y-4">

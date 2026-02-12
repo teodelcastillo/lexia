@@ -10,6 +10,7 @@ import {
   Loader2,
   MessageSquare,
   PenTool,
+  FileText,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
   const [availableCases, setAvailableCases] = useState<
     { id: string; caseNumber: string; title: string }[]
   >([])
+  const [hasOrg, setHasOrg] = useState<boolean | null>(null)
 
   const convIdMatch = pathname.match(/\/lexia\/chat\/([^/]+)/)
   const activeConversationId = convIdMatch?.[1] ?? null
@@ -95,6 +97,24 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
     loadCases()
   }, [loadCases])
 
+  useEffect(() => {
+    async function checkOrg() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setHasOrg(false)
+        return
+      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
+      setHasOrg(!!profile?.organization_id)
+    }
+    checkOrg()
+  }, [])
+
   const handleNewConversation = async () => {
     setIsCreating(true)
     try {
@@ -134,7 +154,7 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
           <Link
             href={effectiveCaseId ? `/lexia/chat?caso=${effectiveCaseId}` : '/lexia/chat'}
             className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-              !isRedactor
+              !isRedactor && !pathname.startsWith('/lexia/plantillas')
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
@@ -154,6 +174,20 @@ export function LexiaSidebar({ caseContext }: LexiaSidebarProps) {
             Redactor
           </Link>
         </div>
+
+        {hasOrg && (
+          <Link
+            href="/lexia/plantillas"
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              pathname.startsWith('/lexia/plantillas')
+                ? 'bg-background text-foreground shadow-sm border border-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Plantillas
+          </Link>
+        )}
 
         <Select
           value={caseContext?.id ?? 'none'}

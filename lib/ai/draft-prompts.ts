@@ -103,10 +103,25 @@ const TYPE_STRUCTURE: Record<DocumentType, string> = {
 // Build Draft Prompt
 // ============================================
 
+/**
+ * Replaces {{key}} placeholders in template_content with formData values.
+ */
+export function resolveTemplateContent(
+  templateContent: string | null | undefined,
+  formData: Record<string, string>
+): string {
+  if (!templateContent?.trim()) return ''
+  return templateContent.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    return formData[key] ?? ''
+  })
+}
+
 export interface BuildDraftPromptParams {
   documentType: DocumentType
   formData: Record<string, string>
   templateFragment?: string | null
+  /** Resolved template_content with placeholders replaced by formData */
+  baseContent?: string | null
   caseContext?: {
     caseNumber: string
     title: string
@@ -124,6 +139,7 @@ export function buildDraftPrompt(params: BuildDraftPromptParams): string {
     documentType,
     formData,
     templateFragment,
+    baseContent,
     caseContext,
     previousDraft,
     iterationInstruction,
@@ -134,6 +150,10 @@ export function buildDraftPrompt(params: BuildDraftPromptParams): string {
 
   if (templateFragment) {
     prompt += `--- INSTRUCCIONES ESPECIFICAS ---\n${templateFragment}\n\n`
+  }
+
+  if (baseContent?.trim()) {
+    prompt += `--- CONTENIDO BASE DEL DOCUMENTO ---\n${baseContent.trim()}\n\n`
   }
 
   prompt += `--- DATOS PROPORCIONADOS POR EL USUARIO ---\n`

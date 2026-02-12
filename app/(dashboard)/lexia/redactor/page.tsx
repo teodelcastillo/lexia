@@ -49,6 +49,11 @@ export default function RedactorPage() {
     demandado: Record<string, Record<string, string>>
   }>({ actor: {}, demandado: {} })
   const [clientRole, setClientRole] = useState<ClientRole>('actor')
+  const [templateFields, setTemplateFields] = useState<
+    import('@/lib/ai/draft-schemas').FormFieldDefinition[] | null
+  >(null)
+  const [isOrgTemplate, setIsOrgTemplate] = useState(false)
+  const [templateLoaded, setTemplateLoaded] = useState(false)
 
   const loadCaseContext = useCallback(async () => {
     if (!caseId) return null
@@ -148,11 +153,33 @@ export default function RedactorPage() {
     [documentType, caseContext, loadCaseContext]
   )
 
+  const loadTemplate = useCallback(async (type: DocumentType) => {
+    setTemplateLoaded(false)
+    try {
+      const res = await fetch(`/api/lexia/templates/by-type/${type}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTemplateFields(data.fields ?? null)
+        setIsOrgTemplate(data.isOrgTemplate ?? false)
+      } else {
+        setTemplateFields(null)
+        setIsOrgTemplate(false)
+      }
+    } catch (err) {
+      console.error('[Redactor] Error loading template:', err)
+      setTemplateFields(null)
+      setIsOrgTemplate(false)
+    } finally {
+      setTemplateLoaded(true)
+    }
+  }, [])
+
   const handleSelectType = (type: DocumentType) => {
     setDocumentType(type)
     setFormData({})
     setClientRole(type === 'contestacion' ? 'demandado' : 'actor')
     setStep('form')
+    loadTemplate(type)
   }
 
   const effectiveDefaults =
@@ -224,15 +251,26 @@ export default function RedactorPage() {
           )}
 
           {step === 'form' && documentType && (
-            <RedactorForm
-              documentType={documentType}
-              onBack={handleBack}
-              onSubmit={handleFormSubmit}
-              isSubmitting={isGenerating}
-              defaultValues={effectiveDefaults}
-              clientRole={showClientRoleSelector ? clientRole : undefined}
-              onClientRoleChange={showClientRoleSelector ? setClientRole : undefined}
-            />
+            <>
+              {!templateLoaded ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-pulse text-muted-foreground">Cargando plantilla...</div>
+                </div>
+              ) : (
+                <RedactorForm
+                  key={`${documentType}-${templateFields ? 'custom' : 'default'}`}
+                  documentType={documentType}
+                  onBack={handleBack}
+                  onSubmit={handleFormSubmit}
+                  isSubmitting={isGenerating}
+                  defaultValues={effectiveDefaults}
+                  clientRole={showClientRoleSelector ? clientRole : undefined}
+                  onClientRoleChange={showClientRoleSelector ? setClientRole : undefined}
+                  fieldsOverride={templateFields ?? undefined}
+                  isOrgTemplate={isOrgTemplate}
+                />
+              )}
+            </>
           )}
 
           {step === 'draft' && documentType && (

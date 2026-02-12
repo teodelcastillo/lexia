@@ -14,7 +14,7 @@ import { resolveModel } from '@/lib/ai/resolver'
 import { getModelConfig } from '@/lib/ai/providers'
 import { checkCreditsRemaining, recordLexiaUsage } from '@/lib/ai/usage'
 import { getCreditsForIntent } from '@/lib/ai/credits'
-import { buildDraftPrompt, buildDraftUserMessage } from '@/lib/ai/draft-prompts'
+import { buildDraftPrompt, buildDraftUserMessage, resolveTemplateContent } from '@/lib/ai/draft-prompts'
 import {
   isDocumentType,
   validateFormData,
@@ -103,14 +103,6 @@ export async function POST(req: Request) {
       )
     }
 
-    const validation = validateFormData(documentType, formData)
-    if (!validation.success) {
-      return new Response(
-        JSON.stringify({ error: 'Validation failed', errors: validation.errors }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
     if (caseContext?.caseId) {
       const canView = await checkCasePermission(supabase, user.id, caseContext.caseId, 'can_view')
       if (!canView) {
@@ -118,7 +110,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Load template from DB (org-specific or global)
+    // Load template from DB (org-specific or global) - needed for structure_schema validation
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id')
@@ -127,39 +119,59 @@ export async function POST(req: Request) {
 
     const orgId = profile?.organization_id ?? null
 
-    // Prefer org-specific template, fallback to global (organization_id IS NULL)
-    let templateFragment: string | null = null
+    type TemplateRow = {
+      system_prompt_fragment: string | null
+      template_content: string | null
+      structure_schema: unknown
+    }
+
+    let template: TemplateRow | null = null
     if (orgId) {
       const { data: orgTemplate } = await supabase
         .from('lexia_document_templates')
-        .select('system_prompt_fragment')
+        .select('system_prompt_fragment, template_content, structure_schema')
         .eq('document_type', documentType)
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .limit(1)
         .maybeSingle()
-      if (orgTemplate?.system_prompt_fragment) {
-        templateFragment = orgTemplate.system_prompt_fragment
-      }
+      if (orgTemplate) template = orgTemplate as TemplateRow
     }
-    if (!templateFragment) {
+    if (!template) {
       const { data: globalTemplate } = await supabase
         .from('lexia_document_templates')
-        .select('system_prompt_fragment')
+        .select('system_prompt_fragment, template_content, structure_schema')
         .eq('document_type', documentType)
         .is('organization_id', null)
         .eq('is_active', true)
         .limit(1)
         .maybeSingle()
-      if (globalTemplate?.system_prompt_fragment) {
-        templateFragment = globalTemplate.system_prompt_fragment
-      }
+      if (globalTemplate) template = globalTemplate as TemplateRow
     }
+
+    const structureSchema = template?.structure_schema as { fields?: unknown[] } | null
+    const sanitizedStructureSchema =
+      structureSchema && typeof structureSchema === 'object' && Array.isArray(structureSchema.fields)
+        ? structureSchema
+        : null
+
+    const validation = validateFormData(documentType, formData, sanitizedStructureSchema)
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: 'Validation failed', errors: validation.errors }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const templateFragment = template?.system_prompt_fragment ?? null
+    const templateContent = template?.template_content ?? null
+    const baseContent = resolveTemplateContent(templateContent, validation.data)
 
     const systemPrompt = buildDraftPrompt({
       documentType,
       formData: validation.data,
       templateFragment,
+      baseContent: baseContent || null,
       caseContext: caseContext
         ? {
             caseNumber: caseContext.caseNumber ?? '',
