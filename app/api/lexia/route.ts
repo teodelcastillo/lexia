@@ -211,6 +211,13 @@ export async function POST(req: Request) {
         await consumeStream({ stream })
       },
       onFinish: async (options) => {
+        console.log('[Lexia] onFinish called', {
+          conversationId,
+          hasMessages: !!(options.messages?.length),
+          messageCount: options.messages?.length ?? 0,
+          hasResponseMessage: !!options.responseMessage,
+          validUUID: conversationId ? UUID_REGEX.test(conversationId) : false,
+        })
         const durationMs = Date.now() - startTime
         const tokensUsed = options.usage?.totalTokens ?? 0
         const creditsCharged = getCreditsForIntent(finalDecision.classification.intent)
