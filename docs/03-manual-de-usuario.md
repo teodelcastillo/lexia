@@ -460,7 +460,43 @@ Sin contexto de caso:
 3. Investigar temas legales.
 4. Calcular plazos procesales.
 
-### 11.6 Consejos de Uso
+### 11.6 Redactor Juridico
+
+El **Redactor Juridico** es un modulo dentro de Lexia que genera borradores de documentos legales mediante formularios guiados. Acceda desde el sidebar de Lexia haciendo clic en la pestana **Redactor**.
+
+**Como usar el Redactor:**
+
+1. **Seleccione el tipo de documento** (Demanda, Contestacion, Apelacion, Contrato, Carta Documento, etc.).
+2. **Complete el formulario** con los datos solicitados (actor, demandado, hechos, pretension, etc.).
+3. Si tiene un caso asociado, puede elegir si representa al actor o al demandado para autocompletar datos.
+4. Haga clic en **Generar borrador**.
+5. El borrador se genera en tiempo real. Puede exportarlo a Word o PDF.
+6. Use el chat de modificacion para solicitar cambios al borrador (ej: "Agrega una referencia al art. 123").
+
+**Indicador "Plantilla del estudio":** Si su estudio tiene plantillas personalizadas, vera un badge que indica que esta usando la plantilla configurada para su organizacion.
+
+### 11.7 Plantillas de Documentos
+
+Si su usuario pertenece a una organizacion, puede personalizar las plantillas del Redactor Juridico.
+
+**Acceso:** Dentro de Lexia, haga clic en **Plantillas** en el sidebar (solo visible si pertenece a una organizacion).
+
+**Lista de plantillas:**
+- Cada tipo de documento (Demanda, Contestacion, etc.) muestra su estado: "Plantilla estandar" o "Plantilla del estudio".
+- Si no hay plantilla del estudio, haga clic en **Personalizar** para crear una basada en la estandar.
+- Si ya existe, haga clic en **Editar** para modificarla.
+
+**Editor de plantilla (3 pestanas):**
+
+1. **Instrucciones:** Agregue indicaciones especificas para la IA sobre como estructurar o redactar el documento.
+2. **Contenido base:** Texto reutilizable con placeholders. Use `{{actor}}`, `{{hechos}}`, `{{pretension}}` y otras claves que coincidan con los campos del formulario. Esos textos se reemplazaran automaticamente con los datos que ingrese el usuario.
+3. **Campos del formulario:** Defina o modifique los campos que aparecen en el formulario del Redactor. Puede agregar, quitar, reordenar o cambiar etiquetas.
+
+**Acciones:**
+- **Guardar:** Guarda los cambios en la plantilla del estudio.
+- **Volver a estandar:** Elimina la plantilla personalizada y vuelve a usar la plantilla estandar de Lexia.
+
+### 11.8 Consejos de Uso
 
 - Sea especifico en sus consultas: "Redacta una demanda de danos y perjuicios por accidente de transito en Cordoba" es mejor que "Escribe una demanda".
 - Para calcular plazos, indique la jurisdiccion (Cordoba, Federal, Buenos Aires).

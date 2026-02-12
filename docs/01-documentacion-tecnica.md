@@ -611,20 +611,37 @@ Lexia es el asistente legal de IA integrado, basado en Vercel AI SDK 6 con GPT-4
 app/api/lexia/route.ts                    - API principal (streaming, persistencia)
 app/api/lexia/conversations/route.ts      - GET lista, POST crear
 app/api/lexia/conversations/[id]/route.ts - GET conversacion+mensajes, PATCH actualizar
+app/api/lexia/draft/route.ts             - POST generacion de borradores (streaming)
+app/api/lexia/draft/export/route.ts       - POST exportar borrador a Word (.docx)
+app/api/lexia/templates/route.ts         - GET lista, POST crear plantillas
+app/api/lexia/templates/by-type/[documentType]/route.ts - GET template efectivo
+app/api/lexia/templates/[id]/route.ts    - PUT, DELETE plantilla de org
 app/(dashboard)/lexia/page.tsx           - Redirige a /lexia/chat
 app/(dashboard)/lexia/chat/page.tsx      - Crea conversacion, redirige a /lexia/chat/[id]
 app/(dashboard)/lexia/chat/[id]/page.tsx  - Chat con historial persistido
+app/(dashboard)/lexia/redactor/page.tsx   - Redactor Juridico (formularios guiados)
+app/(dashboard)/lexia/plantillas/page.tsx - Lista de plantillas por tipo
+app/(dashboard)/lexia/plantillas/[documentType]/page.tsx - Editor de plantilla
 components/lexia/lexia-layout-client.tsx - Layout dos columnas
-components/lexia/lexia-sidebar.tsx       - Sidebar con historial
+components/lexia/lexia-sidebar.tsx       - Sidebar con historial + Plantillas
 components/lexia/lexia-conversation-list.tsx - Lista de conversaciones
 components/lexia/lexia-chat.tsx          - Chat con useChat y persistencia
 components/lexia/lexia-chat-message.tsx  - Componente de mensaje
 components/lexia/lexia-context-panel.tsx - Panel de contexto del caso
 components/lexia/lexia-tool-card.tsx     - Tarjetas de herramientas
+components/lexia/redactor/               - Redactor (form, draft view, iteration chat)
+components/lexia/templates/              - Plantillas (list, editor, instrucciones, contenido, campos)
 components/cases/case-lexia-button.tsx   - Boton "Consultar a Lexia" desde caso
+lib/ai/draft-schemas.ts                  - Schemas por tipo, structure_schema, validacion
+lib/ai/draft-prompts.ts                  - buildDraftPrompt, resolveTemplateContent
+lib/lexia/document-type-config.ts        - Labels e iconos por tipo
 ```
 
 **Historial de conversaciones (v3.0):** Las conversaciones se persisten en `lexia_conversations` y `lexia_messages`. El usuario puede crear nuevas conversaciones, volver a anteriores y filtrar por caso.
+
+**Redactor Juridico:** Genera borradores de documentos legales (demanda, contestacion, apelacion, contrato, etc.) mediante formularios guiados. Usa plantillas de `lexia_document_templates` (global u organizacion).
+
+**Plantillas personalizables:** Las organizaciones pueden crear y editar plantillas por tipo de documento (instrucciones, contenido base con placeholders, campos del formulario). Ver `docs/02-modulo-ia-lexia.md` seccion 11.
 
 ### 7.3 Herramientas Disponibles
 
@@ -817,6 +834,8 @@ cases (N) >--- (1) companies
 
 lexia_conversations (1) ---< (N) lexia_messages
 
+lexia_document_templates (N) >--- (1) organizations  [organization_id NULL = global]
+
 people (N) >--- (1) companies
 people (1) ---< (N) case_participants
 
@@ -841,8 +860,9 @@ documents (N) >--- (1) documents (parent_document_id - versionamiento)
 | 12 | `activity_log` | Registro de actividad | Si |
 | 13 | `lexia_conversations` | Conversaciones del asistente IA (v3.0) | Si |
 | 14 | `lexia_messages` | Mensajes de conversaciones Lexia | Si |
-| 15 | `case_participants_detail` | Vista materializada | No |
-| 16 | `company_members` | Vista materializada | No |
+| 15 | `lexia_document_templates` | Plantillas de documentos (Redactor, por org/tipo) | Si |
+| 16 | `case_participants_detail` | Vista materializada | No |
+| 17 | `company_members` | Vista materializada | No |
 
 ### 11.3 Enums de PostgreSQL
 
@@ -901,6 +921,8 @@ CREATE TYPE notification_category AS ENUM ('activity', 'work');
 |   |   +-- herramientas/      # Herramientas auxiliares
 |   |   +-- lexia/             # Asistente IA Lexia
 |   |   |   +-- chat/          # Chat con historial persistido
+|   |   |   +-- redactor/      # Redactor Juridico (borradores)
+|   |   |   +-- plantillas/    # Gestion de plantillas por tipo
 |   |   +-- notas/             # Notas rapidas
 |   |   +-- notificaciones/    # Centro de notificaciones
 |   |   +-- perfil/            # Perfil del usuario

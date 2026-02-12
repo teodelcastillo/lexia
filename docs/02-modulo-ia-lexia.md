@@ -17,11 +17,13 @@
 7. [Rutas de API (Capa HTTP)](#7-rutas-de-api-capa-http)
 8. [Interfaz de Usuario](#8-interfaz-de-usuario)
 9. [Historial de Conversaciones (Fase 1)](#9-historial-de-conversaciones-fase-1)
-10. [Flujo de Datos Completo](#10-flujo-de-datos-completo)
-11. [Logging y Auditoría](#11-logging-y-auditoría)
-12. [Seguridad](#12-seguridad)
-13. [Guía de Extensión](#13-guía-de-extensión)
-14. [Roadmap de Funcionalidades Futuras](#14-roadmap-de-funcionalidades-futuras)
+10. [Redactor Jurídico (Drafting)](#10-redactor-jurídico-drafting)
+11. [Plantillas de Documentos Personalizables](#11-plantillas-de-documentos-personalizables)
+12. [Flujo de Datos Completo](#12-flujo-de-datos-completo)
+13. [Logging y Auditoría](#13-logging-y-auditoría)
+14. [Seguridad](#14-seguridad)
+15. [Guía de Extensión](#15-guía-de-extensión)
+16. [Roadmap de Funcionalidades Futuras](#16-roadmap-de-funcionalidades-futuras)
 
 ---
 
@@ -845,6 +847,9 @@ Desde la v3.0 el layout es de dos columnas: sidebar de conversaciones + área de
 | `/lexia` | `app/(dashboard)/lexia/page.tsx` | Redirige a `/lexia/chat` (mantiene `?caso=` si existe) |
 | `/lexia/chat` | `app/(dashboard)/lexia/chat/page.tsx` | Crea conversación y redirige a `/lexia/chat/[id]` |
 | `/lexia/chat/[id]` | `app/(dashboard)/lexia/chat/[id]/page.tsx` | Chat con historial persistido |
+| `/lexia/redactor` | `app/(dashboard)/lexia/redactor/page.tsx` | Redactor Jurídico (formularios guiados, borradores) |
+| `/lexia/plantillas` | `app/(dashboard)/lexia/plantillas/page.tsx` | Lista de plantillas por tipo (solo si tiene org) |
+| `/lexia/plantillas/[documentType]` | `app/(dashboard)/lexia/plantillas/[documentType]/page.tsx` | Editor de plantilla |
 
 #### `components/lexia/lexia-layout-client.tsx`
 
@@ -853,6 +858,8 @@ Layout cliente que coordina sidebar y contenido. Renderiza `LexiaSidebar` + `Lex
 #### `components/lexia/lexia-sidebar.tsx`
 
 Sidebar con:
+- Pestañas Chat / Redactor
+- Enlace **Plantillas** (visible solo si el usuario tiene `organization_id`)
 - Selector de caso (opcional)
 - Botón "Nueva conversación"
 - `LexiaConversationList` (historial de conversaciones con fechas relativas)
@@ -976,7 +983,143 @@ Desde la versión 3.0, Lexia persiste las conversaciones en base de datos. Permi
 
 ---
 
-## 10. Flujo de Datos Completo
+## 10. Redactor Jurídico (Drafting)
+
+### 10.1 Descripción
+
+El Redactor Jurídico es un módulo integrado en Lexia que genera borradores de documentos legales mediante formularios guiados. Opera con una API independiente (`/api/lexia/draft`) que hace streaming de texto sin herramientas (tools).
+
+### 10.2 Tipos de Documento
+
+| Tipo | Descripción |
+|------|-------------|
+| `demanda` | Escrito de demanda judicial |
+| `contestacion` | Contestación de demanda |
+| `apelacion` | Recurso de apelación |
+| `casacion` | Recurso de casación |
+| `recurso_extraordinario` | Recurso extraordinario |
+| `contrato` | Contrato civil o comercial |
+| `carta_documento` | Notificación fehaciente |
+| `mediacion` | Escrito de mediación |
+| `oficio_judicial` | Oficio dirigido al tribunal |
+
+### 10.3 Arquitectura
+
+```
+lib/ai/draft-schemas.ts   - DOCUMENT_TYPE_SCHEMAS, validación Zod, structure_schema
+lib/ai/draft-prompts.ts   - buildDraftPrompt, resolveTemplateContent, baseContent
+app/api/lexia/draft/route.ts - POST streaming, carga template, validación
+app/api/lexia/draft/export/route.ts - POST exporta a Word (.docx)
+```
+
+### 10.4 Flujo del Borrador
+
+1. Usuario elige tipo de documento en el Redactor.
+2. Completa formulario con campos dinámicos (o usa datos del caso si hay contexto).
+3. `POST /api/lexia/draft` con `documentType`, `formData`, `caseContext`.
+4. API carga template efectivo (org o global), valida con `structure_schema`.
+5. Reemplaza placeholders en `template_content` con datos del formulario.
+6. Construye prompt con `buildDraftPrompt` (instrucciones, baseContent, datos).
+7. Streaming de respuesta del modelo (Claude Sonnet o GPT-4 Turbo con fallback).
+8. Usuario puede iterar vía chat de modificación.
+
+### 10.5 Integración con Caso
+
+Cuando hay `?caso=uuid` en la URL:
+- Se cargan datos de partes del caso (actor, demandado) desde `case_participants`.
+- El usuario elige si representa al actor o al demandado.
+- Los campos del formulario se autocompletan con datos de la parte seleccionada.
+
+---
+
+## 11. Plantillas de Documentos Personalizables
+
+### 11.1 Descripción
+
+Las organizaciones pueden crear y gestionar plantillas propias para cada tipo de documento. Una plantilla define tres dimensiones editables:
+
+| Dimensión | Campo DB | Uso |
+|-----------|----------|-----|
+| **Instrucciones** | `system_prompt_fragment` | Indicaciones específicas para la IA sobre cómo estructurar o redactar |
+| **Contenido base** | `template_content` | Texto reutilizable con placeholders `{{key}}` reemplazados por datos del formulario |
+| **Campos del formulario** | `structure_schema` | Definición de campos del formulario (filtro/orden o override completo) |
+
+### 11.2 Jerarquía de Plantillas
+
+- **Global** (`organization_id IS NULL`): Plantillas estándar de Lexia, disponibles para todos. Solo lectura.
+- **Organización** (`organization_id = org del usuario`): Plantillas personalizadas del estudio. Se priorizan sobre las globales.
+
+### 11.3 Base de Datos
+
+**Tabla:** `lexia_document_templates` (script `025_lexia_document_templates.sql`)
+
+```sql
+id, organization_id, document_type, name, structure_schema, template_content,
+system_prompt_fragment, is_active, created_at, updated_at
+```
+
+**Índices únicos:** Un template global por tipo; un template por org por tipo.
+
+**RLS:** Usuarios leen templates de su org o globales; solo pueden crear/actualizar/eliminar templates de su org.
+
+### 11.4 API de Plantillas
+
+| Ruta | Método | Descripción |
+|------|--------|-------------|
+| `/api/lexia/templates` | GET | Lista templates disponibles (global + org). Query: `?documentType=demanda` |
+| `/api/lexia/templates` | POST | Crear template de org (duplicar desde global). Body: `{ documentType, name?, ... }` |
+| `/api/lexia/templates/by-type/[documentType]` | GET | Template efectivo para un tipo (org primero, fallback global). Incluye `fields` resueltos |
+| `/api/lexia/templates/[id]` | PUT | Actualizar template de org |
+| `/api/lexia/templates/[id]` | DELETE | Eliminar template de org (revertir a estándar) |
+
+### 11.5 Estructura de `structure_schema`
+
+**Formato simple** (filtrar/ordenar desde DOCUMENT_TYPE_SCHEMAS):
+```json
+{ "fields": ["actor", "demandado", "hechos", "pretension"] }
+```
+
+**Formato completo** (override total):
+```json
+{
+  "fields": [
+    { "key": "actor", "label": "Actor", "type": "text", "required": true },
+    { "key": "hechos", "label": "Hechos", "type": "textarea", "required": true }
+  ]
+}
+```
+
+### 11.6 Placeholders en `template_content`
+
+- Formato: `{{actor}}`, `{{hechos}}`, `{{pretension}}`, etc.
+- Claves deben coincidir con las del formulario.
+- `resolveTemplateContent()` reemplaza con valores de `formData`.
+
+### 11.7 Rutas y Componentes UI
+
+| Ruta | Archivo | Descripción |
+|------|---------|-------------|
+| `/lexia/plantillas` | `app/(dashboard)/lexia/plantillas/page.tsx` | Lista de plantillas por tipo |
+| `/lexia/plantillas/[documentType]` | `app/(dashboard)/lexia/plantillas/[documentType]/page.tsx` | Editor de plantilla |
+| `/lexia/redactor` | `app/(dashboard)/lexia/redactor/page.tsx` | Redactor con formulario dinámico |
+
+**Componentes:**
+- `components/lexia/templates/template-list.tsx` - Grid de tipos con estado (estándar vs estudio)
+- `components/lexia/templates/template-editor.tsx` - Editor con pestañas
+- `components/lexia/templates/template-instructions-editor.tsx`
+- `components/lexia/templates/template-content-editor.tsx`
+- `components/lexia/templates/template-fields-editor.tsx`
+
+### 11.8 Integración en el Redactor
+
+- Al seleccionar tipo: `GET /api/lexia/templates/by-type/[documentType]` para obtener `fields` e `isOrgTemplate`.
+- El formulario usa `fieldsOverride` si la plantilla define campos personalizados.
+- Badge "Plantilla del estudio" cuando `isOrgTemplate` es true.
+- Enlace a Plantillas en el sidebar de Lexia (solo visible si el usuario tiene `organization_id`).
+
+---
+
+## 12. Flujo de Datos Completo
 
 ```
 1. USUARIO escribe mensaje en el chat
@@ -1048,9 +1191,9 @@ Desde la versión 3.0, Lexia persiste las conversaciones en base de datos. Permi
 
 ---
 
-## 11. Logging y Auditoría
+## 13. Logging y Auditoría
 
-### 11.1 Audit Entry
+### 13.1 Audit Entry
 
 Cada interacción genera un `LexiaAuditEntry`:
 
@@ -1070,7 +1213,7 @@ Cada interacción genera un `LexiaAuditEntry`:
 }
 ```
 
-### 11.2 Activity Log
+### 13.2 Activity Log
 
 Se inserta un registro en `activity_log` para cada consulta:
 
@@ -1085,7 +1228,7 @@ await supabase.from('activity_log').insert({
 })
 ```
 
-### 11.3 Trazabilidad
+### 13.3 Trazabilidad
 
 El `traceId` se genera en el Controller y se propaga a través de todas las capas:
 - Controller decision
@@ -1097,14 +1240,14 @@ Esto permite rastrear completamente una interacción a través del sistema.
 
 ---
 
-## 12. Seguridad
+## 14. Seguridad
 
-### 12.1 Autenticación
+### 14.1 Autenticación
 
 - Cada request valida el token de Supabase Auth
 - Si el token es inválido o ha expirado: `401 Unauthorized`
 
-### 12.2 Autorización de Contexto de Caso
+### 14.2 Autorización de Contexto de Caso
 
 Actualmente NO se valida que el usuario tenga acceso al caso. **TODO:**
 
@@ -1122,14 +1265,14 @@ if (!assignment) {
 }
 ```
 
-### 12.3 Validación de Mensajes
+### 14.3 Validación de Mensajes
 
 `validateUIMessages()` asegura que:
 - Los mensajes tienen el formato correcto (`UIMessage`)
 - Las tool invocations referencian tools válidas
 - Los roles son válidos (`user`, `assistant`)
 
-### 12.4 Rate Limiting
+### 14.4 Rate Limiting
 
 **TODO:** Implementar rate limiting en el middleware o API Gateway.
 
@@ -1142,7 +1285,7 @@ if (count > 100) {
 }
 ```
 
-### 12.5 Sanitización de Contexto
+### 14.5 Sanitización de Contexto
 
 El contexto de caso se trunca antes de enviarlo al modelo:
 - Notas: 200 caracteres cada una
@@ -1153,9 +1296,9 @@ Esto previene que el contexto crezca descontroladamente.
 
 ---
 
-## 13. Guía de Extensión
+## 15. Guía de Extensión
 
-### 13.1 Agregar un Nuevo Modelo
+### 15.1 Agregar un Nuevo Modelo
 
 **Paso 1:** Agrega el modelo al `MODEL_REGISTRY` en `lib/ai/providers.ts`:
 
@@ -1185,7 +1328,7 @@ Esto previene que el contexto crezca descontroladamente.
 
 **Listo.** El Controller automáticamente usará el nuevo modelo para ese intent.
 
-### 13.2 Agregar un Nuevo Intent
+### 15.2 Agregar un Nuevo Intent
 
 **Paso 1:** Agrega el intent al tipo en `lib/ai/types.ts`:
 
@@ -1238,7 +1381,7 @@ const INTENT_PROMPTS: Record<LexiaIntent, string> = {
 
 **Listo.** El sistema ahora reconoce y maneja el nuevo intent.
 
-### 13.3 Agregar una Nueva Tool
+### 15.3 Agregar una Nueva Tool
 
 **Paso 1:** Define la tool en `lib/ai/tools.ts`:
 
@@ -1291,7 +1434,7 @@ export const lexiaTools = {
 
 **Listo.** La tool ahora está disponible para los intents configurados.
 
-### 13.4 Cambiar el Modelo por Defecto para un Intent
+### 15.4 Cambiar el Modelo por Defecto para un Intent
 
 Simplemente edita `ROUTING_RULES` en `lib/ai/providers.ts`:
 
@@ -1306,7 +1449,7 @@ Simplemente edita `ROUTING_RULES` en `lib/ai/providers.ts`:
 
 No se requiere ningún cambio en el código de la API route.
 
-### 13.5 Agregar un Proveedor Externo (No Gateway)
+### 15.5 Agregar un Proveedor Externo (No Gateway)
 
 **Ejemplo: Anthropic Direct API**
 
@@ -1354,9 +1497,9 @@ if (decision.serviceConfig.provider === 'anthropic_direct') {
 
 ---
 
-## 14. Roadmap de Funcionalidades Futuras
+## 16. Roadmap de Funcionalidades Futuras
 
-### 14.1 Corto Plazo (Q1 2026)
+### 16.1 Corto Plazo (Q1 2026)
 
 #### 1. Clasificador de Intent Basado en Embeddings
 - Reemplazar regex patterns con embeddings + k-NN
@@ -1375,7 +1518,7 @@ if (decision.serviceConfig.provider === 'anthropic_direct') {
 - Límite de queries por hora/día según plan
 - Almacenar contadores en Redis o Edge Config
 
-### 14.2 Mediano Plazo (Q2 2026)
+### 16.2 Mediano Plazo (Q2 2026)
 
 #### 5. Memoria Conversacional (implementado en v3.0)
 - ✅ Almacenar conversaciones completas en la DB
@@ -1396,7 +1539,7 @@ if (decision.serviceConfig.provider === 'anthropic_direct') {
 - Detectar si el usuario está frustrado o bajo presión
 - Ajustar el tono y prioridad de la respuesta
 
-### 14.3 Largo Plazo (Q3-Q4 2026)
+### 16.3 Largo Plazo (Q3-Q4 2026)
 
 #### 9. Multi-Caso Context
 - Comparar múltiples casos

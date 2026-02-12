@@ -218,6 +218,31 @@ Body: {
 Retorna: Stream de respuesta IA
 ```
 
+#### Lexia - Redactor (Borradores)
+
+```typescript
+POST /api/lexia/draft
+Body: {
+  documentType: string  // demanda, contestacion, apelacion, contrato, etc.
+  formData: Record<string, string>
+  caseContext?: { caseId, caseNumber, title, type }
+  previousDraft?: string | null
+  iterationInstruction?: string | null
+}
+
+Retorna: Stream de texto del borrador
+```
+
+#### Lexia - Plantillas
+
+```typescript
+GET  /api/lexia/templates?documentType=demanda  // Lista templates (global + org)
+POST /api/lexia/templates                        // Crear template org (Body: { documentType, ... })
+GET  /api/lexia/templates/by-type/[documentType] // Template efectivo + fields
+PUT  /api/lexia/templates/[id]                   // Actualizar template org
+DELETE /api/lexia/templates/[id]                 // Eliminar template org
+```
+
 #### Admin - Crear Usuario Cliente
 
 ```typescript
@@ -577,6 +602,10 @@ SUPABASE_SERVICE_ROLE_KEY=xxxxx
 2. Implementar handler en `/app/api/lexia/route.ts`
 3. Crear componente UI si es necesario
 4. Documentar en esta guía
+
+### Plantillas del Redactor Juridico
+
+Las plantillas se gestionan en la tabla `lexia_document_templates` (script `025_lexia_document_templates.sql`). Cada organizacion puede tener plantillas propias por tipo de documento. Documentacion tecnica completa en `docs/02-modulo-ia-lexia.md` (secciones 10 y 11).
 
 ---
 
