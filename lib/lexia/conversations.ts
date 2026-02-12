@@ -240,6 +240,19 @@ export async function saveMessages(
     }
   })
 
+  console.log('[Lexia] saveMessages → lexia_messages insert:', {
+    conversation_id: convId,
+    rowCount: rows.length,
+    rows: rows.map((r) => ({
+      id: r.id,
+      conversation_id: r.conversation_id,
+      role: r.role,
+      content: r.content,
+      metadata: r.metadata,
+      tokens_used: r.tokens_used,
+    })),
+  })
+
   const { error: insertError } = await supabase
     .from('lexia_messages')
     .insert(rows)
