@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { LexiaSidebar } from './lexia-sidebar'
+import { LexiaChatSidebar } from './lexia-chat-sidebar'
 
 interface CaseContext {
   id: string
@@ -11,7 +11,7 @@ interface CaseContext {
   title: string
 }
 
-export function LexiaLayoutClient({ children }: { children: React.ReactNode }) {
+export function LexiaChatLayoutClient({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
   const caseId = searchParams.get('caso')
   const [caseContext, setCaseContext] = useState<CaseContext | null>(null)
@@ -45,7 +45,7 @@ export function LexiaLayoutClient({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      <LexiaSidebar caseContext={caseContext} />
+      <LexiaChatSidebar caseContext={caseContext} />
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col min-w-0">
         {children}
       </main>
