@@ -24,13 +24,34 @@ function StreamingDots() {
   )
 }
 
-/** Extract text content from UIMessage parts */
-function getMessageText(message: UIMessage): string {
-  if (!message.parts || !Array.isArray(message.parts)) return ''
-  return message.parts
-    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-    .map((p) => p.text)
-    .join('')
+/** Extract text content from UIMessage parts; fallback for legacy "content" format */
+function getMessageText(message: UIMessage & { content?: string | Array<{ type?: string; text?: string }> }): string {
+  // Standard: parts with type text
+  if (message.parts && Array.isArray(message.parts)) {
+    const fromParts = message.parts
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
+      .join('')
+    if (fromParts) return fromParts
+  }
+  // Legacy: content as string
+  if (typeof message.content === 'string') return message.content
+  // Legacy: content as array of parts
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((p): p is { type: string; text: string } => p?.type === 'text' && typeof p?.text === 'string')
+      .map((p) => p.text)
+      .join('')
+  }
+  return ''
+}
+
+/** Normalize role for display (human -> user, etc.) */
+function getDisplayRole(message: UIMessage & { role?: string }): 'user' | 'assistant' | 'system' {
+  const r = String(message.role ?? '').toLowerCase()
+  if (r === 'human') return 'user'
+  if (r === 'assistant' || r === 'user' || r === 'system') return r as 'user' | 'assistant' | 'system'
+  return 'assistant'
 }
 
 /** Render tool invocation states */
@@ -70,7 +91,7 @@ function renderToolPart(part: UIMessage['parts'][number], index: number) {
 }
 
 export function LexiaChatMessage({ message, onCopy, isStreaming }: LexiaChatMessageProps) {
-  const isUser = message.role === 'user'
+  const isUser = getDisplayRole(message) === 'user'
   const textContent = getMessageText(message)
   const hasToolParts = message.parts?.some((p) => p.type?.startsWith?.('tool-'))
   const showStreamingDots = !isUser && isStreaming && !textContent && !hasToolParts

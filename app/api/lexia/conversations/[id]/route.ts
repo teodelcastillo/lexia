@@ -2,7 +2,9 @@
  * Lexia Conversation by ID - GET, PATCH
  */
 
+import { safeValidateUIMessages } from 'ai'
 import { createClient } from '@/lib/supabase/server'
+import { lexiaTools } from '@/lib/ai'
 import {
   loadConversation,
   updateConversation,
@@ -30,7 +32,18 @@ export async function GET(
       })
     }
 
-    return Response.json(conversation)
+    // Normalize messages for UI (parts, role) when loading from DB
+    const messages = conversation.messages ?? []
+    const validated = await safeValidateUIMessages({
+      messages,
+      tools: lexiaTools,
+    })
+    const normalizedMessages = validated.success ? validated.data : messages
+
+    return Response.json({
+      ...conversation,
+      messages: normalizedMessages,
+    })
   } catch (error) {
     console.error('[Lexia] GET conversation error:', error)
     return new Response(

@@ -208,7 +208,7 @@ export function LexiaChat({
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <LexiaChatMessage
-                  key={message.id}
+                  key={message.id ?? `msg-${index}`}
                   message={message}
                   onCopy={handleCopy}
                   isStreaming={
