@@ -76,13 +76,20 @@ export default function LexiaChatByIdPage() {
             }
           }
         }
-        // Debug: estructura de mensajes al cargar conversación
-        console.log('[Lexia] Messages from API:', data.messages?.length, data.messages)
-        if (Array.isArray(data.messages) && data.messages[0]) {
-          console.log('[Lexia] Sample message:', JSON.stringify(data.messages[0], null, 2))
-        }
+        // Parse messages if they come as JSON strings (e.g. from Supabase JSONB)
+        const raw = data.messages || []
+        const messages = raw.map((m: unknown) => {
+          if (typeof m === 'string') {
+            try {
+              return JSON.parse(m) as { id?: string; role?: string; parts?: unknown[] }
+            } catch {
+              return m
+            }
+          }
+          return m
+        })
         setConversation({
-          messages: data.messages || [],
+          messages,
           caseContext,
         })
       } catch (err) {

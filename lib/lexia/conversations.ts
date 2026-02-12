@@ -182,7 +182,17 @@ export async function loadMessagesForConversation(
     return []
   }
 
-  return (rows ?? []).map((row) => row.content as UIMessage)
+  return (rows ?? []).map((row) => {
+    const raw = row.content
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw) as UIMessage
+      } catch {
+        return raw as unknown as UIMessage
+      }
+    }
+    return raw as UIMessage
+  })
 }
 
 /**
