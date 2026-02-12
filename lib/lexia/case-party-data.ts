@@ -32,7 +32,7 @@ function formatPerson(p: {
   cuit?: string | null
   company_name?: string | null
 }): string {
-  const name = p.name ?? [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Sin nombre'
+  const name = p.name ?? ([p.first_name, p.last_name].filter(Boolean).join(' ') || 'Sin nombre')
   const parts: string[] = [name]
   if (p.dni) parts.push(`DNI: ${p.dni}`)
   if (p.cuit) parts.push(`CUIT: ${p.cuit}`)
