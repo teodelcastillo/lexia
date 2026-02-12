@@ -5,9 +5,9 @@
  * Displays navigation items based on user's permissions.
  *
  * Navigation Structure:
- * - OPERACIONAL: Core daily workflow modules (Dashboard, Cases, Clients, Tasks)
- * - DOCUMENTACIÓN: Document management and calendar
- * - COMUNICACIÓN: Internal notes, AI assistant, and email tools
+ * - OPERACIONAL: Core daily workflow (Dashboard, Cases, Clients, Documents, Calendar, Tasks)
+ * - LEXIA: AI legal assistant (Chat, Redactor)
+ * - COMUNICACIÓN: Internal notes and email tools
  * - ADMINISTRACIÓN: Admin-only settings and user management
  */
 'use client'
@@ -31,7 +31,7 @@ import {
   ChevronDown,
   User,
   MessageSquare,
-  Sparkles,
+  PenTool,
   Clock,
   UserCog,
   ExternalLink,
@@ -95,8 +95,8 @@ interface NavSection {
  * Complete navigation structure organized by functional areas
  * 
  * Sections are designed to separate:
- * - Operational: Day-to-day workflow (cases, clients, tasks)
- * - Documentation: Document and calendar management
+ * - Operational: Day-to-day workflow (cases, clients, documents, calendar, tasks)
+ * - Lexia: AI legal assistant
  * - Communication: Internal collaboration tools
  * - Administration: System settings (admin only)
  */
@@ -130,6 +130,16 @@ const navigationSections: NavSection[] = [
         icon: Landmark,
       },
       {
+        title: 'Documentos',
+        href: '/documentos',
+        icon: FileText,
+      },
+      {
+        title: 'Calendario',
+        href: '/calendario',
+        icon: Calendar,
+      },
+      {
         title: 'Tareas',
         href: '/tareas',
         icon: CheckSquare,
@@ -142,17 +152,18 @@ const navigationSections: NavSection[] = [
     ],
   },
   {
-    label: 'Documentación',
+    label: 'Lexia',
     items: [
       {
-        title: 'Documentos',
-        href: '/documentos',
-        icon: FileText,
+        title: 'Chat',
+        href: '/lexia/chat',
+        icon: MessageSquare,
+        badge: 'IA',
       },
       {
-        title: 'Calendario',
-        href: '/calendario',
-        icon: Calendar,
+        title: 'Redactor',
+        href: '/lexia/redactor',
+        icon: PenTool,
       },
     ],
   },
@@ -164,12 +175,6 @@ const navigationSections: NavSection[] = [
         href: '/notas',
         icon: MessageSquare,
       },
-  {
-  title: 'Lexia',
-  href: '/lexia',
-  icon: Sparkles,
-  badge: 'IA',
-  },
       {
         title: 'Correo Rápido',
         href: '/herramientas/correo',
