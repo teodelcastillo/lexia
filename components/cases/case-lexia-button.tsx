@@ -22,7 +22,7 @@ export function CaseLexiaButton({
   size = 'sm',
   showLabel = true,
 }: CaseLexiaButtonProps) {
-  const lexiaUrl = `/lexia?caso=${caseId}`
+  const chatUrl = `/lexia/chat?caso=${caseId}`
   const redactorUrl = `/lexia/redactor?caso=${caseId}`
 
   return (
@@ -41,7 +41,7 @@ export function CaseLexiaButton({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
-          <Link href={lexiaUrl} className="flex items-center gap-2">
+          <Link href={chatUrl} className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
             Chat
           </Link>

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { PenTool, Briefcase } from 'lucide-react'
+import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
+import { useLexiaCaseContext } from '@/lib/lexia/lexia-case-context'
 import { Button } from '@/components/ui/button'
 import { RedactorDocumentTypeSelect } from '@/components/lexia/redactor/redactor-document-type-select'
 import { RedactorForm } from '@/components/lexia/redactor/redactor-form'
@@ -38,6 +40,7 @@ interface CaseContext {
 export default function RedactorPage() {
   const searchParams = useSearchParams()
   const caseId = searchParams.get('caso')
+  const layoutCaseContext = useLexiaCaseContext()
 
   const [step, setStep] = useState<Step>('select')
   const [documentType, setDocumentType] = useState<DocumentType | null>(null)
@@ -268,32 +271,31 @@ export default function RedactorPage() {
     generateDraft(formData, draftContent, instruction)
   }
 
+  const caseInfoForBar = layoutCaseContext ?? (caseContext
+    ? { id: caseContext.id, caseNumber: caseContext.caseNumber, title: caseContext.title }
+    : null)
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 border-b border-border px-4 py-3">
+      <div className="flex-shrink-0 border-b border-border px-4 py-3 bg-muted/30">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <PenTool className="h-4 w-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold">Redactor Jurídico</h1>
-            <p className="text-xs text-muted-foreground">
-              {caseContext ? (
-                <>
-                  Caso asociado:{' '}
-                  <Link
-                    href={`/casos/${caseContext.id}`}
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    <Briefcase className="h-3 w-3" />
-                    {caseContext.caseNumber} - {caseContext.title}
-                  </Link>
-                  {' '}(podés elegir si representás al actor o al demandado)
-                </>
-              ) : (
-                'Genera documentos legales con formularios guiados'
-              )}
-            </p>
+            <h1 className="font-semibold mb-2">Redactor Jurídico</h1>
+            <LexiaCaseContextBar
+              caseContext={caseInfoForBar}
+              basePath="/lexia/redactor"
+              editable={true}
+              emptyLabel="Documento genérico (sin caso)"
+              withCaseLabel="Documento para"
+            />
+            {caseContext && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Podés elegir si representás al actor o al demandado en el formulario.
+              </p>
+            )}
           </div>
         </div>
       </div>

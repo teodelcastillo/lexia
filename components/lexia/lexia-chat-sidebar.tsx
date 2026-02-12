@@ -1,23 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
   MessageSquare,
   Plus,
-  FolderOpen,
   Loader2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { LexiaConversationList } from './lexia-conversation-list'
 import { createClient } from '@/lib/supabase/client'
@@ -30,18 +22,12 @@ interface LexiaChatSidebarProps {
 export function LexiaChatSidebar({ caseContext }: LexiaChatSidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [conversations, setConversations] = useState<ConversationListItem[]>([])
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
-  const [availableCases, setAvailableCases] = useState<
-    { id: string; caseNumber: string; title: string }[]
-  >([])
 
   const convIdMatch = pathname.match(/\/lexia\/chat\/([^/]+)/)
   const activeConversationId = convIdMatch?.[1] ?? null
-  const caseIdFromUrl = searchParams.get('caso')
-  const effectiveCaseId = caseContext?.id ?? caseIdFromUrl
 
   const loadConversations = useCallback(async (caseId?: string | null) => {
     setIsLoadingConversations(true)
@@ -60,24 +46,6 @@ export function LexiaChatSidebar({ caseContext }: LexiaChatSidebarProps) {
     }
   }, [])
 
-  const loadCases = useCallback(async () => {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('cases')
-      .select('id, case_number, title')
-      .order('updated_at', { ascending: false })
-      .limit(20)
-    if (!error && data) {
-      setAvailableCases(
-        data.map((c) => ({
-          id: c.id,
-          caseNumber: c.case_number,
-          title: c.title,
-        }))
-      )
-    }
-  }, [])
-
   useEffect(() => {
     loadConversations(caseContext?.id ?? null)
   }, [loadConversations, caseContext?.id])
@@ -87,10 +55,6 @@ export function LexiaChatSidebar({ caseContext }: LexiaChatSidebarProps) {
     window.addEventListener('lexia-conversations-refresh', handleRefresh)
     return () => window.removeEventListener('lexia-conversations-refresh', handleRefresh)
   }, [loadConversations, caseContext?.id])
-
-  useEffect(() => {
-    loadCases()
-  }, [loadCases])
 
   const handleNewConversation = async () => {
     setIsCreating(true)
@@ -126,35 +90,6 @@ export function LexiaChatSidebar({ caseContext }: LexiaChatSidebarProps) {
             <p className="text-xs text-muted-foreground">IA Legal</p>
           </div>
         </div>
-
-        <Select
-          value={caseContext?.id ?? 'none'}
-          onValueChange={(v) => {
-            const params = new URLSearchParams(searchParams)
-            if (v === 'none') {
-              params.delete('caso')
-            } else {
-              params.set('caso', v)
-            }
-            const base = pathname.replace(/\/lexia\/chat\/[^/]+/, '/lexia/chat')
-            const q = params.toString()
-            router.push(q ? `${base}?${q}` : base)
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <FolderOpen className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Sin contexto de caso" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sin contexto de caso</SelectItem>
-            <Separator className="my-1" />
-            {availableCases.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.caseNumber} - {c.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         <Button
           className="w-full"

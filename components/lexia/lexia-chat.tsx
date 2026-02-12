@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Send,
   Sparkles,
-  Briefcase,
   MessageSquare,
   FileSearch,
   PenTool,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { toast } from 'sonner'
+import { LexiaCaseContextBar } from './lexia-case-context-bar'
 import { LexiaChatMessage } from './lexia-chat-message'
 
 const lexiaTools = {
@@ -141,19 +141,20 @@ export function LexiaChat({
     { icon: MessageSquare, title: 'Consultar', desc: 'Preguntas legales', tool: lexiaTools.consulta[0] },
   ]
 
+  const caseInfo = caseContext
+    ? { id: caseContext.id, caseNumber: caseContext.caseNumber, title: caseContext.title }
+    : null
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
-      <div className="border-b border-border px-4 py-2 flex-shrink-0 flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {caseContext ? (
-            <>
-              <Briefcase className="inline h-3 w-3 mr-1" />
-              {caseContext.caseNumber}
-            </>
-          ) : (
-            'Chat general'
-          )}
-        </span>
+      <div className="border-b border-border px-4 py-3 flex-shrink-0 flex items-center justify-between gap-3 bg-muted/30">
+        <LexiaCaseContextBar
+          caseContext={caseInfo}
+          basePath={`/lexia/chat/${conversationId}`}
+          editable={false}
+          emptyLabel="Conversación general"
+          withCaseLabel="Conversación sobre"
+        />
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={handleClearChat}>
             <Trash2 className="h-4 w-4 mr-1" />
@@ -174,19 +175,6 @@ export function LexiaChat({
                 Tu asistente legal de IA. Puedo ayudarte a redactar documentos, investigar
                 jurisprudencia, calcular plazos y responder consultas legales.
               </p>
-              {caseContext ? (
-                <div className="w-full max-w-2xl">
-                  <div className="flex items-center gap-2 mb-4 justify-center">
-                    <Briefcase className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">
-                      Contexto activo: {caseContext.caseNumber}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Tengo acceso a la información de este caso.
-                  </p>
-                </div>
-              ) : null}
               <div className="grid gap-3 sm:grid-cols-2 w-full max-w-2xl">
                 {quickTools.map((item) => (
                   <Button
@@ -239,12 +227,6 @@ export function LexiaChat({
         </div>
 
         <div className="border-t border-border p-4 flex-shrink-0">
-          {caseContext && (
-            <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-              <Briefcase className="h-3 w-3" />
-              <span>Contexto: {caseContext.caseNumber} - {caseContext.title}</span>
-            </div>
-          )}
           <div className="flex gap-2">
             <Textarea
               placeholder={

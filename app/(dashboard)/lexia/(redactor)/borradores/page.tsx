@@ -3,18 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { FileEdit, ArrowLeft, Loader2, Briefcase, FolderOpen } from 'lucide-react'
+import { FileEdit, ArrowLeft, Loader2, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
+import { useLexiaCaseContext } from '@/lib/lexia/lexia-case-context'
 import { DOCUMENT_TYPE_CONFIG } from '@/lib/lexia/document-type-config'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
 
@@ -37,6 +32,7 @@ export default function BorradoresPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const caseFilter = searchParams.get('caso')
+  const layoutCaseContext = useLexiaCaseContext()
   const [drafts, setDrafts] = useState<DraftItem[]>([])
   const [cases, setCases] = useState<Record<string, CaseInfo>>({})
   const [availableCases, setAvailableCases] = useState<CaseInfo[]>([])
@@ -99,16 +95,27 @@ export default function BorradoresPage() {
     })
   }
 
+  const caseInfoForBar = layoutCaseContext
+    ? { id: layoutCaseContext.id, caseNumber: layoutCaseContext.caseNumber, title: layoutCaseContext.title }
+    : null
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 border-b border-border px-4 py-3">
+      <div className="flex-shrink-0 border-b border-border px-4 py-3 bg-muted/30">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <FileEdit className="h-4 w-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold">Mis borradores</h1>
-            <p className="text-xs text-muted-foreground">
+            <h1 className="font-semibold mb-2">Mis borradores</h1>
+            <LexiaCaseContextBar
+              caseContext={caseInfoForBar}
+              basePath="/lexia/borradores"
+              editable={true}
+              emptyLabel="Todos los borradores"
+              withCaseLabel="Borradores del caso"
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
               Retomá borradores guardados para continuar editando
             </p>
           </div>
@@ -123,34 +130,6 @@ export default function BorradoresPage() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto space-y-4">
-          <div className="flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={caseFilter ?? 'all'}
-              onValueChange={(v) => {
-                const params = new URLSearchParams(searchParams)
-                if (v === 'all') {
-                  params.delete('caso')
-                } else {
-                  params.set('caso', v)
-                }
-                const q = params.toString()
-                router.push(q ? `/lexia/borradores?${q}` : '/lexia/borradores')
-              }}
-            >
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Filtrar por caso" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los borradores</SelectItem>
-                {availableCases.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.case_number} - {c.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
