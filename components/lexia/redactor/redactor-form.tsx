@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import {
   type FormFieldDefinition,
 } from '@/lib/ai/draft-schemas'
 import type { ClientRole } from '@/lib/lexia/case-party-data'
+import { PartyFormGroup } from '@/components/lexia/redactor/party-form-group'
 
 interface RedactorFormProps {
   documentType: DocumentType
@@ -54,7 +55,15 @@ export function RedactorForm({
       : getSchemaForDocumentType(documentType)
 
   const baseDefaults = fields.reduce(
-    (acc, f) => ({ ...acc, [f.key]: '' }),
+    (acc, f) => {
+      if (f.type === 'party' && f.partyPrefix) {
+        const subKeys = ['tipo', 'nombre', 'apellido', 'edad', 'razon_social', 'documento_tipo', 'documento', 'domicilio_real', 'domicilio_legal']
+        for (const s of subKeys) acc[`${f.partyPrefix}_${s}`] = ''
+      } else {
+        acc[f.key] = ''
+      }
+      return acc
+    },
     {} as Record<string, string>
   )
   const mergedDefaults = { ...baseDefaults, ...defaultValues }
@@ -75,6 +84,7 @@ export function RedactorForm({
   })
 
   return (
+    <FormProvider {...form}>
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center justify-between gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onBack}>
@@ -112,35 +122,47 @@ export function RedactorForm({
       )}
 
       <div className="space-y-4">
-        {fields.map((field) => (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {field.label}
-              {field.required && <span className="text-destructive ml-1">*</span>}
-            </Label>
-            {field.type === 'textarea' ? (
-              <Textarea
-                id={field.key}
-                placeholder={field.placeholder}
+        {fields.map((field) => {
+          if (field.type === 'party' && field.partyPrefix && field.partyLabel) {
+            return (
+              <PartyFormGroup
+                key={field.key}
+                prefix={field.partyPrefix}
+                label={field.partyLabel}
                 disabled={isSubmitting}
-                className="min-h-[100px]"
-                {...form.register(field.key)}
               />
-            ) : (
-              <Input
-                id={field.key}
-                placeholder={field.placeholder}
-                disabled={isSubmitting}
-                {...form.register(field.key)}
-              />
-            )}
-            {form.formState.errors[field.key] && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors[field.key]?.message as string}
-              </p>
-            )}
-          </div>
-        ))}
+            )
+          }
+          return (
+            <div key={field.key} className="space-y-2">
+              <Label htmlFor={field.key}>
+                {field.label}
+                {field.required && <span className="text-destructive ml-1">*</span>}
+              </Label>
+              {field.type === 'textarea' ? (
+                <Textarea
+                  id={field.key}
+                  placeholder={field.placeholder}
+                  disabled={isSubmitting}
+                  className="min-h-[100px]"
+                  {...form.register(field.key)}
+                />
+              ) : (
+                <Input
+                  id={field.key}
+                  placeholder={field.placeholder}
+                  disabled={isSubmitting}
+                  {...form.register(field.key)}
+                />
+              )}
+              {form.formState.errors[field.key] && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors[field.key]?.message as string}
+                </p>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
@@ -154,5 +176,6 @@ export function RedactorForm({
         )}
       </Button>
     </form>
+    </FormProvider>
   )
 }

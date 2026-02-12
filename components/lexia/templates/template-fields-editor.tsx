@@ -123,16 +123,23 @@ export function TemplateFieldsEditor({
                   <Label className="text-xs">Tipo</Label>
                   <select
                     value={field.type}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const t = e.target.value as 'text' | 'textarea' | 'party'
                       handleFieldChange(index, {
-                        type: e.target.value as 'text' | 'textarea',
+                        type: t,
+                        ...(t === 'party' && field.partyPrefix
+                          ? { partyPrefix: field.partyPrefix, partyLabel: field.partyLabel ?? field.label }
+                          : t !== 'party'
+                            ? { partyPrefix: undefined, partyLabel: undefined }
+                            : {}),
                       })
-                    }
+                    }}
                     disabled={disabled}
                     className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   >
                     <option value="text">Texto corto</option>
                     <option value="textarea">Área de texto</option>
+                    <option value="party">Datos de parte (actor/demandado)</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">

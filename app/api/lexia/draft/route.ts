@@ -15,6 +15,7 @@ import { getModelConfig } from '@/lib/ai/providers'
 import { checkCreditsRemaining, recordLexiaUsage } from '@/lib/ai/usage'
 import { getCreditsForIntent } from '@/lib/ai/credits'
 import { buildDraftPrompt, buildDraftUserMessage, resolveTemplateContent } from '@/lib/ai/draft-prompts'
+import { normalizeFormDataForPrompt } from '@/lib/lexia/party-utils'
 import {
   isDocumentType,
   validateFormData,
@@ -165,11 +166,12 @@ export async function POST(req: Request) {
 
     const templateFragment = template?.system_prompt_fragment ?? null
     const templateContent = template?.template_content ?? null
-    const baseContent = resolveTemplateContent(templateContent, validation.data)
+    const resolvedFormData = normalizeFormDataForPrompt(validation.data, documentType)
+    const baseContent = resolveTemplateContent(templateContent, resolvedFormData)
 
     const systemPrompt = buildDraftPrompt({
       documentType,
-      formData: validation.data,
+      formData: resolvedFormData,
       templateFragment,
       baseContent: baseContent || null,
       caseContext: caseContext
