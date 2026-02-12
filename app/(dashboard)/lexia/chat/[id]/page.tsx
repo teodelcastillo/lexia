@@ -76,6 +76,11 @@ export default function LexiaChatByIdPage() {
             }
           }
         }
+        // Debug: estructura de mensajes al cargar conversación
+        console.log('[Lexia] Messages from API:', data.messages?.length, data.messages)
+        if (Array.isArray(data.messages) && data.messages[0]) {
+          console.log('[Lexia] Sample message:', JSON.stringify(data.messages[0], null, 2))
+        }
         setConversation({
           messages: data.messages || [],
           caseContext,
