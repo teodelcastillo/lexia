@@ -106,15 +106,15 @@ export function normalizeFormDataForPrompt(
   documentType: DocumentType
 ): Record<string, string> {
   const result: Record<string, string> = {}
-  const prefixSet = new Set(getPartyPrefixes(documentType))
+  const prefixes = getPartyPrefixes(documentType)
 
   for (const [key, value] of Object.entries(formData)) {
-    const isPartyField = prefixSet.some((p) => key.startsWith(p + '_'))
+    const isPartyField = prefixes.some((p) => key.startsWith(p + '_'))
     if (isPartyField) continue
     result[key] = value
   }
 
-  for (const prefix of prefixSet) {
+  for (const prefix of prefixes) {
     const combined = buildPartyForPrompt(formData, prefix)
     if (combined) {
       result[prefix] = combined
