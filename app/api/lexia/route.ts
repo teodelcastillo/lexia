@@ -255,19 +255,23 @@ export async function POST(req: Request) {
               intent: finalDecision.classification.intent,
               model_used: finalDecision.serviceConfig.model,
             })
-            // Generate title only once, from the 1st user message (not on every send)
+            // Generate title only once, from the 1st user message (skip entirely when not 1st)
             const userMessageCount = messagesToSave.filter((m) => m.role === 'user').length
-            const firstUserText = getFirstUserMessageText(messagesToSave)
-            const { data: conv } = await supabase
-              .from('lexia_conversations')
-              .select('title')
-              .eq('id', conversationId)
-              .eq('user_id', user.id)
-              .single()
-            if (conv?.title === DEFAULT_TITLE && userMessageCount === 1 && firstUserText) {
-              const title = await generateConversationTitle(firstUserText)
-              if (title) {
-                await updateConversation(supabase, conversationId, user.id, { title })
+            if (userMessageCount === 1) {
+              const firstUserText = getFirstUserMessageText(messagesToSave)
+              if (firstUserText) {
+                const { data: conv } = await supabase
+                  .from('lexia_conversations')
+                  .select('title')
+                  .eq('id', conversationId)
+                  .eq('user_id', user.id)
+                  .single()
+                if (conv?.title === DEFAULT_TITLE) {
+                  const title = await generateConversationTitle(firstUserText)
+                  if (title) {
+                    await updateConversation(supabase, conversationId, user.id, { title })
+                  }
+                }
               }
             }
           } catch (err) {

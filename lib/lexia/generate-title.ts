@@ -21,33 +21,34 @@ export function getFirstUserMessageText(messages: UIMessage[]): string {
     .map((p) => p.text ?? '')
     .join('')
 }
-const MAX_TITLE_LENGTH = 60
+const MAX_TITLE_LENGTH = 50
 
 /**
- * Generates a short, relevant title for a conversation based on the user's first message.
- * Returns a trimmed string (max ~60 chars) or null if generation fails.
+ * Generates a short, descriptive title from the user's first message/instruction.
+ * Only called when userMessageCount === 1 (first message).
+ * Returns a trimmed string (max ~50 chars) or null if generation fails.
  */
 export async function generateConversationTitle(
   userMessage: string
 ): Promise<string | null> {
   if (!userMessage?.trim()) return null
 
-  const truncated = userMessage.trim().slice(0, 500)
+  const truncated = userMessage.trim().slice(0, 400)
 
   try {
     const { text } = await generateText({
       model: resolveModel(TITLE_MODEL),
-      prompt: `Eres un asistente. Genera un título corto y descriptivo (máximo 6-8 palabras) para una conversación legal que comienza con este mensaje del usuario. Responde SOLO con el título, sin comillas ni explicaciones.
+      prompt: `Genera un título muy corto (4-6 palabras) que describa la instrucción o consulta del usuario. Sin comillas ni puntuación final. Solo el título.
 
-Mensaje del usuario:
+Instrucción del usuario:
 "${truncated}"
 
 Título:`,
-      maxTokens: 50,
-      temperature: 0.3,
+      maxTokens: 30,
+      temperature: 0.2,
     })
 
-    const title = text.trim().slice(0, MAX_TITLE_LENGTH)
+    const title = text.trim().replace(/^["']|["']$/g, '').slice(0, MAX_TITLE_LENGTH)
     return title || null
   } catch (err) {
     console.error('[Lexia] generateConversationTitle error:', err)
