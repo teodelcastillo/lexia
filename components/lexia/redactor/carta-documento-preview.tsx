@@ -74,7 +74,8 @@ export function CartaDocumentoPreview({
         hideBranding={printMode}
       />
 
-      <div style={{ marginTop: printMode ? '1.5rem' : '1.2rem' }} />
+      {/* ~7 líneas de espacio entre encabezados (formato papel CD) */}
+      <div style={{ marginTop: printMode ? '7em' : '5em', minHeight: printMode ? '7em' : '5em' }} />
 
       {/* Segunda copia del encabezado */}
       <CartaDocumentoHeader

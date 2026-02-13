@@ -36,7 +36,7 @@ function buildCartaDocumentoPreviewHtml(
 
   return `
     ${headerHtml}
-    <div style="margin-top:1.5rem"></div>
+    <div style="margin-top:7em;min-height:7em"></div>
     ${headerHtml}
     <div style="margin-top:1.5rem"></div>
     ${lugarFecha}
