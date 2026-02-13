@@ -17,12 +17,12 @@ import {
 
 interface CaseOverviewProps {
   caseData: {
-    description: string | null
-    opponent: string | null
-    opponent_lawyer: string | null
-    court: string | null
-    judge: string | null
-    file_number: string | null
+    description?: string | null
+    opponent?: string | null
+    opponent_lawyer?: string | null
+    court?: string | null
+    judge?: string | null
+    file_number?: string | null
     created_at: string
     updated_at: string
   }

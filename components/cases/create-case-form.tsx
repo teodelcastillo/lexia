@@ -150,6 +150,21 @@ export function CreateCaseForm({ companies: initialCompanies = [], organizationI
 
       if (createError) throw createError
 
+      // Assign creator as case leader so they can view the case
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { error: assignError } = await supabase.from('case_assignments').insert({
+          case_id: newCase.id,
+          user_id: user.id,
+          case_role: 'leader',
+          assigned_by: user.id,
+        })
+        if (assignError) {
+          console.error('[CreateCaseForm] Error assigning creator to case:', assignError)
+          // Don't throw - case was created, user can still be assigned manually
+        }
+      }
+
       // Redirect to the new case
       router.push(`/casos/${newCase.id}`)
     } catch (err) {

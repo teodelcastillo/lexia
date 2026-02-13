@@ -28,7 +28,6 @@ import type { CaseStatus } from '@/lib/types'
 
 interface CasesTableProps {
   status?: string
-  priority?: string
   search?: string
   page: number
 }
@@ -111,7 +110,7 @@ export async function CasesTable(props: CasesTableProps) {
   const { cases, total, totalPages } = await getCases(props)
 
   if (cases.length === 0) {
-    const hasFilters = props.search || props.status || props.priority
+    const hasFilters = props.search || props.status
     
     return (
       <div className="rounded-lg border border-dashed border-border">
@@ -262,7 +261,7 @@ export async function CasesTable(props: CasesTableProps) {
             >
               {props.page > 1 ? (
                 <Link 
-                  href={`/casos?page=${props.page - 1}${props.status ? `&status=${props.status}` : ''}${props.priority ? `&priority=${props.priority}` : ''}${props.search ? `&search=${props.search}` : ''}`}
+                  href={`/casos?page=${props.page - 1}${props.status ? `&status=${props.status}` : ''}${props.search ? `&search=${props.search}` : ''}`}
                 >
                   Anterior
                 </Link>
@@ -278,7 +277,7 @@ export async function CasesTable(props: CasesTableProps) {
             >
               {props.page < totalPages ? (
                 <Link 
-                  href={`/casos?page=${props.page + 1}${props.status ? `&status=${props.status}` : ''}${props.priority ? `&priority=${props.priority}` : ''}${props.search ? `&search=${props.search}` : ''}`}
+                  href={`/casos?page=${props.page + 1}${props.status ? `&status=${props.status}` : ''}${props.search ? `&search=${props.search}` : ''}`}
                 >
                   Siguiente
                 </Link>

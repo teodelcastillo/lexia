@@ -25,7 +25,6 @@ import { Badge } from '@/components/ui/badge'
 
 interface CasesFiltersProps {
   currentStatus?: string
-  currentPriority?: string
   currentSearch?: string
 }
 
@@ -41,20 +40,8 @@ const statusOptions = [
   { value: 'archived', label: 'Archivado' },
 ]
 
-/**
- * Priority options for filtering
- */
-const priorityOptions = [
-  { value: 'all', label: 'Todas las prioridades' },
-  { value: 'urgent', label: 'Urgente' },
-  { value: 'high', label: 'Alta' },
-  { value: 'medium', label: 'Media' },
-  { value: 'low', label: 'Baja' },
-]
-
 export function CasesFilters({ 
   currentStatus, 
-  currentPriority, 
   currentSearch 
 }: CasesFiltersProps) {
   const router = useRouter()
@@ -111,7 +98,7 @@ export function CasesFilters({
   }
 
   // Count active filters
-  const activeFiltersCount = [currentStatus, currentPriority, currentSearch].filter(Boolean).length
+  const activeFiltersCount = [currentStatus, currentSearch].filter(Boolean).length
 
   return (
     <div className="space-y-4">
@@ -151,22 +138,6 @@ export function CasesFilters({
           </SelectContent>
         </Select>
 
-        {/* Priority Filter */}
-        <Select
-          value={currentPriority || 'all'}
-          onValueChange={(value) => updateFilters({ priority: value })}
-        >
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Prioridad" />
-          </SelectTrigger>
-          <SelectContent>
-            {priorityOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Active Filters Display */}
@@ -182,19 +153,6 @@ export function CasesFilters({
                 onClick={() => updateFilters({ status: null })}
                 className="ml-1 hover:text-foreground"
                 aria-label="Quitar filtro de estado"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          
-          {currentPriority && (
-            <Badge variant="secondary" className="gap-1">
-              Prioridad: {priorityOptions.find(o => o.value === currentPriority)?.label}
-              <button
-                onClick={() => updateFilters({ priority: null })}
-                className="ml-1 hover:text-foreground"
-                aria-label="Quitar filtro de prioridad"
               >
                 <X className="h-3 w-3" />
               </button>

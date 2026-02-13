@@ -117,7 +117,7 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
   // Fetch related cases
   const { data: cases } = await supabase
     .from('cases')
-    .select('id, case_number, title, status, priority, case_type, opened_at')
+    .select('id, case_number, title, status, case_type, created_at')
     .eq('company_id', id)
     .order('created_at', { ascending: false })
 

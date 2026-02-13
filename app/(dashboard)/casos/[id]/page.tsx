@@ -255,7 +255,17 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   } | null
   
   const status = statusConfig[caseData.status as CaseStatus]
-  const priority = priorityConfig[caseData.priority as TaskPriority]
+  const priority = caseData.priority ? priorityConfig[caseData.priority as TaskPriority] : null
+
+  // Map DB column names to UI expectations (court_name -> court, etc.)
+  const overviewData = {
+    ...caseData,
+    court: (caseData as { court_name?: string; court?: string }).court_name ?? (caseData as { court?: string }).court,
+    file_number: (caseData as { court_number?: string; file_number?: string }).court_number ?? (caseData as { file_number?: string }).file_number,
+    opponent: (caseData as { opposing_party?: string; opponent?: string }).opposing_party ?? (caseData as { opponent?: string }).opponent,
+    opponent_lawyer: (caseData as { opposing_counsel?: string; opponent_lawyer?: string }).opposing_counsel ?? (caseData as { opponent_lawyer?: string }).opponent_lawyer,
+    judge: null as string | null,
+  }
 
   return (
     <div className="space-y-6">
@@ -281,9 +291,11 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               <Badge variant={status.variant} className={status.className}>
                 {status.label}
               </Badge>
-              <Badge variant="outline" className={priority.className}>
-                {priority.label}
-              </Badge>
+              {priority && (
+                <Badge variant="outline" className={priority.className}>
+                  {priority.label}
+                </Badge>
+              )}
               {caseRole !== 'admin_general' && (
                 <Badge variant="secondary" className="text-xs">
                   Tu rol: {roleLabels[caseRole]}
@@ -382,7 +394,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">Juzgado</p>
               <p className="text-sm font-medium truncate">
-                {caseData.court || 'No especificado'}
+                {overviewData.court || 'No especificado'}
               </p>
             </div>
           </div>
@@ -459,7 +471,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         {/* Overview Tab */}
         <TabsContent value="overview">
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <CaseOverview caseData={caseData} />
+            <CaseOverview caseData={overviewData} />
           </Suspense>
         </TabsContent>
 

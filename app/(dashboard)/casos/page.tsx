@@ -23,7 +23,6 @@ export const metadata = {
 interface CasesPageProps {
   searchParams: Promise<{
     status?: string
-    priority?: string
     search?: string
     page?: string
     error?: string
@@ -94,7 +93,6 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
       {/* Filters */}
       <CasesFilters 
         currentStatus={params.status}
-        currentPriority={params.priority}
         currentSearch={params.search}
       />
 
@@ -102,7 +100,6 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
       <Suspense fallback={<TableSkeleton />}>
         <CasesTable 
           status={params.status}
-          priority={params.priority}
           search={params.search}
           page={params.page ? parseInt(params.page) : 1}
         />

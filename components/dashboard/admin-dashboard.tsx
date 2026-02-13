@@ -387,7 +387,7 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
                 <CardDescription>Casos de alta y urgente prioridad</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/casos?priority=high,urgent" className="text-xs">
+                <Link href="/casos?status=active" className="text-xs">
                   Ver todos
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Link>
