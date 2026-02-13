@@ -71,20 +71,6 @@ export async function POST(req: Request) {
       )
     }
 
-    if (LEXIA_CREDITS_ENFORCEMENT) {
-      const credits = await checkCreditsRemaining(supabase, user.id)
-      if (!credits.allowed) {
-        return new Response(
-          JSON.stringify({
-            error: 'Credits exhausted for this period. Usage resets next month.',
-            remaining: 0,
-            limit: credits.limit,
-          }),
-          { status: 402, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-    }
-
     const body = await req.json()
     const documentType = body.documentType as string
     const variant = (body.variant as string | undefined) ?? ''
@@ -103,6 +89,20 @@ export async function POST(req: Request) {
         JSON.stringify({ error: 'Invalid documentType' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+
+    if (LEXIA_CREDITS_ENFORCEMENT) {
+      const credits = await checkCreditsRemaining(supabase, user.id)
+      if (!credits.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: 'Credits exhausted for this period. Usage resets next month.',
+            remaining: 0,
+            limit: credits.limit,
+          }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     if (caseContext?.caseId) {
@@ -165,6 +165,20 @@ export async function POST(req: Request) {
         JSON.stringify({ error: 'Validation failed', errors: validation.errors }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Carta documento: sin IA, solo contenido del usuario (ahorra costos y evita errores)
+    if (documentType === 'carta_documento') {
+      const texto = (validation.data.texto ?? '').trim() || '\u00A0'
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(texto))
+          controller.close()
+        },
+      })
+      return new Response(stream, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
     }
 
     const templateFragment = template?.system_prompt_fragment ?? null

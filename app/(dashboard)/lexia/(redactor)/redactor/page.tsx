@@ -366,7 +366,7 @@ export default function RedactorPage() {
                     onSaveClick={() => setSaveDialogOpen(true)}
                     formData={formData}
                   />
-                  {showIteration && (
+                  {showIteration && documentType !== 'carta_documento' && (
                     <div className="border-t border-border pt-4">
                       <p className="text-sm font-medium mb-2">Modificar borrador</p>
                       <RedactorIterationChat
