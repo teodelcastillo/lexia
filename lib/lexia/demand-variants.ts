@@ -33,7 +33,9 @@ export const DEMANDA_VARIANT_LABELS: Record<DemandaVariant, string> = {
 }
 
 export function getDemandaVariantLabel(variant: string): string {
-  return DEMANDA_VARIANT_LABELS[variant as DemandaVariant] ?? variant || 'Demanda (estándar)'
+  const label = DEMANDA_VARIANT_LABELS[variant as DemandaVariant]
+  if (label !== undefined) return label
+  return variant ? variant : 'Demanda (estándar)'
 }
 
 export function isDemandaVariant(value: string): value is DemandaVariant {
