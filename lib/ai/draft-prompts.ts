@@ -129,6 +129,8 @@ export interface BuildDraftPromptParams {
     title: string
     type?: string
   } | null
+  /** Optional context from the original demand (for contestación) */
+  demandaContext?: string | null
   previousDraft?: string | null
   iterationInstruction?: string | null
 }
@@ -143,12 +145,17 @@ export function buildDraftPrompt(params: BuildDraftPromptParams): string {
     templateFragment,
     baseContent,
     caseContext,
+    demandaContext,
     previousDraft,
     iterationInstruction,
   } = params
 
   let prompt = `${DRAFT_BASE}\n\n`
   prompt += `--- ESTRUCTURA DEL DOCUMENTO ---\n${TYPE_STRUCTURE[documentType]}\n\n`
+
+  if (demandaContext?.trim()) {
+    prompt += `--- CONTEXTO DE LA DEMANDA (para contestación) ---\n${demandaContext.trim()}\n\n`
+  }
 
   if (templateFragment) {
     prompt += `--- INSTRUCCIONES ESPECIFICAS ---\n${templateFragment}\n\n`

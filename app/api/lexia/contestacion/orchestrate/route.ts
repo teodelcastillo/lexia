@@ -132,6 +132,16 @@ export async function POST(req: Request) {
     }
 
     if (action.type === 'wait_user') {
+      // Persist merged state so user responses are saved
+      const { error: updateError } = await supabase
+        .from('lexia_contestacion_sessions')
+        .update({ state })
+        .eq('id', sessionId)
+
+      if (updateError) {
+        console.error('[Contestacion] Orchestrate update (wait_user) error:', updateError)
+      }
+
       return NextResponse.json({
         action: { type: action.type, payload: action.payload },
         state,
@@ -140,6 +150,16 @@ export async function POST(req: Request) {
     }
 
     if (action.type === 'need_more_info') {
+      // Persist merged state so user responses are saved (user can refresh and resume)
+      const { error: updateError } = await supabase
+        .from('lexia_contestacion_sessions')
+        .update({ state })
+        .eq('id', sessionId)
+
+      if (updateError) {
+        console.error('[Contestacion] Orchestrate update (need_more_info) error:', updateError)
+      }
+
       return NextResponse.json({
         action: { type: action.type, payload: action.payload },
         state,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { PenTool, Loader2, FileText, ArrowRight } from 'lucide-react'
 import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
@@ -12,6 +12,8 @@ import { toast } from 'sonner'
 import { ContestacionProgress } from '@/components/lexia/contestacion/contestacion-progress'
 import { ContestacionBlockQuestions } from '@/components/lexia/contestacion/contestacion-block-questions'
 import { ContestacionReadySummary } from '@/components/lexia/contestacion/contestacion-ready-summary'
+import { ContestacionDraftView } from '@/components/lexia/contestacion/contestacion-draft-view'
+import { ContestacionIterationChat } from '@/components/lexia/contestacion/contestacion-iteration-chat'
 import type {
   ContestacionSessionState,
   DemandBlock,
@@ -31,6 +33,35 @@ export default function ContestacionPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [localResponses, setLocalResponses] = useState<Record<string, BlockResponse>>({})
   const [bloqueIdsPendientes, setBloqueIdsPendientes] = useState<string[]>([])
+  const [agentMessage, setAgentMessage] = useState<string | null>(null)
+  const [draftContent, setDraftContent] = useState('')
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false)
+  const [showIteration, setShowIteration] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+
+  const sessionParam = searchParams.get('session')
+  useEffect(() => {
+    if (!sessionParam || sessionId) return
+    fetch(`/api/lexia/contestacion/sessions/${sessionParam}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Sesión no encontrada')
+        return res.json()
+      })
+      .then((data) => {
+        const s = data.session
+        if (!s?.id) return
+        setSessionId(s.id)
+        const st = (s.state ?? {}) as ContestacionSessionState
+        setState(st)
+        setCurrentStep(s.current_step ?? 'init')
+        setDemandaRaw(s.demanda_raw ?? '')
+        setLocalResponses((st.respuestas_usuario ?? {}) as Record<string, BlockResponse>)
+        if (st.draft_content) setDraftContent(st.draft_content)
+      })
+      .catch(() => {
+        toast.error('No se pudo cargar la sesión')
+      })
+  }, [sessionParam, sessionId])
 
   const runOrchestrate = useCallback(
     async (sid: string, userResponses?: Record<string, BlockResponse>) => {
@@ -75,12 +106,20 @@ export default function ContestacionPage() {
       }
 
       const data = await res.json()
-      setSessionId(data.sessionId)
+      const sid = data.sessionId
+      setSessionId(sid)
       setState(data.state ?? null)
       setCurrentStep(data.current_step ?? 'init')
 
-      if (data.current_step === 'init' && data.sessionId) {
-        const orchestrateRes = await runOrchestrate(data.sessionId)
+      if (sid) {
+        const url = new URL(window.location.href)
+        url.searchParams.set('session', sid)
+        if (caseId) url.searchParams.set('caso', caseId)
+        router.replace(url.pathname + url.search)
+      }
+
+      if (data.current_step === 'init' && sid) {
+        const orchestrateRes = await runOrchestrate(sid)
         setState(orchestrateRes.state ?? null)
         setCurrentStep(orchestrateRes.nextStep ?? 'parsed')
       }
@@ -124,13 +163,18 @@ export default function ContestacionPage() {
     }
     setIsLoading(true)
     setBloqueIdsPendientes([])
+    setAgentMessage(null)
     try {
       const data = await runOrchestrate(sessionId, merged)
       setState(data.state ?? null)
       setCurrentStep(data.nextStep ?? 'questions')
       setLocalResponses(data.state?.respuestas_usuario ?? {})
-      if (data.nextStep === 'need_more_info' && data.action?.payload?.bloque_ids) {
-        setBloqueIdsPendientes(data.action.payload.bloque_ids)
+      const payload = data.action?.payload
+      if (data.nextStep === 'need_more_info' && payload?.bloque_ids) {
+        setBloqueIdsPendientes(payload.bloque_ids)
+        setAgentMessage(payload.reason ?? 'Falta información en algunos bloques.')
+      } else if (data.action?.type === 'wait_user' && payload?.reason) {
+        setAgentMessage(payload.reason)
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al enviar')
@@ -143,33 +187,78 @@ export default function ContestacionPage() {
     setLocalResponses((prev) => ({ ...prev, [bloqueId]: response }))
   }
 
-  const [isCreatingDraft, setIsCreatingDraft] = useState(false)
-  const handleGenerarBorrador = async () => {
-    if (!formDataConsolidado) return
-    setIsCreatingDraft(true)
+  const handleGenerarBorrador = useCallback(
+    async (iterationInstruction?: string) => {
+      if (!sessionId) return
+      setIsGeneratingDraft(true)
+      setDraftContent('')
+      try {
+        const res = await fetch('/api/lexia/contestacion/generate-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            iterationInstruction: iterationInstruction ?? undefined,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error ?? 'Error al generar borrador')
+        }
+        const reader = res.body?.getReader()
+        const decoder = new TextDecoder()
+        let content = ''
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            content += decoder.decode(value, { stream: true })
+            setDraftContent(content)
+          }
+        }
+        setState((prev) =>
+          prev ? { ...prev, draft_content: content, draft_generado_at: new Date().toISOString() } : prev
+        )
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Error al generar borrador')
+      } finally {
+        setIsGeneratingDraft(false)
+      }
+    },
+    [sessionId]
+  )
+
+  const handleSaveDraft = useCallback(async () => {
+    if (!sessionId) return
+    setIsSavingDraft(true)
     try {
-      const res = await fetch('/api/lexia/drafts', {
+      const res = await fetch('/api/lexia/contestacion/save-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentType: 'contestacion',
-          formData: formDataConsolidado,
-          caseId: caseId || null,
-          content: '',
-        }),
+        body: JSON.stringify({ sessionId }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Error al crear borrador')
+        throw new Error(err.error ?? 'Error al guardar')
       }
-      const draft = await res.json()
-      router.push(`/lexia/redactor?borrador=${draft.id}${caseId ? `&caso=${caseId}` : ''}`)
+      const { draftId, caseId: savedCaseId } = await res.json()
+      router.push(
+        `/lexia/redactor?borrador=${draftId}${savedCaseId ? `&caso=${savedCaseId}` : ''}`
+      )
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear borrador')
+      toast.error(err instanceof Error ? err.message : 'Error al guardar borrador')
     } finally {
-      setIsCreatingDraft(false)
+      setIsSavingDraft(false)
     }
-  }
+  }, [sessionId, router])
+
+  const handleIterate = useCallback(
+    (instruction: string) => {
+      setShowIteration(false)
+      handleGenerarBorrador(instruction)
+    },
+    [handleGenerarBorrador]
+  )
 
   const caseInfoForBar =
     layoutCaseContext ?? (caseId ? { id: caseId, caseNumber: '', title: '' } : null)
@@ -187,6 +276,7 @@ export default function ContestacionPage() {
     currentStep === 'need_more_info' ||
     (currentStep === 'analyzed' && preguntas.length > 0)
   const showReady = currentStep === 'ready_for_redaction' && formDataConsolidado
+  const hasDraft = draftContent.length > 0 || isGeneratingDraft
 
   return (
     <div className="flex flex-col h-full">
@@ -308,10 +398,13 @@ export default function ContestacionPage() {
           {showQuestions && preguntas.length > 0 && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold">Respondé por cada bloque</h2>
-              {currentStep === 'need_more_info' && bloqueIdsPendientes.length > 0 && (
+              {(currentStep === 'need_more_info' && bloqueIdsPendientes.length > 0) && (
                 <p className="text-sm text-amber-600 dark:text-amber-500">
-                  Falta información en algunos bloques. Completá los que faltan.
+                  {agentMessage ?? 'Falta información en algunos bloques. Completá los que faltan.'}
                 </p>
+              )}
+              {agentMessage && currentStep !== 'need_more_info' && (
+                <p className="text-sm text-muted-foreground">{agentMessage}</p>
               )}
               <div className="space-y-4">
                 {bloques.map((bloque) => (
@@ -339,19 +432,19 @@ export default function ContestacionPage() {
             </div>
           )}
 
-          {showReady && formDataConsolidado && (
+          {showReady && formDataConsolidado && !hasDraft && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold">Listo para redacción</h2>
               <ContestacionReadySummary formData={formDataConsolidado} />
               <div className="flex items-center gap-3">
                 <Button
-                  onClick={handleGenerarBorrador}
-                  disabled={isCreatingDraft}
+                  onClick={() => handleGenerarBorrador()}
+                  disabled={isGeneratingDraft}
                 >
-                  {isCreatingDraft ? (
+                  {isGeneratingDraft ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Creando borrador...
+                      Generando borrador...
                     </>
                   ) : (
                     <>
@@ -361,9 +454,38 @@ export default function ContestacionPage() {
                   )}
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Irás al Redactor para generar el contenido.
+                  Se generará el borrador con IA. Luego podés guardarlo o modificarlo.
                 </span>
               </div>
+            </div>
+          )}
+
+          {showReady && hasDraft && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold">Borrador de contestación</h2>
+              <ContestacionDraftView
+                content={draftContent}
+                isStreaming={isGeneratingDraft}
+                isSaving={isSavingDraft}
+                onSaveClick={handleSaveDraft}
+              />
+              {!isGeneratingDraft && draftContent && (
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowIteration((s) => !s)}
+                  >
+                    {showIteration ? 'Ocultar modificación' : 'Modificar borrador'}
+                  </Button>
+                  {showIteration && (
+                    <ContestacionIterationChat
+                      onSend={handleIterate}
+                      isGenerating={isGeneratingDraft}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           )}
         </Card>

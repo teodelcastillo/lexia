@@ -49,6 +49,7 @@ function checkRateLimit(userId: string): boolean {
 /** Document types that use extended thinking (complex reasoning) */
 const EXTENDED_THINKING_TYPES: DocumentType[] = [
   'demanda',
+  'contestacion',
   'casacion',
   'contrato',
 ]
@@ -83,6 +84,7 @@ export async function POST(req: Request) {
     } | null
     const previousDraft = body.previousDraft as string | null
     const iterationInstruction = body.iterationInstruction as string | null
+    const demandaContext = body.demandaContext as string | null | undefined
 
     if (!isDocumentType(documentType)) {
       return new Response(
@@ -198,6 +200,7 @@ export async function POST(req: Request) {
             type: caseContext.type,
           }
         : null,
+      demandaContext: demandaContext ?? null,
       previousDraft,
       iterationInstruction,
     })
