@@ -9,7 +9,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Plus, AlertCircle } from 'lucide-react'
 import { CasesTable } from '@/components/cases/cases-table'
 import { CasesFilters } from '@/components/cases/cases-filters'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -25,6 +26,7 @@ interface CasesPageProps {
     priority?: string
     search?: string
     page?: string
+    error?: string
   }>
 }
 
@@ -79,6 +81,15 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
           </Button>
         )}
       </div>
+
+      {params.error === 'case_not_found' && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No se pudo cargar el caso. Puede que no exista o no tenga permiso para verlo.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Filters */}
       <CasesFilters 

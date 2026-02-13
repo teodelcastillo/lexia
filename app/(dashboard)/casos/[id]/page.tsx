@@ -7,7 +7,7 @@
  */
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -240,7 +240,9 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   ])
   
   if (!caseData) {
-    notFound()
+    // Caso no encontrado o RLS impide lectura (ej. organization_id del perfil no coincide).
+    // Redirigir a listado en lugar de 404 para mejor UX.
+    redirect('/casos?error=case_not_found')
   }
 
   const company = caseData.companies as { 
