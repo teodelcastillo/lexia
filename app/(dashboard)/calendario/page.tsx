@@ -6,6 +6,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -133,9 +134,11 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
           <Button variant="outline" size="sm">
             Sincronizar con Google
           </Button>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Evento
+          <Button asChild>
+            <Link href="/calendario/nuevo">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Evento
+            </Link>
           </Button>
         </div>
       </div>
