@@ -29,6 +29,8 @@ interface CartaDocumentoHeaderProps {
   printMode?: boolean
   /** Ocultar logo y banner (se imprime sobre formulario CD que ya los tiene) */
   hideBranding?: boolean
+  /** Segundo bloque: +1 línea entre nombre y domicilio (formato papel CD) */
+  secondBlock?: boolean
   className?: string
 }
 
@@ -37,6 +39,7 @@ export function CartaDocumentoHeader({
   reducirFuente = false,
   printMode = false,
   hideBranding = false,
+  secondBlock = false,
   className = '',
 }: CartaDocumentoHeaderProps) {
   const baseFontSize = reducirFuente ? '11px' : '12px'
@@ -84,6 +87,7 @@ export function CartaDocumentoHeader({
         .cd-header .cd-field { border-bottom: 1px solid var(--cd-border); padding: 4px 6px; min-height: 22px; }
         .cd-header .cd-field-name { min-height: 16px; }
         .cd-header .cd-domicilio-wrap { margin-top: -1.2em; }
+        .cd-header .cd-domicilio-wrap.cd-domicilio-spaced { margin-top: -0.2em; }
         .cd-header .cd-blocks.cd-print-form .cd-field { border: none !important; border-bottom: none !important; }
         .cd-header .cd-field-row { display: flex; gap: 8px; margin-top: 4px; }
         .cd-header .cd-field-row .cd-field { flex: 1; min-width: 0; }
@@ -112,7 +116,7 @@ export function CartaDocumentoHeader({
           {!hideBranding && <div className="cd-block-title">Remitente</div>}
           <div className="cd-field cd-field-name">{formData.remitente_linea1 || '\u00A0'}</div>
           <div className="cd-field cd-field-name">{formData.remitente_linea2 || '\u00A0'}</div>
-          <div className="cd-domicilio-wrap">
+          <div className={`cd-domicilio-wrap ${secondBlock ? 'cd-domicilio-spaced' : ''}`}>
             {!hideBranding && <div style={{ fontSize: '10px', marginTop: '4px', marginBottom: '2px' }}>DOMICILIO</div>}
             <div className="cd-field">{formData.remitente_domicilio || '\u00A0'}</div>
           </div>
@@ -135,7 +139,7 @@ export function CartaDocumentoHeader({
           {!hideBranding && <div className="cd-block-title">Destinatario</div>}
           <div className="cd-field cd-field-name">{formData.destinatario_linea1 || '\u00A0'}</div>
           <div className="cd-field cd-field-name">{formData.destinatario_linea2 || '\u00A0'}</div>
-          <div className="cd-domicilio-wrap">
+          <div className={`cd-domicilio-wrap ${secondBlock ? 'cd-domicilio-spaced' : ''}`}>
             {!hideBranding && <div style={{ fontSize: '10px', marginTop: '4px', marginBottom: '2px' }}>DOMICILIO</div>}
             <div className="cd-field">{formData.destinatario_domicilio || '\u00A0'}</div>
           </div>

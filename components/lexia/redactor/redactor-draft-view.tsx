@@ -19,7 +19,7 @@ function buildCartaDocumentoPreviewHtml(
   const esc = (s: string | undefined) =>
     (s || '\u00A0').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const fs = reducirFuente ? '11px' : '12px'
-  const headerHtml = buildCartaDocumentoHeaderHtml(fd, reducirFuente, true)
+  const headerHtml = buildCartaDocumentoHeaderHtml(fd, reducirFuente, true, false)
   const lugarFecha = fd.lugar_fecha?.trim()
     ? `<div style="text-align:right;margin-bottom:1rem">${esc(fd.lugar_fecha)}</div>`
     : ''
@@ -34,10 +34,11 @@ function buildCartaDocumentoPreviewHtml(
     firma.push(`<div style="margin-top:0.25rem;font-size:0.9em">${esc(fd.dato_adicional)}</div>`)
   const firmaHtml = firma.length ? `<div style="margin-top:1.5rem">${firma.join('')}</div>` : ''
 
+  const headerHtml2 = buildCartaDocumentoHeaderHtml(fd, reducirFuente, true, true)
   return `
     ${headerHtml}
     <div style="margin-top:7em;min-height:7em"></div>
-    ${headerHtml}
+    ${headerHtml2}
     <div style="margin-top:1.5rem"></div>
     ${lugarFecha}
     <div style="text-align:justify;margin:1rem 0;min-height:5em;padding:2.5em 0;white-space:pre-wrap;font-family:Georgia,Times,serif;font-size:${fs};line-height:1.5">${esc(bodyContent)}</div>
@@ -49,7 +50,8 @@ function buildCartaDocumentoPreviewHtml(
 function buildCartaDocumentoHeaderHtml(
   fd: CartaDocumentoFormData,
   reducirFuente: boolean,
-  hideBranding = false
+  hideBranding = false,
+  secondBlock = false
 ): string {
   const esc = (s: string | undefined) => (s || '\u00A0').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const fs = reducirFuente ? '11px' : '12px'
@@ -64,16 +66,17 @@ function buildCartaDocumentoHeaderHtml(
   const cpLabel = hideBranding ? '' : '<span style="font-size:9px;display:block">CÓDIGO POSTAL</span>'
   const locLabel = hideBranding ? '' : '<span style="font-size:9px;display:block">LOCALIDAD</span>'
   const provLabel = hideBranding ? '' : '<span style="font-size:9px;display:block">PROVINCIA</span>'
+  const domicilioWrapClass = secondBlock ? 'cd-domicilio-wrap cd-domicilio-spaced' : 'cd-domicilio-wrap'
   return `
     <div class="cd-print-header" style="font-family:Arial,sans-serif;font-size:${fs};--cd-blue:#1a3a5c;--cd-yellow:#f5e6a3;--cd-border:#b0b0b0;">
-      <style>.cd-print-header .cd-logo{background:var(--cd-yellow);padding:6px 10px;display:inline-block}.cd-print-header .cd-banner{background:var(--cd-blue);color:#fff;padding:8px 12px;font-weight:bold;font-size:13px;margin-top:0}.cd-print-header .cd-blocks{display:flex;gap:12px;margin-top:8px}.cd-print-header .cd-blocks.cd-print-form{padding-left:1cm}.cd-print-header .cd-block{flex:1;min-width:0}.cd-print-header .cd-block-title{font-size:10px;font-weight:bold;margin-bottom:4px;text-transform:uppercase}.cd-print-header .cd-field{border-bottom:1px solid var(--cd-border);padding:4px 6px;min-height:22px}.cd-print-header .cd-field-name{min-height:16px}.cd-print-header .cd-domicilio-wrap{margin-top:-1.2em}.cd-print-header .cd-blocks.cd-print-form .cd-field{border:none!important;border-bottom:none!important}.cd-print-header .cd-field-row{display:flex;gap:8px;margin-top:4px}.cd-print-header .cd-field-row .cd-field{flex:1;min-width:0}.cd-print-header .cd-field-row .cd-field:nth-child(1){flex:0 0 70px}.cd-print-header .cd-field-row .cd-field:nth-child(2){flex:1.5}.cd-print-header .cd-field-row .cd-field:nth-child(3){flex:1}@media print{.cd-print-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+      <style>.cd-print-header .cd-logo{background:var(--cd-yellow);padding:6px 10px;display:inline-block}.cd-print-header .cd-banner{background:var(--cd-blue);color:#fff;padding:8px 12px;font-weight:bold;font-size:13px;margin-top:0}.cd-print-header .cd-blocks{display:flex;gap:12px;margin-top:8px}.cd-print-header .cd-blocks.cd-print-form{padding-left:1cm}.cd-print-header .cd-block{flex:1;min-width:0}.cd-print-header .cd-block-title{font-size:10px;font-weight:bold;margin-bottom:4px;text-transform:uppercase}.cd-print-header .cd-field{border-bottom:1px solid var(--cd-border);padding:4px 6px;min-height:22px}.cd-print-header .cd-field-name{min-height:16px}.cd-print-header .cd-domicilio-wrap{margin-top:-1.2em}.cd-print-header .cd-domicilio-wrap.cd-domicilio-spaced{margin-top:-0.2em}.cd-print-header .cd-blocks.cd-print-form .cd-field{border:none!important;border-bottom:none!important}.cd-print-header .cd-field-row{display:flex;gap:8px;margin-top:4px}.cd-print-header .cd-field-row .cd-field{flex:1;min-width:0}.cd-print-header .cd-field-row .cd-field:nth-child(1){flex:0 0 70px}.cd-print-header .cd-field-row .cd-field:nth-child(2){flex:1.5}.cd-print-header .cd-field-row .cd-field:nth-child(3){flex:1}@media print{.cd-print-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
       ${logoBanner}
       <div class="${blocksClass}">
         <div class="cd-block">
           ${remTitle}
           <div class="cd-field cd-field-name">${esc(fd.remitente_linea1)}</div>
           <div class="cd-field cd-field-name">${esc(fd.remitente_linea2)}</div>
-          <div class="cd-domicilio-wrap">${domicilio}<div class="cd-field">${esc(fd.remitente_domicilio)}</div></div>
+          <div class="${domicilioWrapClass}">${domicilio}<div class="cd-field">${esc(fd.remitente_domicilio)}</div></div>
           <div class="cd-field-row">
             <div class="cd-field">${cpLabel}${esc(fd.remitente_codigo_postal)}</div>
             <div class="cd-field">${locLabel}${esc(fd.remitente_localidad)}</div>
@@ -84,7 +87,7 @@ function buildCartaDocumentoHeaderHtml(
           ${destTitle}
           <div class="cd-field cd-field-name">${esc(fd.destinatario_linea1)}</div>
           <div class="cd-field cd-field-name">${esc(fd.destinatario_linea2)}</div>
-          <div class="cd-domicilio-wrap">${domicilio}<div class="cd-field">${esc(fd.destinatario_domicilio)}</div></div>
+          <div class="${domicilioWrapClass}">${domicilio}<div class="cd-field">${esc(fd.destinatario_domicilio)}</div></div>
           <div class="cd-field-row">
             <div class="cd-field">${cpLabel}${esc(fd.destinatario_codigo_postal)}</div>
             <div class="cd-field">${locLabel}${esc(fd.destinatario_localidad)}</div>

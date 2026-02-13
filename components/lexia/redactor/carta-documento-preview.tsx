@@ -77,12 +77,13 @@ export function CartaDocumentoPreview({
       {/* ~7 líneas de espacio entre encabezados (formato papel CD) */}
       <div style={{ marginTop: printMode ? '7em' : '5em', minHeight: printMode ? '7em' : '5em' }} />
 
-      {/* Segunda copia del encabezado */}
+      {/* Segunda copia del encabezado (+1 línea entre nombre y domicilio) */}
       <CartaDocumentoHeader
         formData={formData}
         reducirFuente={reducirFuente}
         printMode={printMode}
         hideBranding={printMode}
+        secondBlock
       />
 
       <div style={{ marginTop: printMode ? '1.5rem' : '1.2rem' }} />
