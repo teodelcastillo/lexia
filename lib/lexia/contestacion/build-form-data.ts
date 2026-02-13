@@ -15,6 +15,7 @@ function consolidadoToRecord(fc: FormDataConsolidado): Record<string, string> {
     hechos_negados: fc.hechos_negados ?? '',
     defensas: fc.defensas ?? '',
     excepciones: fc.excepciones ?? '',
+    prueba: fc.prueba ?? '',
   }
 }
 

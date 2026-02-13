@@ -114,12 +114,14 @@ export const DOCUMENT_TYPE_SCHEMAS: Record<
       { key: 'hechos_negados', label: 'Hechos negados', type: 'textarea', required: false },
       { key: 'defensas', label: 'Defensas de fondo', type: 'textarea', required: true },
       { key: 'excepciones', label: 'Excepciones (si corresponde)', type: 'textarea', required: false },
+      { key: 'prueba', label: 'Prueba ofrecida', type: 'textarea', required: false, placeholder: 'Documentos, testigos, informes ofrecidos (consolidado de todos los bloques)' },
     ],
     schema: buildPartySchema(['demandante', 'demandado'], {
       hechos_admitidos: false,
       hechos_negados: false,
       defensas: true,
       excepciones: false,
+      prueba: false,
     }),
   },
   apelacion: {

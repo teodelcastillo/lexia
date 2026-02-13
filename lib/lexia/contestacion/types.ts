@@ -34,7 +34,7 @@ export interface BlockQuestion {
 // Respuesta del usuario por bloque
 export interface BlockResponse {
   bloque_id: string
-  postura: 'admitir' | 'negar' | 'admitir_parcial' | 'negar_con_matices'
+  postura: 'admitir' | 'negar' | 'admitir_parcial' | 'negar_con_matices' | 'sin_posicion'
   fundamentacion?: string
   prueba_ofrecida?: string[]
 }
@@ -44,7 +44,9 @@ export interface FormDataConsolidado {
   hechos_admitidos: string
   hechos_negados: string
   defensas: string
-  excepciones?: string
+  excepciones: string
+  /** Prueba ofrecida: conjunto unificado de todas las pruebas de todos los bloques + adicionales */
+  prueba: string
 }
 
 // Estado de la sesión (Etapa 1: bloques; Etapa 2: análisis; Etapa 3: borrador)

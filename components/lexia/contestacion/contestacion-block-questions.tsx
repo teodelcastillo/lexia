@@ -20,6 +20,7 @@ const POSTURA_OPTIONS = [
   { value: 'negar', label: 'Negar' },
   { value: 'admitir_parcial', label: 'Admitir parcialmente' },
   { value: 'negar_con_matices', label: 'Negar con matices' },
+  { value: 'sin_posicion', label: 'No tomar posición' },
 ] as const
 
 interface ContestacionBlockQuestionsProps {

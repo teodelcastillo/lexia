@@ -17,7 +17,7 @@ const BlockQuestionItemSchema = z.object({
   bloque_id: z.string(),
   pregunta: z.string(),
   tipo: z.enum(['postura', 'prueba', 'fundamentacion', 'otro']),
-  opciones_sugeridas: z.array(z.string()).optional(),
+  opciones_sugeridas: z.array(z.string()),
 })
 
 const GenerateQuestionsSchema = z.object({
@@ -28,7 +28,7 @@ const QUESTIONS_SYSTEM_PROMPT = `Eres un abogado experto que asesora al demandad
 
 Tu tarea es generar preguntas o propuestas concretas para que el abogado del demandado complete su estrategia. Para cada bloque (o los indicados), genera preguntas sobre:
 
-1. **postura**: ¿Admitir, negar, admitir parcialmente o negar con matices? Incluye opciones sugeridas cuando sea útil.
+1. **postura**: ¿Admitir, negar, admitir parcialmente, negar con matices o no tomar posición? Incluye opciones sugeridas en opciones_sugeridas (array, puede ser [] si no aplica).
 2. **fundamentacion**: Qué argumentos o fundamentos legales plantear.
 3. **prueba**: Qué prueba ofrecer para sostener la postura (documentos, testigos, informes, etc.).
 
