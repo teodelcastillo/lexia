@@ -89,7 +89,9 @@ const roleLabels: Record<CaseRole, string> = {
 }
 
 /**
- * Fetches case data by ID with all related information
+ * Fetches case data by ID with all related information.
+ * Uses explicit FK for profiles (case_assignments has user_id and assigned_by).
+ * Falls back to case-only if the full query fails (e.g. relation schema mismatch).
  */
 async function getCaseById(id: string) {
   const supabase = await createClient()
@@ -109,7 +111,7 @@ async function getCaseById(id: string) {
         id,
         case_role,
         assigned_at,
-        profiles (
+        profiles!case_assignments_user_id_fkey (
           id,
           first_name,
           last_name,
@@ -136,7 +138,20 @@ async function getCaseById(id: string) {
     .eq('id', id)
     .single()
 
-  if (error || !caseData) {
+  if (error) {
+    console.error('[getCaseById] Error:', error.code, error.message, error.details)
+    // Fallback: fetch case only (RLS passed but nested relations may have failed)
+    const { data: fallback, error: fallbackError } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (fallbackError || !fallback) {
+      return null
+    }
+    return { ...fallback, companies: null, case_assignments: [], case_participants: [] }
+  }
+  if (!caseData) {
     return null
   }
 
