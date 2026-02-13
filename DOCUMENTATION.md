@@ -235,15 +235,25 @@ Retorna: Stream de texto del borrador
 
 #### Lexia - Contestación Guiada
 
-Flujo asistido para redactar contestaciones desde el texto de la demanda. Documentación completa en `docs/02-modulo-ia-lexia.md` (sección 10.6).
+Flujo asistido para redactar contestaciones desde el texto de la demanda. Tres fuentes de texto: documento del caso, subir archivo (PDF/Word) o pegar texto. Documentación completa en `docs/02-modulo-ia-lexia.md` (sección 10.6).
 
 ```typescript
 POST /api/lexia/contestacion/sessions
-Body: { caseId?: string, demandaRaw: string }
+Body: { caseId?: string, demandaRaw: string, demandaDocumentId?: string }
 Retorna: { sessionId, state, current_step }
 
 GET  /api/lexia/contestacion/sessions/[id]
-Retorna: { session: { id, state, current_step, demanda_raw, ... } }
+Retorna: { session: { id, state, current_step, demanda_raw, demanda_document_id, ... } }
+
+GET  /api/lexia/contestacion/case-documents?caseId=...
+Retorna: { documents: [{ id, name, mime_type, file_path, file_size }] }
+
+GET  /api/lexia/contestacion/documents/[id]/extract-text
+Retorna: { text: string }
+
+POST /api/lexia/contestacion/extract-text
+Body: multipart/form-data con campo "file" (PDF o Word)
+Retorna: { text: string }
 
 POST /api/lexia/contestacion/orchestrate
 Body: { sessionId: string, userResponses?: Record<string, BlockResponse> }

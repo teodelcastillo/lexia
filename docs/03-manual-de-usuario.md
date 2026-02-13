@@ -481,8 +481,11 @@ La **Contestacion Guiada** es un flujo asistido que lo lleva desde el texto de l
 
 **Paso 1 — Analizar la demanda**
 
-1. Pegue el texto completo de la demanda en el area de texto.
-2. Haga clic en **Analizar demanda**.
+1. Elija una de las tres opciones para cargar el texto de la demanda:
+   - **Documento del caso:** Si tiene un caso asociado, seleccione un documento PDF o Word ya cargado en el caso. Lexia extraera el texto automaticamente.
+   - **Subir archivo:** Suba un archivo PDF o Word (.doc, .docx) desde su computadora.
+   - **Pegar texto:** Pegue el texto completo de la demanda en el area de texto.
+2. Revise el texto extraido (si uso documento o archivo) y haga clic en **Analizar demanda**.
 3. Lexia detectara automaticamente los bloques (objeto, hechos, rubros, prueba, petitorio).
 4. Revise los bloques detectados y haga clic en **Continuar a analisis**.
 

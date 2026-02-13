@@ -21,12 +21,37 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}))
     const caseId = body.caseId as string | null | undefined
     const demandaRaw = (body.demandaRaw as string | null | undefined) ?? ''
+    const demandaDocumentId = body.demandaDocumentId as string | null | undefined
 
     if (caseId) {
       const canView = await checkCasePermission(supabase, user.id, caseId, 'can_view')
       if (!canView) {
         return NextResponse.json({ error: 'Forbidden: no access to this case' }, { status: 403 })
       }
+    }
+
+    let validatedDocId: string | null = null
+    if (demandaDocumentId) {
+      const { data: doc, error: docError } = await supabase
+        .from('documents')
+        .select('id, case_id')
+        .eq('id', demandaDocumentId)
+        .single()
+
+      if (docError || !doc) {
+        return NextResponse.json({ error: 'Document not found' }, { status: 400 })
+      }
+      const canViewDoc = await checkCasePermission(supabase, user.id, doc.case_id, 'can_view')
+      if (!canViewDoc) {
+        return NextResponse.json({ error: 'Forbidden: no access to document case' }, { status: 403 })
+      }
+      if (caseId && doc.case_id !== caseId) {
+        return NextResponse.json(
+          { error: 'Document must belong to the same case' },
+          { status: 400 }
+        )
+      }
+      validatedDocId = doc.id
     }
 
     const trimmedDemanda = demandaRaw.slice(0, DEMANDA_RAW_MAX_LENGTH)
@@ -37,6 +62,7 @@ export async function POST(req: Request) {
         user_id: user.id,
         case_id: caseId || null,
         demanda_raw: trimmedDemanda || null,
+        demanda_document_id: validatedDocId || null,
         state: {},
         current_step: 'init',
       })

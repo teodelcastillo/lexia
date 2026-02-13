@@ -1036,7 +1036,10 @@ La **Contestación Guiada** es un flujo asistido por IA que guía al abogado des
 
 #### Etapa 1: Parse y Bloques
 
-1. El usuario pega el texto completo de la demanda en un textarea.
+1. **Fuentes de texto:** El usuario puede aportar el texto de la demanda de tres formas:
+   - **Documento del caso:** Si hay un caso asociado, elegir un documento PDF o Word ya cargado en el caso. Se extrae el texto desde Supabase Storage.
+   - **Subir archivo:** Subir un PDF o Word (.doc, .docx). Se extrae el texto en el servidor (pdf-parse, mammoth).
+   - **Pegar texto:** Pegar el texto completo en un textarea.
 2. `parseDemandStructure()` (Claude Sonnet) analiza el texto y extrae:
    - Bloques estructurados (objeto, hechos, rubros, prueba, petitorio)
    - Tipo de demanda detectado
@@ -1083,8 +1086,11 @@ La **Contestación Guiada** es un flujo asistido por IA que guía al abogado des
 
 | Ruta | Método | Descripción |
 |------|--------|-------------|
-| `/api/lexia/contestacion/sessions` | POST | Crear sesión (body: caseId, demandaRaw) |
+| `/api/lexia/contestacion/sessions` | POST | Crear sesión (body: caseId, demandaRaw, demandaDocumentId?) |
 | `/api/lexia/contestacion/sessions/[id]` | GET | Cargar sesión para reanudar |
+| `/api/lexia/contestacion/case-documents` | GET | Listar documentos del caso (PDF/Word). Query: `?caseId=...` |
+| `/api/lexia/contestacion/documents/[id]/extract-text` | GET | Extraer texto de un documento del caso |
+| `/api/lexia/contestacion/extract-text` | POST | Extraer texto de archivo subido (multipart, campo "file") |
 | `/api/lexia/contestacion/orchestrate` | POST | Ejecutar paso del agente (body: sessionId, userResponses?) |
 | `/api/lexia/contestacion/generate-draft` | POST | Generar borrador por streaming (body: sessionId, iterationInstruction?) |
 | `/api/lexia/contestacion/save-draft` | POST | Guardar borrador en lexia_drafts (body: sessionId) |
@@ -1092,7 +1098,7 @@ La **Contestación Guiada** es un flujo asistido por IA que guía al abogado des
 #### Persistencia
 
 - **Tabla:** `lexia_contestacion_sessions` (script `031_lexia_contestacion_sessions.sql`)
-- **Campos:** id, user_id, case_id, demanda_raw, state (JSONB), current_step
+- **Campos:** id, user_id, case_id, demanda_raw, demanda_document_id, state (JSONB), current_step
 - **Estado en JSONB:** bloques, analisis_por_bloque, preguntas_generadas, respuestas_usuario, form_data_consolidado, variant_seleccionada, draft_content, draft_id
 
 ---

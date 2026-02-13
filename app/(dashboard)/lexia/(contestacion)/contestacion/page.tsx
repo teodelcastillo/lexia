@@ -2,12 +2,20 @@
 
 import { useCallback, useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { PenTool, Loader2, FileText, ArrowRight } from 'lucide-react'
+import { PenTool, Loader2, FileText, ArrowRight, Upload, File } from 'lucide-react'
 import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
 import { useLexiaCaseContext } from '@/lib/lexia/lexia-case-context'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { ContestacionProgress } from '@/components/lexia/contestacion/contestacion-progress'
 import { ContestacionBlockQuestions } from '@/components/lexia/contestacion/contestacion-block-questions'
@@ -20,13 +28,29 @@ import type {
   BlockResponse,
 } from '@/lib/lexia/contestacion/types'
 
+type DemandaSource = 'document' | 'upload' | 'paste'
+
+interface CaseDocument {
+  id: string
+  name: string
+  mime_type: string | null
+  file_path: string | null
+  file_size: number | null
+}
+
 export default function ContestacionPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const caseId = searchParams.get('caso')
   const layoutCaseContext = useLexiaCaseContext()
 
+  const [demandaSource, setDemandaSource] = useState<DemandaSource>('paste')
   const [demandaRaw, setDemandaRaw] = useState('')
+  const [demandaDocumentId, setDemandaDocumentId] = useState<string | null>(null)
+  const [caseDocuments, setCaseDocuments] = useState<CaseDocument[]>([])
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [state, setState] = useState<ContestacionSessionState | null>(null)
   const [currentStep, setCurrentStep] = useState<string>('init')
@@ -38,6 +62,19 @@ export default function ContestacionPage() {
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false)
   const [showIteration, setShowIteration] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
+
+  useEffect(() => {
+    if (!caseId || demandaSource !== 'document') return
+    setIsLoadingDocs(true)
+    fetch(`/api/lexia/contestacion/case-documents?caseId=${encodeURIComponent(caseId)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Error al cargar documentos')
+        return res.json()
+      })
+      .then((data) => setCaseDocuments(data.documents ?? []))
+      .catch(() => toast.error('No se pudieron cargar los documentos del caso'))
+      .finally(() => setIsLoadingDocs(false))
+  }, [caseId, demandaSource])
 
   const sessionParam = searchParams.get('session')
   useEffect(() => {
@@ -97,6 +134,8 @@ export default function ContestacionPage() {
         body: JSON.stringify({
           caseId: caseId || null,
           demandaRaw: trimmed,
+          demandaDocumentId:
+            demandaSource === 'document' && demandaDocumentId ? demandaDocumentId : undefined,
         }),
       })
 
@@ -185,6 +224,58 @@ export default function ContestacionPage() {
 
   const handleResponseChange = (bloqueId: string, response: BlockResponse) => {
     setLocalResponses((prev) => ({ ...prev, [bloqueId]: response }))
+  }
+
+  const handleDocumentSelect = async (docId: string) => {
+    if (!docId) {
+      setDemandaRaw('')
+      setDemandaDocumentId(null)
+      return
+    }
+    setIsExtracting(true)
+    setDemandaDocumentId(docId)
+    try {
+      const res = await fetch(`/api/lexia/contestacion/documents/${docId}/extract-text`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Error al extraer texto')
+      }
+      setDemandaRaw(data.text ?? '')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al extraer texto del documento')
+      setDemandaDocumentId(null)
+      setDemandaRaw('')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsExtracting(true)
+    setUploadedFileName(file.name)
+    setDemandaDocumentId(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/lexia/contestacion/extract-text', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Error al extraer texto')
+      }
+      setDemandaRaw(data.text ?? '')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al extraer texto del archivo')
+      setDemandaRaw('')
+      setUploadedFileName(null)
+    } finally {
+      setIsExtracting(false)
+    }
+    e.target.value = ''
   }
 
   const handleGenerarBorrador = useCallback(
@@ -295,7 +386,7 @@ export default function ContestacionPage() {
               withCaseLabel="Contestación para"
             />
             <p className="text-xs text-muted-foreground mt-1.5">
-              Pegá el texto de la demanda para analizarla y completar la estrategia por bloque.
+              Elegí un documento del caso, subí un archivo PDF o Word, o pegá el texto de la demanda para analizarla.
             </p>
           </div>
         </div>
@@ -312,16 +403,147 @@ export default function ContestacionPage() {
 
           {showInput && (
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Texto de la demanda</label>
-                <Textarea
-                  value={demandaRaw}
-                  onChange={(e) => setDemandaRaw(e.target.value)}
-                  placeholder="Pegá aquí el texto completo de la demanda..."
-                  className="min-h-[300px] font-mono text-sm"
-                  disabled={isLoading}
-                />
-              </div>
+              <Tabs
+                value={demandaSource}
+                onValueChange={(v) => {
+                  setDemandaSource(v as DemandaSource)
+                  if (v !== 'document') setDemandaDocumentId(null)
+                  if (v !== 'upload') setUploadedFileName(null)
+                }}
+              >
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="document" disabled={!caseId}>
+                    <File className="h-4 w-4 mr-2" />
+                    Documento del caso
+                  </TabsTrigger>
+                  <TabsTrigger value="upload">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Subir archivo
+                  </TabsTrigger>
+                  <TabsTrigger value="paste">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Pegar texto
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="document" className="space-y-4 pt-4">
+                  {!caseId ? (
+                    <p className="text-sm text-muted-foreground">
+                      Seleccioná un caso arriba para ver documentos del caso.
+                    </p>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Seleccionar documento
+                        </label>
+                        <Select
+                          value={demandaDocumentId ?? ''}
+                          onValueChange={handleDocumentSelect}
+                          disabled={isLoadingDocs || isExtracting}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegí un documento PDF o Word..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {caseDocuments.length === 0 && !isLoadingDocs && (
+                              <SelectItem value="_none" disabled>
+                                No hay documentos PDF o Word en este caso
+                              </SelectItem>
+                            )}
+                            {caseDocuments.map((doc) => (
+                              <SelectItem key={doc.id} value={doc.id}>
+                                {doc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isExtracting && (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Extrayendo texto...
+                          </p>
+                        )}
+                      </div>
+                      {demandaRaw && (
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            Texto extraído (podés revisar o editar)
+                          </label>
+                          <Textarea
+                            value={demandaRaw}
+                            onChange={(e) => setDemandaRaw(e.target.value)}
+                            className="min-h-[200px] font-mono text-sm"
+                            disabled={isLoading}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </TabsContent>
+                <TabsContent value="upload" className="space-y-4 pt-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Subir archivo PDF o Word
+                    </label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="demanda-file-upload"
+                      />
+                      <label
+                        htmlFor="demanda-file-upload"
+                        className="cursor-pointer flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        {isExtracting ? (
+                          <>
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                            <span>Extrayendo texto...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-8 w-8" />
+                            <span>
+                              {uploadedFileName
+                                ? `Archivo: ${uploadedFileName} (${demandaRaw.length} caracteres)`
+                                : 'Hacé clic o arrastrá un archivo PDF o Word'}
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                  {demandaRaw && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">
+                        Texto extraído (podés revisar o editar)
+                      </label>
+                      <Textarea
+                        value={demandaRaw}
+                        onChange={(e) => setDemandaRaw(e.target.value)}
+                        className="min-h-[200px] font-mono text-sm"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="paste" className="space-y-4 pt-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Texto de la demanda
+                    </label>
+                    <Textarea
+                      value={demandaRaw}
+                      onChange={(e) => setDemandaRaw(e.target.value)}
+                      placeholder="Pegá aquí el texto completo de la demanda..."
+                      className="min-h-[300px] font-mono text-sm"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
               <Button
                 onClick={handleAnalizar}
                 disabled={isLoading || !demandaRaw.trim()}
