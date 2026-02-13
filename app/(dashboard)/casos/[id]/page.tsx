@@ -154,7 +154,8 @@ async function getCaseNotes(caseId: string) {
     .select(`
       id,
       content,
-      is_private,
+      is_pinned,
+      is_visible_to_client,
       created_at,
       updated_at,
       profiles!case_notes_created_by_fkey (
