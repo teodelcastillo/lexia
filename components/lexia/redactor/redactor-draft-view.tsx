@@ -8,6 +8,48 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
+import { CartaDocumentoHeader, type CartaDocumentoFormData } from './carta-documento-header'
+
+function buildCartaDocumentoHeaderHtml(
+  fd: CartaDocumentoFormData,
+  reducirFuente: boolean
+): string {
+  const esc = (s: string | undefined) => (s || '\u00A0').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const fs = reducirFuente ? '11px' : '12px'
+  return `
+    <div class="cd-print-header" style="font-family:Arial,sans-serif;font-size:${fs};--cd-blue:#1a3a5c;--cd-yellow:#f5e6a3;--cd-border:#b0b0b0;">
+      <style>.cd-print-header .cd-logo{background:var(--cd-yellow);padding:6px 10px;display:inline-block}.cd-print-header .cd-banner{background:var(--cd-blue);color:#fff;padding:8px 12px;font-weight:bold;font-size:13px;margin-top:0}.cd-print-header .cd-blocks{display:flex;gap:12px;margin-top:8px}.cd-print-header .cd-block{flex:1;min-width:0}.cd-print-header .cd-block-title{font-size:10px;font-weight:bold;margin-bottom:4px;text-transform:uppercase}.cd-print-header .cd-field{border-bottom:1px solid var(--cd-border);padding:4px 6px;min-height:22px}.cd-print-header .cd-field-row{display:flex;gap:8px;margin-top:4px}.cd-print-header .cd-field-row .cd-field{flex:1;min-width:0}.cd-print-header .cd-field-row .cd-field:nth-child(1){flex:0 0 70px}.cd-print-header .cd-field-row .cd-field:nth-child(2){flex:1.5}.cd-print-header .cd-field-row .cd-field:nth-child(3){flex:1}@media print{.cd-print-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+      <div class="cd-logo"><strong>CORREO</strong><span style="display:block;font-size:11px">ARGENTINO</span></div>
+      <div class="cd-banner">A.R. - CARTA DOCUMENTO</div>
+      <div class="cd-blocks">
+        <div class="cd-block">
+          <div class="cd-block-title">Remitente</div>
+          <div class="cd-field">${esc(fd.remitente_linea1)}</div>
+          <div class="cd-field">${esc(fd.remitente_linea2)}</div>
+          <div style="font-size:10px;margin-top:4px;margin-bottom:2px">DOMICILIO</div>
+          <div class="cd-field">${esc(fd.remitente_domicilio)}</div>
+          <div class="cd-field-row">
+            <div class="cd-field"><span style="font-size:9px;display:block">CÓDIGO POSTAL</span>${esc(fd.remitente_codigo_postal)}</div>
+            <div class="cd-field"><span style="font-size:9px;display:block">LOCALIDAD</span>${esc(fd.remitente_localidad)}</div>
+            <div class="cd-field"><span style="font-size:9px;display:block">PROVINCIA</span>${esc(fd.remitente_provincia)}</div>
+          </div>
+        </div>
+        <div class="cd-block">
+          <div class="cd-block-title">Destinatario</div>
+          <div class="cd-field">${esc(fd.destinatario_linea1)}</div>
+          <div class="cd-field">${esc(fd.destinatario_linea2)}</div>
+          <div style="font-size:10px;margin-top:4px;margin-bottom:2px">DOMICILIO</div>
+          <div class="cd-field">${esc(fd.destinatario_domicilio)}</div>
+          <div class="cd-field-row">
+            <div class="cd-field"><span style="font-size:9px;display:block">CÓDIGO POSTAL</span>${esc(fd.destinatario_codigo_postal)}</div>
+            <div class="cd-field"><span style="font-size:9px;display:block">LOCALIDAD</span>${esc(fd.destinatario_localidad)}</div>
+            <div class="cd-field"><span style="font-size:9px;display:block">PROVINCIA</span>${esc(fd.destinatario_provincia)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+}
 
 const DOCUMENT_TYPE_NAMES: Record<DocumentType, string> = {
   demanda: 'Demanda',
@@ -27,6 +69,8 @@ interface RedactorDraftViewProps {
   isStreaming?: boolean
   onContentChange?: (content: string) => void
   onSaveClick?: () => void
+  /** Datos del formulario (para carta_documento: encabezado CD oficial) */
+  formData?: Record<string, string>
 }
 
 export function RedactorDraftView({
@@ -35,7 +79,12 @@ export function RedactorDraftView({
   isStreaming = false,
   onContentChange,
   onSaveClick,
+  formData,
 }: RedactorDraftViewProps) {
+  const cdFormData = documentType === 'carta_documento' && formData
+    ? (formData as CartaDocumentoFormData)
+    : null
+  const reducirFuente = formData?.reducir_fuente === 'true'
   const contentRef = useRef<HTMLDivElement>(null)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -78,17 +127,25 @@ export function RedactorDraftView({
       toast.error('Permite ventanas emergentes para exportar a PDF')
       return
     }
+    const isCartaDoc = documentType === 'carta_documento' && cdFormData
+    const headerHtml = isCartaDoc
+      ? buildCartaDocumentoHeaderHtml(cdFormData, reducirFuente)
+      : ''
+    const pageSize = isCartaDoc ? '21.6cm 33cm' : '21cm 29.7cm'
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>${DOCUMENT_TYPE_NAMES[documentType]} - Borrador</title>
           <style>
-            body { font-family: serif; padding: 2cm; line-height: 1.6; max-width: 21cm; margin: 0 auto; }
-            pre { white-space: pre-wrap; font-family: inherit; }
+            @page { size: ${pageSize}; margin: 1.5cm; }
+            body { font-family: serif; padding: 1.5cm; line-height: 1.6; max-width: 21.6cm; margin: 0 auto; }
+            pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
+            .cd-print-header { margin-bottom: 1.2rem; }
           </style>
         </head>
         <body>
+          ${headerHtml}
           <pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
         </body>
       </html>
@@ -98,7 +155,11 @@ export function RedactorDraftView({
       printWindow.print()
       printWindow.onafterprint = () => printWindow.close()
     }
-    toast.success('Abre la ventana de impresión y elige "Guardar como PDF"')
+    toast.success(
+      isCartaDoc
+        ? 'Imprimí en hoja oficio. Compará a trasluz con la CD del Correo Argentino.'
+        : 'Abre la ventana de impresión y elige "Guardar como PDF"'
+    )
   }
 
   const proseClasses =
@@ -147,6 +208,16 @@ export function RedactorDraftView({
       </div>
 
       <div className="flex-1 overflow-auto mt-4">
+        {cdFormData && (
+          <div className="mb-6 p-4 rounded-lg border border-border bg-muted/20">
+            <p className="text-xs text-muted-foreground mb-2 font-medium">Encabezado CD (formato oficial)</p>
+            <CartaDocumentoHeader
+              formData={cdFormData}
+              reducirFuente={reducirFuente}
+              printMode={false}
+            />
+          </div>
+        )}
         {content ? (
           isEditing && onContentChange ? (
             <Textarea

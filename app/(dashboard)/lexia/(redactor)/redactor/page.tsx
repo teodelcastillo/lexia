@@ -364,6 +364,7 @@ export default function RedactorPage() {
                     isStreaming={isGenerating}
                     onContentChange={(c) => setDraftContent(c)}
                     onSaveClick={() => setSaveDialogOpen(true)}
+                    formData={formData}
                   />
                   {showIteration && (
                     <div className="border-t border-border pt-4">
