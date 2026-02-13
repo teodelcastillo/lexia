@@ -40,7 +40,7 @@ function buildCartaDocumentoPreviewHtml(
     ${headerHtml}
     <div style="margin-top:1.5rem"></div>
     ${lugarFecha}
-    <div style="text-align:justify;margin:1rem 0;white-space:pre-wrap;font-family:Georgia,Times,serif;font-size:${fs};line-height:1.5">${esc(bodyContent)}</div>
+    <div style="text-align:justify;margin:1rem 0;min-height:5em;padding:2.5em 0;white-space:pre-wrap;font-family:Georgia,Times,serif;font-size:${fs};line-height:1.5">${esc(bodyContent)}</div>
     ${saludo}
     ${firmaHtml}
   `
@@ -183,6 +183,7 @@ export function RedactorDraftView({
         )
       : `<pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`
     const pageSize = isCartaDoc ? '21.6cm 33cm' : '21cm 29.7cm'
+    const bodyPadding = isCartaDoc ? '0.1cm 1.5cm 1.5cm' : '1.5cm'
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -190,7 +191,7 @@ export function RedactorDraftView({
           <title>${DOCUMENT_TYPE_NAMES[documentType]} - Borrador</title>
           <style>
             @page { size: ${pageSize}; margin: 1.5cm; }
-            body { font-family: serif; padding: 1.5cm; line-height: 1.6; max-width: 21.6cm; margin: 0 auto; }
+            body { font-family: serif; padding: ${bodyPadding}; line-height: 1.6; max-width: 21.6cm; margin: 0 auto; }
             pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
           </style>
         </head>

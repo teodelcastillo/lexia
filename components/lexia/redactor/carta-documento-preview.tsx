@@ -57,7 +57,7 @@ export function CartaDocumentoPreview({
       }}
     >
       <style>{`
-        .carta-doc-preview .cd-body { text-align: justify; margin: 1rem 0; white-space: pre-wrap; }
+        .carta-doc-preview .cd-body { text-align: justify; margin: 1rem 0; min-height: 5em; padding: 2.5em 0; white-space: pre-wrap; }
         .carta-doc-preview .cd-body-editable { min-height: 200px; width: 100%; resize: vertical; }
         .carta-doc-preview .cd-right { text-align: right; }
         .carta-doc-preview .cd-firma { margin-top: 1.5rem; }
