@@ -17,19 +17,14 @@ import {
   FileImage,
   FileSpreadsheet,
 } from 'lucide-react'
-import type { DocumentVisibility } from '@/lib/types'
-
 interface CaseDocumentsProps {
   caseId: string
   canEdit: boolean
 }
 
-/**
- * Visibility configuration
- */
-const visibilityConfig: Record<DocumentVisibility, { label: string; variant: 'default' | 'secondary' }> = {
-  internal: { label: 'Interno', variant: 'secondary' },
-  client_visible: { label: 'Visible Cliente', variant: 'default' },
+const visibilityConfig = {
+  internal: { label: 'Interno', variant: 'secondary' as const },
+  client_visible: { label: 'Visible Cliente', variant: 'default' as const },
 }
 
 /**
@@ -67,8 +62,8 @@ async function getCaseDocuments(caseId: string) {
       description,
       file_path,
       file_size,
-      file_type,
-      visibility,
+      mime_type,
+      is_visible_to_client,
       created_at,
       profiles:uploaded_by (
         id,
@@ -135,8 +130,8 @@ export async function CaseDocuments({ caseId, canEdit }: CaseDocumentsProps) {
             <div className="divide-y divide-border">
               {documents.map((doc) => {
                 const uploader = doc.profiles as { id: string; first_name: string; last_name: string } | null
-                const visibility = visibilityConfig[doc.visibility as DocumentVisibility]
-                const FileIcon = getFileIcon(doc.file_type)
+                const visibility = doc.is_visible_to_client ? visibilityConfig.client_visible : visibilityConfig.internal
+                const FileIcon = getFileIcon(doc.mime_type ?? '')
 
                 return (
                   <div
@@ -164,7 +159,7 @@ export async function CaseDocuments({ caseId, canEdit }: CaseDocumentsProps) {
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(doc.file_size)} · Subido por {uploader?.first_name} {uploader?.last_name} · {' '}
+                        {formatFileSize(doc.file_size ?? 0)} · Subido por {uploader?.first_name} {uploader?.last_name} · {' '}
                         {new Date(doc.created_at).toLocaleDateString('es-AR', {
                           day: 'numeric',
                           month: 'short',
@@ -175,13 +170,17 @@ export async function CaseDocuments({ caseId, canEdit }: CaseDocumentsProps) {
 
                     {/* Actions */}
                     <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Eye className="h-4 w-4" />
-                        <span className="sr-only">Ver documento</span>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                        <Link href={`/documentos/${doc.id}`}>
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">Ver documento</span>
+                        </Link>
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Download className="h-4 w-4" />
-                        <span className="sr-only">Descargar</span>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                        <a href={`/api/documents/${doc.id}/download`}>
+                          <Download className="h-4 w-4" />
+                          <span className="sr-only">Descargar</span>
+                        </a>
                       </Button>
                     </div>
                   </div>

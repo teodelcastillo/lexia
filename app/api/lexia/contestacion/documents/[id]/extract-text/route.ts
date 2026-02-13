@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkCasePermission } from '@/lib/utils/access-control'
+import { toStoragePath } from '@/lib/storage/documents'
 import { PDFParse } from 'pdf-parse'
 import mammoth from 'mammoth'
 
@@ -76,9 +77,7 @@ export async function GET(
       )
     }
 
-    const storagePath = doc.file_path.startsWith('/documents/')
-      ? doc.file_path.slice('/documents/'.length)
-      : doc.file_path.replace(/^\//, '')
+    const storagePath = toStoragePath(doc.file_path)
 
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('documents')

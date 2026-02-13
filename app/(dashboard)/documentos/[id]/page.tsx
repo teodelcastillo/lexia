@@ -44,17 +44,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { isStoragePath } from '@/lib/storage/documents'
 
 /** Document type configuration */
 const DOCUMENT_TYPES: Record<string, { label: string; color: string }> = {
   contract: { label: 'Contrato', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  filing: { label: 'Escrito Judicial', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  court_filing: { label: 'Escrito Judicial', color: 'bg-purple-100 text-purple-700 border-purple-200' },
   evidence: { label: 'Prueba', color: 'bg-amber-100 text-amber-700 border-amber-200' },
   correspondence: { label: 'Correspondencia', color: 'bg-green-100 text-green-700 border-green-200' },
-  power_of_attorney: { label: 'Poder', color: 'bg-red-100 text-red-700 border-red-200' },
-  id_document: { label: 'Identificación', color: 'bg-slate-100 text-slate-700 border-slate-200' },
-  financial: { label: 'Financiero', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  internal: { label: 'Interno', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  internal_memo: { label: 'Interno', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  client_document: { label: 'Documento del Cliente', color: 'bg-slate-100 text-slate-700 border-slate-200' },
   other: { label: 'Otro', color: 'bg-gray-100 text-gray-700 border-gray-200' },
 }
 
@@ -142,9 +141,11 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
   const canDelete = isAdmin
 
   const docType = DOCUMENT_TYPES[document.category] || DOCUMENT_TYPES.other
-  const driveUrl = document.google_drive_id 
+  const driveUrl = document.google_drive_id
     ? `https://drive.google.com/file/d/${document.google_drive_id}/view`
     : null
+  const hasStorageFile = document.file_path && isStoragePath(document.file_path)
+  const downloadUrl = hasStorageFile ? `/api/documents/${id}/download` : null
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -159,7 +160,7 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
           </Button>
           <div className="flex items-start gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-muted/50 border border-border/60">
-              {getDocumentIcon(document.file_type)}
+              {getDocumentIcon(document.mime_type ?? '')}
             </div>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -189,6 +190,14 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {downloadUrl && (
+            <Button variant="outline" asChild>
+              <a href={downloadUrl}>
+                <Download className="mr-2 h-4 w-4" />
+                Descargar
+              </a>
+            </Button>
+          )}
           {driveUrl && (
             <Button variant="outline" asChild>
               <a href={driveUrl} target="_blank" rel="noopener noreferrer">
@@ -356,23 +365,23 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
             <CardContent className="space-y-4">
               <div className="grid gap-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Nombre original</span>
+                  <span className="text-muted-foreground">Nombre</span>
                   <span className="font-medium text-foreground truncate max-w-[150px]">
-                    {document.file_name}
+                    {document.name}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Tamaño</span>
                   <span className="font-medium text-foreground">
-                    {formatFileSize(document.file_size)}
+                    {formatFileSize(document.file_size ?? 0)}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Tipo</span>
                   <span className="font-medium text-foreground">
-                    {document.file_type || 'Documento'}
+                    {document.mime_type || 'Documento'}
                   </span>
                 </div>
                 {document.google_drive_id && (
@@ -465,6 +474,14 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
               <CardTitle className="text-base">Acciones Rápidas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              {downloadUrl && (
+                <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
+                  <a href={downloadUrl}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar
+                  </a>
+                </Button>
+              )}
               {driveUrl && (
                 <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
                   <a href={driveUrl} target="_blank" rel="noopener noreferrer">
@@ -473,10 +490,6 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
                   </a>
                 </Button>
               )}
-              <Button variant="outline" className="w-full justify-start bg-transparent">
-                <Download className="mr-2 h-4 w-4" />
-                Descargar
-              </Button>
               {document.case && (
                 <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
                   <Link href={`/casos/${document.case.id}?tab=documentos`}>

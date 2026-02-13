@@ -1,14 +1,15 @@
 /**
  * Document Upload Form Component
- * 
- * Handles file upload to Google Drive with metadata input.
- * Supports drag-and-drop, case/client association, and visibility settings.
+ *
+ * Sube archivos a Supabase Storage y guarda metadatos en la tabla documents.
+ * Soporta drag-and-drop, asociación a caso y visibilidad.
  */
 'use client'
 
 import React from "react"
 
 import { useState, useCallback } from 'react'
+import { buildDocumentStoragePath } from '@/lib/storage/documents'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -56,16 +57,14 @@ interface DocumentUploadFormProps {
   userId: string
 }
 
-/** Document type configuration */
+/** Document type configuration (values = document_category enum in DB) */
 const DOCUMENT_TYPES = [
   { value: 'contract', label: 'Contrato', description: 'Contratos y acuerdos legales' },
-  { value: 'filing', label: 'Escrito Judicial', description: 'Demandas, contestaciones, recursos' },
+  { value: 'court_filing', label: 'Escrito Judicial', description: 'Demandas, contestaciones, recursos' },
   { value: 'evidence', label: 'Prueba', description: 'Documentos probatorios' },
   { value: 'correspondence', label: 'Correspondencia', description: 'Cartas, notificaciones, emails' },
-  { value: 'power_of_attorney', label: 'Poder', description: 'Poderes y autorizaciones' },
-  { value: 'id_document', label: 'Identificación', description: 'DNI, CUIT, certificados' },
-  { value: 'financial', label: 'Financiero', description: 'Facturas, recibos, balances' },
-  { value: 'internal', label: 'Interno', description: 'Notas y documentos internos' },
+  { value: 'internal_memo', label: 'Interno', description: 'Notas y documentos internos' },
+  { value: 'client_document', label: 'Documento del Cliente', description: 'Documentos aportados por el cliente' },
   { value: 'other', label: 'Otro', description: 'Otros documentos' },
 ] as const
 
@@ -174,39 +173,44 @@ export function DocumentUploadForm({
     setUploadProgress(0)
 
     try {
-      // Simulate upload progress (in real implementation, this would be actual upload progress)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90))
-      }, 200)
+      const documentId = crypto.randomUUID()
+      const storagePath = buildDocumentStoragePath(caseId, documentId, file.name)
 
-      // In a real implementation, you would:
-      // 1. Upload file to Google Drive via API
-      // 2. Get the Google Drive file ID
-      // 3. Save metadata to Supabase
+      setUploadProgress(10)
 
-      // For now, we'll simulate the Google Drive upload and save metadata
-      // This would be replaced with actual Google Drive API integration
-      const googleDriveId = `gdrive_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        })
 
-      // Save document metadata to Supabase (use name and mime_type, not file_name/file_type)
-      const { data, error } = await supabase
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError)
+        throw uploadError
+      }
+
+      setUploadProgress(70)
+
+      const { error } = await supabase
         .from('documents')
         .insert({
+          id: documentId,
           case_id: caseId,
           name: name || file.name,
           description: description || null,
-          file_path: `/documents/${caseId}/${file.name}`,
+          file_path: storagePath,
           file_size: file.size,
-          mime_type: file.type,
+          mime_type: file.type || 'application/octet-stream',
           category: documentType,
           is_visible_to_client: visibility === 'client_visible',
-          google_drive_id: googleDriveId,
+          google_drive_id: null,
+          google_drive_url: null,
           uploaded_by: userId,
         })
         .select()
         .single()
 
-      clearInterval(progressInterval)
       setUploadProgress(100)
 
       if (error) throw error
@@ -301,7 +305,7 @@ export function DocumentUploadForm({
               {isUploading && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Subiendo a Google Drive...</span>
+                    <span className="text-muted-foreground">Subiendo archivo...</span>
                     <span className="font-medium">{uploadProgress}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -467,16 +471,15 @@ export function DocumentUploadForm({
         </div>
       )}
 
-      {/* Google Drive Info */}
+      {/* Storage Info */}
       <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-blue-50/50">
         <Cloud className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">
-            Almacenamiento en Google Drive
+            Almacenamiento seguro (Supabase Storage)
           </p>
           <p className="text-sm text-muted-foreground">
-            El archivo se subirá a la carpeta compartida del estudio en Google Drive.
-            Solo se guardarán los metadatos y el enlace en el sistema.
+            El archivo se sube directamente al almacenamiento del estudio. Solo usuarios con acceso al caso pueden ver o descargar el documento.
           </p>
         </div>
       </div>

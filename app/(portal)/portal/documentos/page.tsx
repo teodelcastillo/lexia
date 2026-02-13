@@ -196,7 +196,7 @@ export default async function PortalDocumentsPage() {
                         </div>
                         
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {doc.google_drive_url && (
+                          {doc.google_drive_id && (
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -204,12 +204,12 @@ export default async function PortalDocumentsPage() {
                               className="gap-2 bg-transparent"
                             >
                               <a 
-                                href={doc.google_drive_url} 
+                                href={`https://drive.google.com/file/d/${doc.google_drive_id}/view`}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                               >
                                 <ExternalLink className="h-4 w-4" />
-                                <span className="hidden sm:inline">Abrir</span>
+                                <span className="hidden sm:inline">Abrir en Drive</span>
                               </a>
                             </Button>
                           )}
@@ -217,9 +217,12 @@ export default async function PortalDocumentsPage() {
                             variant="default" 
                             size="sm"
                             className="gap-2"
+                            asChild
                           >
-                            <Download className="h-4 w-4" />
-                            <span className="hidden sm:inline">Descargar</span>
+                            <a href={`/api/documents/${doc.id}/download`}>
+                              <Download className="h-4 w-4" />
+                              <span className="hidden sm:inline">Descargar</span>
+                            </a>
                           </Button>
                         </div>
                       </div>
