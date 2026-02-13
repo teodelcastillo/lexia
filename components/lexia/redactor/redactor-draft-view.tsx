@@ -66,7 +66,7 @@ function buildCartaDocumentoHeaderHtml(
   const provLabel = hideBranding ? '' : '<span style="font-size:9px;display:block">PROVINCIA</span>'
   return `
     <div class="cd-print-header" style="font-family:Arial,sans-serif;font-size:${fs};--cd-blue:#1a3a5c;--cd-yellow:#f5e6a3;--cd-border:#b0b0b0;">
-      <style>.cd-print-header .cd-logo{background:var(--cd-yellow);padding:6px 10px;display:inline-block}.cd-print-header .cd-banner{background:var(--cd-blue);color:#fff;padding:8px 12px;font-weight:bold;font-size:13px;margin-top:0}.cd-print-header .cd-blocks{display:flex;gap:12px;margin-top:8px}.cd-print-header .cd-block{flex:1;min-width:0}.cd-print-header .cd-block-title{font-size:10px;font-weight:bold;margin-bottom:4px;text-transform:uppercase}.cd-print-header .cd-field{border-bottom:1px solid var(--cd-border);padding:4px 6px;min-height:22px}.cd-print-header .cd-blocks.cd-print-form .cd-field{border:none!important;border-bottom:none!important}.cd-print-header .cd-field-row{display:flex;gap:8px;margin-top:4px}.cd-print-header .cd-field-row .cd-field{flex:1;min-width:0}.cd-print-header .cd-field-row .cd-field:nth-child(1){flex:0 0 70px}.cd-print-header .cd-field-row .cd-field:nth-child(2){flex:1.5}.cd-print-header .cd-field-row .cd-field:nth-child(3){flex:1}@media print{.cd-print-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+      <style>.cd-print-header .cd-logo{background:var(--cd-yellow);padding:6px 10px;display:inline-block}.cd-print-header .cd-banner{background:var(--cd-blue);color:#fff;padding:8px 12px;font-weight:bold;font-size:13px;margin-top:0}.cd-print-header .cd-blocks{display:flex;gap:12px;margin-top:8px}.cd-print-header .cd-blocks.cd-print-form{padding-left:1cm}.cd-print-header .cd-block{flex:1;min-width:0}.cd-print-header .cd-block-title{font-size:10px;font-weight:bold;margin-bottom:4px;text-transform:uppercase}.cd-print-header .cd-field{border-bottom:1px solid var(--cd-border);padding:4px 6px;min-height:22px}.cd-print-header .cd-blocks.cd-print-form .cd-field{border:none!important;border-bottom:none!important}.cd-print-header .cd-field-row{display:flex;gap:8px;margin-top:4px}.cd-print-header .cd-field-row .cd-field{flex:1;min-width:0}.cd-print-header .cd-field-row .cd-field:nth-child(1){flex:0 0 70px}.cd-print-header .cd-field-row .cd-field:nth-child(2){flex:1.5}.cd-print-header .cd-field-row .cd-field:nth-child(3){flex:1}@media print{.cd-print-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
       ${logoBanner}
       <div class="${blocksClass}">
         <div class="cd-block">
@@ -183,7 +183,7 @@ export function RedactorDraftView({
         )
       : `<pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`
     const pageSize = isCartaDoc ? '21.6cm 33cm' : '21cm 29.7cm'
-    const bodyPadding = isCartaDoc ? '0.1cm 1.5cm 1.5cm' : '1.5cm'
+    const bodyPadding = isCartaDoc ? '0.5cm 1.5cm 1.5cm' : '1.5cm'
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>

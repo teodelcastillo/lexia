@@ -78,6 +78,7 @@ export function CartaDocumentoHeader({
           margin-top: 0;
         }
         .cd-header .cd-blocks { display: flex; gap: 12px; margin-top: 8px; }
+        .cd-header .cd-blocks.cd-print-form { padding-left: 1cm; }
         .cd-header .cd-block { flex: 1; min-width: 0; }
         .cd-header .cd-block-title { font-size: 10px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
         .cd-header .cd-field { border-bottom: 1px solid var(--cd-border); padding: 4px 6px; min-height: 22px; }
