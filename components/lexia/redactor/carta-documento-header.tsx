@@ -27,6 +27,8 @@ interface CartaDocumentoHeaderProps {
   reducirFuente?: boolean
   /** Modo impresión: estilos optimizados para PDF/print */
   printMode?: boolean
+  /** Ocultar logo y banner (se imprime sobre formulario CD que ya los tiene) */
+  hideBranding?: boolean
   className?: string
 }
 
@@ -34,6 +36,7 @@ export function CartaDocumentoHeader({
   formData,
   reducirFuente = false,
   printMode = false,
+  hideBranding = false,
   className = '',
 }: CartaDocumentoHeaderProps) {
   const baseFontSize = reducirFuente ? '11px' : '12px'
@@ -88,12 +91,16 @@ export function CartaDocumentoHeader({
         }
       `}</style>
 
-      {/* Logo y banner */}
-      <div className="cd-logo">
-        <strong>CORREO</strong>
-        <span>ARGENTINO</span>
-      </div>
-      <div className="cd-banner">A.R. - CARTA DOCUMENTO</div>
+      {/* Logo y banner (ocultos al imprimir sobre formulario CD) */}
+      {!hideBranding && (
+        <>
+          <div className="cd-logo">
+            <strong>CORREO</strong>
+            <span>ARGENTINO</span>
+          </div>
+          <div className="cd-banner">A.R. - CARTA DOCUMENTO</div>
+        </>
+      )}
 
       {/* Bloques Remitente | Destinatario */}
       <div className="cd-blocks">

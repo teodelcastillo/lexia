@@ -23,7 +23,7 @@ interface CartaDocumentoPreviewProps {
   bodyContent: string
   /** Reducir fuente para cartas largas */
   reducirFuente?: boolean
-  /** Modo impresión (sin bordes decorativos, hoja oficio) */
+  /** Modo impresión (sin bordes decorativos, hoja oficio). Oculta logo/banner al imprimir sobre formulario CD. */
   printMode?: boolean
   /** Editable: mostrar textarea para el cuerpo */
   editable?: boolean
@@ -66,11 +66,12 @@ export function CartaDocumentoPreview({
         }
       `}</style>
 
-      {/* Encabezado (duplicado como en el formato físico) */}
+      {/* Encabezado (duplicado como en el formato físico). Sin logo/banner al imprimir sobre formulario CD. */}
       <CartaDocumentoHeader
         formData={formData}
         reducirFuente={reducirFuente}
         printMode={printMode}
+        hideBranding={printMode}
       />
 
       <div style={{ marginTop: printMode ? '1.5rem' : '1.2rem' }} />
@@ -80,6 +81,7 @@ export function CartaDocumentoPreview({
         formData={formData}
         reducirFuente={reducirFuente}
         printMode={printMode}
+        hideBranding={printMode}
       />
 
       <div style={{ marginTop: printMode ? '1.5rem' : '1.2rem' }} />
