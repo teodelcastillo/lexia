@@ -157,7 +157,7 @@ async function getCaseNotes(caseId: string) {
       is_private,
       created_at,
       updated_at,
-      profiles:author_id (
+      profiles!case_notes_created_by_fkey (
         id,
         first_name,
         last_name
