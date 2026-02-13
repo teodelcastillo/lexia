@@ -78,11 +78,13 @@ const TYPE_STRUCTURE: Record<DocumentType, string> = {
 - CLAUSULAS ESPECIALES
 - FIRMAS`,
 
-  carta_documento: `CARTA DOCUMENTO - ESTRUCTURA:
-- Datos del remitente y destinatario
-- TIPO DE NOTIFICACION
-- CONTENIDO del comunicado
-- Fecha y firma`,
+  carta_documento: `CARTA DOCUMENTO - FORMATO OFICIAL CD (Correo Argentino):
+- REMITENTE: 1er línea, 2da línea (opcional), domicilio, CP, localidad, provincia
+- DESTINATARIO: idem
+- Lugar y fecha (opcional, alineado a derecha)
+- TEXTO del comunicado
+- Saludo (alineado a derecha, ej: Saludo muy atte.)
+- Apellido y Nombres, documento (DNI u otro), dato adicional opcional`,
 
   mediacion: `ESCRITO DE MEDIACION - ESTRUCTURA:
 - PARTES (datos completos)

@@ -33,7 +33,7 @@ export type DocumentType = (typeof DOCUMENT_TYPES)[number]
 export interface FormFieldDefinition {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'party'
+  type: 'text' | 'textarea' | 'party' | 'checkbox'
   required?: boolean
   placeholder?: string
   /** For type 'party': prefix (actor, demandado, etc.) and label for the group */
@@ -271,7 +271,7 @@ export function getFieldsForDocumentType(
     return structureSchema.fields.map((f) => ({
       key: String(f.key),
       label: f.label ?? f.key,
-      type: (f.type === 'textarea' ? 'textarea' : f.type === 'party' ? 'party' : 'text') as 'text' | 'textarea' | 'party',
+      type: (f.type === 'textarea' ? 'textarea' : f.type === 'party' ? 'party' : f.type === 'checkbox' ? 'checkbox' : 'text') as FormFieldDefinition['type'],
       required: Boolean(f.required),
       placeholder: f.placeholder,
       partyPrefix: f.partyPrefix,
@@ -296,6 +296,8 @@ export function buildSchemaFromFields(fields: FormFieldDefinition[]): z.ZodObjec
       for (const key of getPartyFieldKeys(f.partyPrefix)) {
         shape[key] = z.string().optional()
       }
+    } else if (f.type === 'checkbox') {
+      shape[f.key] = z.string().optional()
     } else {
       const base = z.string()
       shape[f.key] = (f.required ?? false) ? base.min(1, 'Requerido') : base.optional()

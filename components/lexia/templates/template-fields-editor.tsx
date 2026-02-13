@@ -121,10 +121,10 @@ export function TemplateFieldsEditor({
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">Tipo</Label>
-                  <select
+                    <select
                     value={field.type}
                     onChange={(e) => {
-                      const t = e.target.value as 'text' | 'textarea' | 'party'
+                      const t = e.target.value as 'text' | 'textarea' | 'party' | 'checkbox'
                       handleFieldChange(index, {
                         type: t,
                         ...(t === 'party' && field.partyPrefix
@@ -140,6 +140,7 @@ export function TemplateFieldsEditor({
                     <option value="text">Texto corto</option>
                     <option value="textarea">Área de texto</option>
                     <option value="party">Datos de parte (actor/demandado)</option>
+                    <option value="checkbox">Casilla de verificación</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">

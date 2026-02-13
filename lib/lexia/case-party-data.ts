@@ -261,6 +261,18 @@ function structuredToFormDefaults(prefix: string, s: PartyStructuredData): Recor
   return out
 }
 
+/** Mapea datos de parte al formato CD (Carta Documento oficial Correo Argentino) */
+function partyToCartaDocumentoFormat(prefix: string, s: PartyStructuredData): Record<string, string> {
+  const linea1 =
+    s.tipo === 'persona_juridica'
+      ? (s.razon_social ?? '').trim()
+      : [s.apellido, s.nombre].filter(Boolean).join(', ').trim()
+  return {
+    [`${prefix}_linea1`]: linea1,
+    [`${prefix}_domicilio`]: s.domicilio_real ?? '',
+  }
+}
+
 /**
  * Maps CasePartyData to form field defaults by document type.
  * clientRole: si nuestro cliente es actor (demandante) o demandado.
@@ -299,10 +311,25 @@ export function mapPartyDataToFormDefaults(
     case 'mediacion':
       defaults.partes = partes
       break
-    case 'carta_documento':
+    case 'carta_documento': {
       applyStructured('remitente', actorStruct)
       applyStructured('destinatario', demandadoStruct)
+      // Formato CD oficial: mapear a campos remitente/destinatario + firmante
+      if (actorStruct) {
+        Object.assign(defaults, partyToCartaDocumentoFormat('remitente', actorStruct))
+        const apellidoNombres =
+          actorStruct.tipo === 'persona_juridica'
+            ? actorStruct.razon_social ?? ''
+            : [actorStruct.apellido, actorStruct.nombre].filter(Boolean).join(' ')
+        defaults.apellido_nombres = apellidoNombres.trim()
+        defaults.documento_tipo = actorStruct.documento_tipo ?? ''
+        defaults.documento_numero = actorStruct.documento ?? ''
+      }
+      if (demandadoStruct) {
+        Object.assign(defaults, partyToCartaDocumentoFormat('destinatario', demandadoStruct))
+      }
       break
+    }
     case 'oficio_judicial':
       applyStructured('destinatario', demandadoStruct)
       break

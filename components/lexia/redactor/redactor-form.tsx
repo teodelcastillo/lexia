@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { Controller } from 'react-hook-form'
 import {
   getFieldsForDocumentType,
   getSchemaForDocumentType,
@@ -59,6 +61,8 @@ export function RedactorForm({
       if (f.type === 'party' && f.partyPrefix) {
         const subKeys = ['tipo', 'nombre', 'apellido', 'edad', 'razon_social', 'documento_tipo', 'documento', 'domicilio_real', 'domicilio_legal']
         for (const s of subKeys) acc[`${f.partyPrefix}_${s}`] = ''
+      } else if (f.type === 'checkbox') {
+        acc[f.key] = ''
       } else {
         acc[f.key] = ''
       }
@@ -133,6 +137,38 @@ export function RedactorForm({
               />
             )
           }
+          if (field.type === 'checkbox') {
+            return (
+              <Controller
+                key={field.key}
+                name={field.key}
+                control={form.control}
+                render={({ field: ctrl }) => (
+                  <div className="flex items-start space-x-2 space-y-0">
+                    <Checkbox
+                      id={field.key}
+                      disabled={isSubmitting}
+                      checked={ctrl.value === 'true'}
+                      onCheckedChange={(checked) =>
+                        ctrl.onChange(checked ? 'true' : '')
+                      }
+                    />
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={field.key}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {field.label}
+                      </Label>
+                      {field.placeholder && (
+                        <p className="text-xs text-muted-foreground">{field.placeholder}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              />
+            )
+          }
           return (
             <div key={field.key} className="space-y-2">
               <Label htmlFor={field.key}>
@@ -175,6 +211,12 @@ export function RedactorForm({
           'Generar borrador'
         )}
       </Button>
+
+      {documentType === 'carta_documento' && (
+        <p className="text-xs text-muted-foreground border-t border-border pt-4 mt-4">
+          El PDF debe imprimirse en hoja oficio. Imprimí primero en una hoja oficio en blanco y comparala a trasluz con la Carta Documento del Correo Argentino. Podés volver a esta página y corregir si hace falta.
+        </p>
+      )}
     </form>
     </FormProvider>
   )
