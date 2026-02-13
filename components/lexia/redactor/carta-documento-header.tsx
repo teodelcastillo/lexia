@@ -81,6 +81,7 @@ export function CartaDocumentoHeader({
         .cd-header .cd-block { flex: 1; min-width: 0; }
         .cd-header .cd-block-title { font-size: 10px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
         .cd-header .cd-field { border-bottom: 1px solid var(--cd-border); padding: 4px 6px; min-height: 22px; }
+        .cd-header .cd-blocks.cd-print-form .cd-field { border: none !important; border-bottom: none !important; }
         .cd-header .cd-field-row { display: flex; gap: 8px; margin-top: 4px; }
         .cd-header .cd-field-row .cd-field { flex: 1; min-width: 0; }
         .cd-header .cd-field-row .cd-field:nth-child(1) { flex: 0 0 70px; }
@@ -103,45 +104,45 @@ export function CartaDocumentoHeader({
       )}
 
       {/* Bloques Remitente | Destinatario */}
-      <div className="cd-blocks">
+      <div className={`cd-blocks ${hideBranding ? 'cd-print-form' : ''}`}>
         <div className="cd-block">
-          <div className="cd-block-title">Remitente</div>
+          {!hideBranding && <div className="cd-block-title">Remitente</div>}
           <div className="cd-field">{formData.remitente_linea1 || '\u00A0'}</div>
           <div className="cd-field">{formData.remitente_linea2 || '\u00A0'}</div>
-          <div style={{ fontSize: '10px', marginTop: '4px', marginBottom: '2px' }}>DOMICILIO</div>
+          {!hideBranding && <div style={{ fontSize: '10px', marginTop: '4px', marginBottom: '2px' }}>DOMICILIO</div>}
           <div className="cd-field">{formData.remitente_domicilio || '\u00A0'}</div>
           <div className="cd-field-row">
             <div className="cd-field">
-              <span style={{ fontSize: '9px', display: 'block' }}>CÓDIGO POSTAL</span>
+              {!hideBranding && <span style={{ fontSize: '9px', display: 'block' }}>CÓDIGO POSTAL</span>}
               {formData.remitente_codigo_postal || '\u00A0'}
             </div>
             <div className="cd-field">
-              <span style={{ fontSize: '9px', display: 'block' }}>LOCALIDAD</span>
+              {!hideBranding && <span style={{ fontSize: '9px', display: 'block' }}>LOCALIDAD</span>}
               {formData.remitente_localidad || '\u00A0'}
             </div>
             <div className="cd-field">
-              <span style={{ fontSize: '9px', display: 'block' }}>PROVINCIA</span>
+              {!hideBranding && <span style={{ fontSize: '9px', display: 'block' }}>PROVINCIA</span>}
               {formData.remitente_provincia || '\u00A0'}
             </div>
           </div>
         </div>
         <div className="cd-block">
-          <div className="cd-block-title">Destinatario</div>
+          {!hideBranding && <div className="cd-block-title">Destinatario</div>}
           <div className="cd-field">{formData.destinatario_linea1 || '\u00A0'}</div>
           <div className="cd-field">{formData.destinatario_linea2 || '\u00A0'}</div>
-          <div style={{ fontSize: '10px', marginTop: '4px', marginBottom: '2px' }}>DOMICILIO</div>
+          {!hideBranding && <div style={{ fontSize: '10px', marginTop: '4px', marginBottom: '2px' }}>DOMICILIO</div>}
           <div className="cd-field">{formData.destinatario_domicilio || '\u00A0'}</div>
           <div className="cd-field-row">
             <div className="cd-field">
-              <span style={{ fontSize: '9px', display: 'block' }}>CÓDIGO POSTAL</span>
+              {!hideBranding && <span style={{ fontSize: '9px', display: 'block' }}>CÓDIGO POSTAL</span>}
               {formData.destinatario_codigo_postal || '\u00A0'}
             </div>
             <div className="cd-field">
-              <span style={{ fontSize: '9px', display: 'block' }}>LOCALIDAD</span>
+              {!hideBranding && <span style={{ fontSize: '9px', display: 'block' }}>LOCALIDAD</span>}
               {formData.destinatario_localidad || '\u00A0'}
             </div>
             <div className="cd-field">
-              <span style={{ fontSize: '9px', display: 'block' }}>PROVINCIA</span>
+              {!hideBranding && <span style={{ fontSize: '9px', display: 'block' }}>PROVINCIA</span>}
               {formData.destinatario_provincia || '\u00A0'}
             </div>
           </div>
