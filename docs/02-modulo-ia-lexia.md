@@ -17,7 +17,7 @@
 7. [Rutas de API (Capa HTTP)](#7-rutas-de-api-capa-http)
 8. [Interfaz de Usuario](#8-interfaz-de-usuario)
 9. [Historial de Conversaciones (Fase 1)](#9-historial-de-conversaciones-fase-1)
-10. [Redactor Jurídico (Drafting)](#10-redactor-jurídico-drafting)
+10. [Redactor Jurídico (Drafting)](#10-redactor-jurídico-drafting) — incl. [Contestación Guiada](#106-contestación-guiada-de-demanda)
 11. [Plantillas de Documentos Personalizables](#11-plantillas-de-documentos-personalizables)
 12. [Flujo de Datos Completo](#12-flujo-de-datos-completo)
 13. [Logging y Auditoría](#13-logging-y-auditoría)
@@ -1029,6 +1029,71 @@ Cuando hay `?caso=uuid` en la URL:
 - Se cargan datos de partes del caso (actor, demandado) desde `case_participants`.
 - El usuario elige si representa al actor o al demandado.
 - Los campos del formulario se autocompletan con datos de la parte seleccionada.
+
+### 10.6 Contestación Guiada de Demanda
+
+La **Contestación Guiada** es un flujo asistido por IA que guía al abogado desde el texto de la demanda hasta un borrador de contestación listo para editar. Opera en tres etapas:
+
+#### Etapa 1: Parse y Bloques
+
+1. El usuario pega el texto completo de la demanda en un textarea.
+2. `parseDemandStructure()` (Claude Sonnet) analiza el texto y extrae:
+   - Bloques estructurados (objeto, hechos, rubros, prueba, petitorio)
+   - Tipo de demanda detectado
+   - Pretensiones principales
+3. Se muestran los bloques detectados con opción de continuar al análisis.
+
+#### Etapa 2: Análisis y Contextualización
+
+1. **Análisis por bloque:** `analyzeDemandBlocks()` analiza cada bloque (argumentos clave, puntos débiles, prueba implícita, sugerencias de defensa).
+2. **Preguntas generadas:** `generateQuestionsForBlocks()` genera preguntas para cada bloque (postura, fundamentación, prueba a ofrecer).
+3. **Respuestas del usuario:** El abogado completa para cada bloque:
+   - Postura: Admitir / Negar / Admitir parcialmente / Negar con matices
+   - Fundamentación
+   - Prueba a ofrecer
+4. **Agente orquestador:** Un LLM (gpt-4o-mini) decide la siguiente acción:
+   - `analyze`, `generate_questions`, `wait_user`, `need_more_info`, `ready_for_redaction`
+5. **Consolidación:** `consolidateUserResponses()` agrupa las respuestas en hechos admitidos, hechos negados, defensas y excepciones.
+
+#### Etapa 3: Redacción e Integración
+
+1. **Selección de estructura:** `selectContestacionStructure()` mapea el tipo de demanda a una variante de plantilla (si existe).
+2. **Generación del borrador:** `POST /api/lexia/contestacion/generate-draft`:
+   - Construye `formData` desde `form_data_consolidado` + party data del caso
+   - Llama internamente a `/api/lexia/draft` con contexto de demanda
+   - Stream del contenido al cliente
+3. **Iteración:** El usuario puede solicitar modificaciones ("hacelo más formal", "agregá este argumento") vía `iterationInstruction`.
+4. **Guardado:** `POST /api/lexia/contestacion/save-draft` crea el borrador en `lexia_drafts` y redirige a `/lexia/redactor?borrador={id}`.
+
+#### Arquitectura Técnica
+
+| Componente | Ubicación | Descripción |
+|------------|-----------|-------------|
+| Tipos | `lib/lexia/contestacion/types.ts` | DemandBlock, BlockAnalysis, BlockQuestion, BlockResponse, ContestacionSessionState |
+| Parse | `lib/lexia/contestacion/parse-demand.ts` | parseDemandStructure con generateObject |
+| Análisis | `lib/lexia/contestacion/analyze-blocks.ts` | analyzeDemandBlocks |
+| Preguntas | `lib/lexia/contestacion/generate-questions.ts` | generateQuestionsForBlocks |
+| Consolidación | `lib/lexia/contestacion/consolidate-responses.ts` | consolidateUserResponses |
+| Agente | `lib/lexia/contestacion/agent.ts` | getAgentDecision (gpt-4o-mini) |
+| Orquestador | `lib/lexia/contestacion/orchestrator.ts` | getNextAction, executeAction |
+| Build form | `lib/lexia/contestacion/build-form-data.ts` | buildFormDataFromSession |
+| Select structure | `lib/lexia/contestacion/select-structure.ts` | selectContestacionStructure |
+
+#### API de Contestación
+
+| Ruta | Método | Descripción |
+|------|--------|-------------|
+| `/api/lexia/contestacion/sessions` | POST | Crear sesión (body: caseId, demandaRaw) |
+| `/api/lexia/contestacion/sessions/[id]` | GET | Cargar sesión para reanudar |
+| `/api/lexia/contestacion/orchestrate` | POST | Ejecutar paso del agente (body: sessionId, userResponses?) |
+| `/api/lexia/contestacion/generate-draft` | POST | Generar borrador por streaming (body: sessionId, iterationInstruction?) |
+| `/api/lexia/contestacion/save-draft` | POST | Guardar borrador en lexia_drafts (body: sessionId) |
+
+#### Persistencia
+
+- **Tabla:** `lexia_contestacion_sessions` (script `031_lexia_contestacion_sessions.sql`)
+- **Campos:** id, user_id, case_id, demanda_raw, state (JSONB), current_step
+- **Estado en JSONB:** bloques, analisis_por_bloque, preguntas_generadas, respuestas_usuario, form_data_consolidado, variant_seleccionada, draft_content, draft_id
 
 ---
 

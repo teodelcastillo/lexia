@@ -475,6 +475,39 @@ El **Redactor Juridico** es un modulo dentro de Lexia que genera borradores de d
 
 **Indicador "Plantilla del estudio":** Si su estudio tiene plantillas personalizadas, vera un badge que indica que esta usando la plantilla configurada para su organizacion.
 
+### 11.6.1 Contestacion Guiada de Demanda
+
+La **Contestacion Guiada** es un flujo asistido que lo lleva desde el texto de la demanda hasta un borrador de contestacion listo para editar. Acceda desde el sidebar de Lexia haciendo clic en **Contestacion guiada**.
+
+**Paso 1 — Analizar la demanda**
+
+1. Pegue el texto completo de la demanda en el area de texto.
+2. Haga clic en **Analizar demanda**.
+3. Lexia detectara automaticamente los bloques (objeto, hechos, rubros, prueba, petitorio).
+4. Revise los bloques detectados y haga clic en **Continuar a analisis**.
+
+**Paso 2 — Responder por cada bloque**
+
+1. Lexia generara preguntas para cada bloque de la demanda.
+2. Para cada bloque, complete:
+   - **Postura**: Admitir, Negar, Admitir parcialmente o Negar con matices.
+   - **Fundamentacion**: Sus argumentos y fundamentos legales.
+   - **Prueba a ofrecer**: Documentos, testigos u otros medios de prueba (separados por coma o linea).
+3. Haga clic en **Enviar respuestas**.
+4. Si falta informacion en bloques criticos, Lexia le indicara cuales completar. Puede iterar hasta que este listo.
+
+**Paso 3 — Generar y editar el borrador**
+
+1. Cuando el resumen consolidado este listo, haga clic en **Generar borrador**.
+2. El borrador se generara en tiempo real con el contexto de la demanda.
+3. Opciones disponibles:
+   - **Guardar borrador**: Guarda en sus borradores y abre el Redactor para edicion completa.
+   - **Exportar Word / PDF**: Descarga el documento.
+   - **Modificar borrador**: Escriba una instruccion (ej: "hacelo mas formal", "agregá este argumento") y Lexia regenerara el borrador.
+4. Cuando este satisfecho, use **Guardar borrador** para pasar al Redactor y continuar editando o exportar.
+
+**Reanudar una sesion:** Si tiene el enlace de la sesion (con `?session=...` en la URL), puede volver mas tarde y continuar desde donde quedo.
+
 ### 11.7 Plantillas de Documentos
 
 Si su usuario pertenece a una organizacion, puede personalizar las plantillas del Redactor Juridico.

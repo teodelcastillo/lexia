@@ -233,6 +233,31 @@ Body: {
 Retorna: Stream de texto del borrador
 ```
 
+#### Lexia - Contestación Guiada
+
+Flujo asistido para redactar contestaciones desde el texto de la demanda. Documentación completa en `docs/02-modulo-ia-lexia.md` (sección 10.6).
+
+```typescript
+POST /api/lexia/contestacion/sessions
+Body: { caseId?: string, demandaRaw: string }
+Retorna: { sessionId, state, current_step }
+
+GET  /api/lexia/contestacion/sessions/[id]
+Retorna: { session: { id, state, current_step, demanda_raw, ... } }
+
+POST /api/lexia/contestacion/orchestrate
+Body: { sessionId: string, userResponses?: Record<string, BlockResponse> }
+Retorna: { action, state, nextStep, preguntas? }
+
+POST /api/lexia/contestacion/generate-draft
+Body: { sessionId: string, iterationInstruction?: string }
+Retorna: Stream de texto del borrador
+
+POST /api/lexia/contestacion/save-draft
+Body: { sessionId: string, name?: string }
+Retorna: { draftId, caseId }
+```
+
 #### Lexia - Plantillas
 
 ```typescript
@@ -330,6 +355,12 @@ interface Case {
   ├── lexia-context-panel.tsx # Panel con contexto del caso
   └── lexia-tool-card.tsx     # Cards de herramientas
 ```
+
+#### Módulos de Lexia
+
+- **Chat:** Conversación con IA, historial de conversaciones, herramientas rápidas.
+- **Redactor:** Formularios guiados para generar borradores (demanda, contestación, apelación, etc.).
+- **Contestación Guiada:** Flujo completo desde el texto de la demanda hasta un borrador de contestación (parse → análisis → preguntas → respuestas → generación → iteración). Ver `docs/02-modulo-ia-lexia.md` (sección 10.6) y `docs/03-manual-de-usuario.md` (sección 11.6.1).
 
 #### API: `/api/lexia`
 
