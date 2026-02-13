@@ -1,18 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { PenTool, Loader2, FileText } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { PenTool, Loader2, FileText, ArrowRight } from 'lucide-react'
 import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
 import { useLexiaCaseContext } from '@/lib/lexia/lexia-case-context'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import type { ContestacionSessionState, DemandBlock } from '@/lib/lexia/contestacion/types'
+import { ContestacionProgress } from '@/components/lexia/contestacion/contestacion-progress'
+import { ContestacionBlockQuestions } from '@/components/lexia/contestacion/contestacion-block-questions'
+import { ContestacionReadySummary } from '@/components/lexia/contestacion/contestacion-ready-summary'
+import type {
+  ContestacionSessionState,
+  DemandBlock,
+  BlockResponse,
+} from '@/lib/lexia/contestacion/types'
 
 export default function ContestacionPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const caseId = searchParams.get('caso')
   const layoutCaseContext = useLexiaCaseContext()
 
@@ -20,27 +28,28 @@ export default function ContestacionPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [state, setState] = useState<ContestacionSessionState | null>(null)
   const [currentStep, setCurrentStep] = useState<string>('init')
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [localResponses, setLocalResponses] = useState<Record<string, BlockResponse>>({})
+  const [bloqueIdsPendientes, setBloqueIdsPendientes] = useState<string[]>([])
 
-  const runOrchestrate = useCallback(async (sid: string) => {
-    try {
+  const runOrchestrate = useCallback(
+    async (sid: string, userResponses?: Record<string, BlockResponse>) => {
       const res = await fetch('/api/lexia/contestacion/orchestrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sid }),
+        body: JSON.stringify({
+          sessionId: sid,
+          userResponses: userResponses ?? undefined,
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || 'Error al orquestar')
       }
-      const data = await res.json()
-      setState(data.state ?? null)
-      setCurrentStep(data.nextStep ?? 'init')
-      return data
-    } catch (err) {
-      throw err
-    }
-  }, [])
+      return res.json()
+    },
+    []
+  )
 
   const handleAnalizar = async () => {
     const trimmed = demandaRaw.trim()
@@ -49,7 +58,7 @@ export default function ContestacionPage() {
       return
     }
 
-    setIsAnalyzing(true)
+    setIsLoading(true)
     try {
       const res = await fetch('/api/lexia/contestacion/sessions', {
         method: 'POST',
@@ -72,24 +81,112 @@ export default function ContestacionPage() {
 
       if (data.current_step === 'init' && data.sessionId) {
         const orchestrateRes = await runOrchestrate(data.sessionId)
-        if (orchestrateRes.action?.type === 'parse') {
-          setState(orchestrateRes.state)
-          setCurrentStep(orchestrateRes.nextStep ?? 'parsed')
-        }
+        setState(orchestrateRes.state ?? null)
+        setCurrentStep(orchestrateRes.nextStep ?? 'parsed')
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al analizar la demanda')
     } finally {
-      setIsAnalyzing(false)
+      setIsLoading(false)
     }
   }
 
-  const caseInfoForBar = layoutCaseContext ?? (caseId
-    ? { id: caseId, caseNumber: '', title: '' }
-    : null)
+  const handleContinuarAnalisis = async () => {
+    if (!sessionId) return
+    setIsLoading(true)
+    try {
+      let data = await runOrchestrate(sessionId)
+      setState(data.state ?? null)
+      setCurrentStep(data.nextStep ?? 'analyzed')
+      // Chain: if we got 'analyzed' but no preguntas yet, call again so agent runs generate_questions
+      while (
+        data.nextStep === 'analyzed' &&
+        !(data.state?.preguntas_generadas?.length) &&
+        data.state?.analisis_por_bloque
+      ) {
+        data = await runOrchestrate(sessionId)
+        setState(data.state ?? null)
+        setCurrentStep(data.nextStep ?? 'questions')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al analizar')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEnviarRespuestas = async () => {
+    if (!sessionId) return
+    const merged = { ...(state?.respuestas_usuario ?? {}), ...localResponses }
+    if (Object.keys(merged).length === 0) {
+      toast.error('Completá al menos una respuesta por bloque')
+      return
+    }
+    setIsLoading(true)
+    setBloqueIdsPendientes([])
+    try {
+      const data = await runOrchestrate(sessionId, merged)
+      setState(data.state ?? null)
+      setCurrentStep(data.nextStep ?? 'questions')
+      setLocalResponses(data.state?.respuestas_usuario ?? {})
+      if (data.nextStep === 'need_more_info' && data.action?.payload?.bloque_ids) {
+        setBloqueIdsPendientes(data.action.payload.bloque_ids)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al enviar')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleResponseChange = (bloqueId: string, response: BlockResponse) => {
+    setLocalResponses((prev) => ({ ...prev, [bloqueId]: response }))
+  }
+
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false)
+  const handleGenerarBorrador = async () => {
+    if (!formDataConsolidado) return
+    setIsCreatingDraft(true)
+    try {
+      const res = await fetch('/api/lexia/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentType: 'contestacion',
+          formData: formDataConsolidado,
+          caseId: caseId || null,
+          content: '',
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al crear borrador')
+      }
+      const draft = await res.json()
+      router.push(`/lexia/redactor?borrador=${draft.id}${caseId ? `&caso=${caseId}` : ''}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al crear borrador')
+    } finally {
+      setIsCreatingDraft(false)
+    }
+  }
+
+  const caseInfoForBar =
+    layoutCaseContext ?? (caseId ? { id: caseId, caseNumber: '', title: '' } : null)
 
   const bloques = state?.bloques ?? []
-  const showBloques = currentStep === 'parsed' && bloques.length > 0
+  const preguntas = state?.preguntas_generadas ?? []
+  const respuestas = { ...(state?.respuestas_usuario ?? {}), ...localResponses }
+  const formDataConsolidado = state?.form_data_consolidado
+
+  const showInput =
+    currentStep === 'init' || (currentStep === 'parsed' && !bloques.length)
+  const showBloquesOnly = currentStep === 'parsed' && bloques.length > 0
+  const showQuestions =
+    currentStep === 'questions' ||
+    currentStep === 'need_more_info' ||
+    (currentStep === 'analyzed' && preguntas.length > 0)
+  const showReady = currentStep === 'ready_for_redaction' && formDataConsolidado
 
   return (
     <div className="flex flex-col h-full">
@@ -108,7 +205,7 @@ export default function ContestacionPage() {
               withCaseLabel="Contestación para"
             />
             <p className="text-xs text-muted-foreground mt-1.5">
-              Pegá el texto de la demanda para analizarla y detectar sus bloques.
+              Pegá el texto de la demanda para analizarla y completar la estrategia por bloque.
             </p>
           </div>
         </div>
@@ -116,25 +213,30 @@ export default function ContestacionPage() {
 
       <div className="flex-1 overflow-auto p-6">
         <Card className="max-w-4xl mx-auto p-6">
-          {!showBloques ? (
+          {(showBloquesOnly || showQuestions || showReady) && (
+            <ContestacionProgress
+              currentStep={currentStep}
+              className="mb-6"
+            />
+          )}
+
+          {showInput && (
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Texto de la demanda
-                </label>
+                <label className="text-sm font-medium mb-2 block">Texto de la demanda</label>
                 <Textarea
                   value={demandaRaw}
                   onChange={(e) => setDemandaRaw(e.target.value)}
                   placeholder="Pegá aquí el texto completo de la demanda..."
                   className="min-h-[300px] font-mono text-sm"
-                  disabled={isAnalyzing}
+                  disabled={isLoading}
                 />
               </div>
               <Button
                 onClick={handleAnalizar}
-                disabled={isAnalyzing || !demandaRaw.trim()}
+                disabled={isLoading || !demandaRaw.trim()}
               >
-                {isAnalyzing ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     Analizando demanda...
@@ -146,13 +248,10 @@ export default function ContestacionPage() {
                   </>
                 )}
               </Button>
-              {currentStep === 'init' && sessionId && !isAnalyzing && (
-                <p className="text-sm text-muted-foreground">
-                  Ingresá el texto de la demanda y hacé clic en Analizar.
-                </p>
-              )}
             </div>
-          ) : (
+          )}
+
+          {showBloquesOnly && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Bloques detectados</h2>
@@ -169,9 +268,7 @@ export default function ContestacionPage() {
                     className="border border-border rounded-lg p-4 bg-background"
                   >
                     <h3 className="font-medium text-sm mb-2 flex items-center gap-2">
-                      <span className="text-muted-foreground">
-                        {bloque.orden}.
-                      </span>
+                      <span className="text-muted-foreground">{bloque.orden}.</span>
                       {bloque.titulo}
                       {bloque.tipo && (
                         <span className="text-xs text-muted-foreground font-normal">
@@ -185,9 +282,88 @@ export default function ContestacionPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                La base está lista para la Etapa 2 (análisis y preguntas por bloque).
-              </p>
+              <Button onClick={handleContinuarAnalisis} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Analizando bloques...
+                  </>
+                ) : (
+                  <>
+                    Continuar a análisis
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {currentStep === 'analyzed' && !preguntas.length && isLoading && (
+            <div className="py-12 text-center text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+              <p>Generando preguntas por bloque...</p>
+            </div>
+          )}
+
+          {showQuestions && preguntas.length > 0 && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold">Respondé por cada bloque</h2>
+              {currentStep === 'need_more_info' && bloqueIdsPendientes.length > 0 && (
+                <p className="text-sm text-amber-600 dark:text-amber-500">
+                  Falta información en algunos bloques. Completá los que faltan.
+                </p>
+              )}
+              <div className="space-y-4">
+                {bloques.map((bloque) => (
+                  <ContestacionBlockQuestions
+                    key={bloque.id}
+                    bloque={bloque}
+                    preguntas={preguntas}
+                    response={respuestas[bloque.id]}
+                    onChange={(r) => handleResponseChange(bloque.id, r)}
+                    isPending={isLoading}
+                    bloqueIdsPendientes={bloqueIdsPendientes}
+                  />
+                ))}
+              </div>
+              <Button onClick={handleEnviarRespuestas} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  'Enviar respuestas'
+                )}
+              </Button>
+            </div>
+          )}
+
+          {showReady && formDataConsolidado && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold">Listo para redacción</h2>
+              <ContestacionReadySummary formData={formDataConsolidado} />
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleGenerarBorrador}
+                  disabled={isCreatingDraft}
+                >
+                  {isCreatingDraft ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Creando borrador...
+                    </>
+                  ) : (
+                    <>
+                      Generar borrador
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Irás al Redactor para generar el contenido.
+                </span>
+              </div>
             </div>
           )}
         </Card>
