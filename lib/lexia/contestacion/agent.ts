@@ -21,9 +21,9 @@ const AgentDecisionSchema = z.object({
     'need_more_info',
     'ready_for_redaction',
   ]),
-  reason: z.string().optional(),
-  bloque_ids: z.array(z.string()).optional(),
-  preguntas_prioritarias: z.array(z.string()).optional(),
+  reason: z.string(),
+  bloque_ids: z.array(z.string()),
+  preguntas_prioritarias: z.array(z.string()),
 })
 
 const AGENT_SYSTEM_PROMPT = `Eres un orquestador del flujo de contestación de demanda (Córdoba, Argentina).
@@ -37,12 +37,13 @@ Dado el estado actual de la sesión, decides la próxima acción. Acciones posib
 5. **ready_for_redaction**: Si hay respuestas suficientes en todos los bloques relevantes. Pasar a consolidar y redacción.
 
 Reglas:
-- Si no hay analisis_por_bloque y hay bloques → analyze
-- Si hay analisis pero no preguntas_generadas → generate_questions
-- Si hay preguntas pero no respuestas_usuario o respuestas incompletas → wait_user
-- Si hay respuestas pero faltan bloques críticos (hechos, rubros) sin respuesta → need_more_info con esos bloque_ids
-- Si todas las respuestas están completas y son suficientes → ready_for_redaction
-- Considera bloques de tipo hechos y rubros como más críticos que objeto o petitorio.`
+- Si no hay analisis_por_bloque y hay bloques → analyze (reason: "", bloque_ids: [], preguntas_prioritarias: [])
+- Si hay analisis pero no preguntas_generadas → generate_questions (reason: "", bloque_ids: [] si no aplica, preguntas_prioritarias: [])
+- Si hay preguntas pero no respuestas_usuario o respuestas incompletas → wait_user (reason: breve explicación, bloque_ids: [], preguntas_prioritarias: [])
+- Si hay respuestas pero faltan bloques críticos (hechos, rubros) sin respuesta → need_more_info con bloque_ids de esos bloques y reason explicando qué falta
+- Si todas las respuestas están completas y son suficientes → ready_for_redaction (reason: "", bloque_ids: [], preguntas_prioritarias: [])
+
+Siempre incluye reason, bloque_ids y preguntas_prioritarias. Usa "" o [] cuando no aplique.`
 
 /**
  * Gets the agent's decision for the next step based on current state and optional user input.
@@ -95,21 +96,27 @@ Decide la próxima acción.`,
       case 'generate_questions':
         return {
           type: 'generate_questions',
-          payload: object.bloque_ids?.length
-            ? { bloque_ids: object.bloque_ids }
-            : undefined,
+          payload:
+            object.bloque_ids?.length > 0
+              ? { bloque_ids: object.bloque_ids }
+              : undefined,
         }
       case 'wait_user':
         return {
           type: 'wait_user',
-          payload: { reason: object.reason ?? 'Completá las respuestas por bloque para continuar.' },
+          payload: {
+            reason:
+              object.reason?.trim() ||
+              'Completá las respuestas por bloque para continuar.',
+          },
         }
       case 'need_more_info':
         return {
           type: 'need_more_info',
           payload: {
             bloque_ids: object.bloque_ids ?? [],
-            reason: object.reason ?? 'Falta información en algunos bloques.',
+            reason:
+              object.reason?.trim() || 'Falta información en algunos bloques.',
           },
         }
       case 'ready_for_redaction':

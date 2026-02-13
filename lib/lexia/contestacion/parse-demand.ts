@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { resolveModel } from '@/lib/ai/resolver'
 import type { DemandBlock } from './types'
 
-const PARSE_MODEL = 'openai/gpt-4o-mini'
+const PARSE_MODEL = 'anthropic/claude-sonnet-4-20250514'
 
 const DemandParseSchema = z.object({
   bloques: z.array(
@@ -19,33 +19,34 @@ const DemandParseSchema = z.object({
       id: z.string(),
       titulo: z.string(),
       contenido: z.string(),
-      tipo: z
-        .enum(['objeto', 'hechos', 'rubros', 'prueba', 'petitorio', 'otro'])
-        .optional(),
+      tipo: z.enum(['objeto', 'hechos', 'rubros', 'prueba', 'petitorio', 'otro']),
       orden: z.number(),
     })
   ),
-  tipo_demanda_detectado: z.string().optional(),
-  pretensiones_principales: z.array(z.string()).optional(),
+  tipo_demanda_detectado: z.string(),
+  pretensiones_principales: z.array(z.string()),
 })
 
-const PARSE_SYSTEM_PROMPT = `Eres un asistente legal que analiza demandas judiciales argentinas (Córdoba, Argentina).
+const PARSE_SYSTEM_PROMPT = `Eres un asistente legal experto que analiza demandas judiciales argentinas (Córdoba, Argentina).
 
-Tu tarea es parsear el texto de una demanda y extraer sus secciones/bloques. Las demandas suelen tener esta estructura:
+Tu tarea es parsear el texto de una demanda y extraer sus secciones/bloques con el contenido COMPLETO de cada una. No resumas ni omitas texto.
 
+Estructura típica de demandas:
 - I. OBJETO (comparecencia, demandados, pretensiones, mediación)
 - II. HECHOS (con subsecciones numeradas I, II, III, IV, V...)
 - III. o IV. RUBROS RECLAMADOS (daño emergente, lucro cesante)
-- IV. o V. PRUEBA (documental, testimonial, etc.)
-- V. o VI. RESERVA DEL CASO FEDERAL
+- IV. o V. PRUEBA (documental, testimonial, informativa)
+- V. o VI. RESERVA DEL CASO FEDERAL (si existe)
 - VI. o VII. PETITORIO
 
-Detecta cada bloque por su título (numeración romana o similar) y extrae el contenido completo de cada uno.
-Asigna un tipo cuando sea claro: objeto, hechos, rubros, prueba, petitorio. Si no está claro, usa "otro".
-Genera un id único para cada bloque (ej: bloque_1, bloque_2).
-Ordena los bloques según su aparición en el documento (orden 1, 2, 3...).
-Si detectas el tipo de demanda (ej: incumplimiento contractual locación), indícalo en tipo_demanda_detectado.
-Si identificas las pretensiones principales, listalas en pretensiones_principales.`
+Instrucciones:
+1. Detecta cada bloque por su título (numeración romana I, II, III... o "ANTE UD.", "POR LO EXPUESTO", etc.).
+2. Extrae el contenido COMPLETO de cada bloque, sin resumir. Incluye todos los párrafos, subsecciones y detalles.
+3. Asigna tipo: objeto, hechos, rubros, prueba, petitorio. Si no encaja, usa "otro".
+4. Genera id único por bloque (bloque_1, bloque_2, ...).
+5. Ordena según aparición en el documento (orden 1, 2, 3...).
+6. tipo_demanda_detectado: describe el tipo (ej: "incumplimiento contractual locación", "daños y perjuicios").
+7. pretensiones_principales: lista las pretensiones concretas (ej: "condena al pago de daños", "desalojo").`
 
 /**
  * Parses raw demand text into structured blocks.
@@ -76,8 +77,8 @@ DEMANDA:
 ${trimmed.slice(0, 100_000)}
 ---`,
       system: PARSE_SYSTEM_PROMPT,
-      maxTokens: 4096,
-      temperature: 0.2,
+      maxTokens: 16384,
+      temperature: 0.1,
     })
 
     if (!object.bloques || object.bloques.length === 0) {
@@ -96,8 +97,11 @@ ${trimmed.slice(0, 100_000)}
 
     return {
       bloques: object.bloques as DemandBlock[],
-      tipo_demanda_detectado: object.tipo_demanda_detectado,
-      pretensiones_principales: object.pretensiones_principales,
+      tipo_demanda_detectado: object.tipo_demanda_detectado?.trim() || undefined,
+      pretensiones_principales:
+        object.pretensiones_principales?.length > 0
+          ? object.pretensiones_principales
+          : undefined,
     }
   } catch (err) {
     console.error('[Contestacion] parseDemandStructure error:', err)
