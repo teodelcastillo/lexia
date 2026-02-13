@@ -9,6 +9,42 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
 import { CartaDocumentoHeader, type CartaDocumentoFormData } from './carta-documento-header'
+import { CartaDocumentoPreview, type CartaDocumentoPreviewData } from './carta-documento-preview'
+
+function buildCartaDocumentoPreviewHtml(
+  fd: CartaDocumentoPreviewData,
+  bodyContent: string,
+  reducirFuente: boolean
+): string {
+  const esc = (s: string | undefined) =>
+    (s || '\u00A0').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const fs = reducirFuente ? '11px' : '12px'
+  const headerHtml = buildCartaDocumentoHeaderHtml(fd, reducirFuente)
+  const lugarFecha = fd.lugar_fecha?.trim()
+    ? `<div style="text-align:right;margin-bottom:1rem">${esc(fd.lugar_fecha)}</div>`
+    : ''
+  const saludo = fd.saludo?.trim()
+    ? `<div style="text-align:right;margin-top:1rem">${esc(fd.saludo)}</div>`
+    : ''
+  const firma = []
+  if (fd.apellido_nombres?.trim()) firma.push(`<div style="font-weight:500">${esc(fd.apellido_nombres)}</div>`)
+  if (fd.documento_tipo?.trim() && fd.documento_numero?.trim())
+    firma.push(`<div style="margin-top:0.25rem">${esc(fd.documento_tipo)} ${esc(fd.documento_numero)}</div>`)
+  if (fd.dato_adicional?.trim())
+    firma.push(`<div style="margin-top:0.25rem;font-size:0.9em">${esc(fd.dato_adicional)}</div>`)
+  const firmaHtml = firma.length ? `<div style="margin-top:1.5rem">${firma.join('')}</div>` : ''
+
+  return `
+    ${headerHtml}
+    <div style="margin-top:1.5rem"></div>
+    ${headerHtml}
+    <div style="margin-top:1.5rem"></div>
+    ${lugarFecha}
+    <div style="text-align:justify;margin:1rem 0;white-space:pre-wrap;font-family:Georgia,Times,serif;font-size:${fs};line-height:1.5">${esc(bodyContent)}</div>
+    ${saludo}
+    ${firmaHtml}
+  `
+}
 
 function buildCartaDocumentoHeaderHtml(
   fd: CartaDocumentoFormData,
@@ -128,9 +164,13 @@ export function RedactorDraftView({
       return
     }
     const isCartaDoc = documentType === 'carta_documento' && cdFormData
-    const headerHtml = isCartaDoc
-      ? buildCartaDocumentoHeaderHtml(cdFormData, reducirFuente)
-      : ''
+    const bodyHtml = isCartaDoc
+      ? buildCartaDocumentoPreviewHtml(
+          cdFormData as CartaDocumentoPreviewData,
+          content,
+          reducirFuente
+        )
+      : `<pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`
     const pageSize = isCartaDoc ? '21.6cm 33cm' : '21cm 29.7cm'
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -141,12 +181,10 @@ export function RedactorDraftView({
             @page { size: ${pageSize}; margin: 1.5cm; }
             body { font-family: serif; padding: 1.5cm; line-height: 1.6; max-width: 21.6cm; margin: 0 auto; }
             pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
-            .cd-print-header { margin-bottom: 1.2rem; }
           </style>
         </head>
         <body>
-          ${headerHtml}
-          <pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          ${bodyHtml}
         </body>
       </html>
     `)
@@ -208,17 +246,22 @@ export function RedactorDraftView({
       </div>
 
       <div className="flex-1 overflow-auto mt-4">
-        {cdFormData && (
-          <div className="mb-6 p-4 rounded-lg border border-border bg-muted/20">
-            <p className="text-xs text-muted-foreground mb-2 font-medium">Encabezado CD (formato oficial)</p>
-            <CartaDocumentoHeader
-              formData={cdFormData}
+        {cdFormData && content ? (
+          <div className="mb-6 p-6 rounded-lg border border-border bg-background shadow-sm">
+            <p className="text-xs text-muted-foreground mb-3 font-medium">
+              Vista previa Carta Documento (formato oficial)
+            </p>
+            <CartaDocumentoPreview
+              formData={cdFormData as CartaDocumentoPreviewData}
+              bodyContent={content}
               reducirFuente={reducirFuente}
               printMode={false}
+              editable={isEditing && !!onContentChange}
+              onBodyChange={onContentChange}
+              disabled={isStreaming}
             />
           </div>
-        )}
-        {content ? (
+        ) : content ? (
           isEditing && onContentChange ? (
             <Textarea
               value={content}
