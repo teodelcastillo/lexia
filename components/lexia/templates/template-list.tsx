@@ -9,14 +9,25 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { DOCUMENT_TYPE_CONFIG } from '@/lib/lexia/document-type-config'
-import { DOCUMENT_TYPES, type DocumentType } from '@/lib/ai/draft-schemas'
+import { getDemandaVariantLabel } from '@/lib/lexia/demand-variants'
+import type { DocumentType } from '@/lib/ai/draft-schemas'
 
 interface TemplateItem {
   id: string
   organization_id: string | null
   document_type: string
+  variant?: string
   name: string
   is_active: boolean
+}
+
+interface DisplayItem {
+  documentType: DocumentType
+  variant: string
+  label: string
+  description: string
+  hasOrg: boolean
+  templateId?: string
 }
 
 export function TemplateList() {
@@ -31,7 +42,7 @@ export function TemplateList() {
         const res = await fetch('/api/lexia/templates')
         if (res.ok) {
           const data = await res.json()
-          setTemplates(data)
+          setTemplates(data ?? [])
         }
       } catch (err) {
         console.error('[TemplateList] Error:', err)
@@ -42,32 +53,65 @@ export function TemplateList() {
     load()
   }, [])
 
-  const orgTemplatesByType = new Map<string, TemplateItem>()
+  const byKey = new Map<string, TemplateItem>()
+  for (const t of templates) {
+    const key = `${t.document_type}:${t.variant ?? ''}`
+    const existing = byKey.get(key)
+    if (!existing || (t.organization_id && !existing.organization_id)) {
+      byKey.set(key, t)
+    }
+  }
+  const deduped = Array.from(byKey.values())
+
+  const orgByKey = new Map<string, TemplateItem>()
   for (const t of templates) {
     if (t.organization_id) {
-      orgTemplatesByType.set(t.document_type, t)
+      orgByKey.set(`${t.document_type}:${t.variant ?? ''}`, t)
     }
   }
 
-  const handlePersonalize = async (documentType: DocumentType) => {
-    setCreating(documentType)
+  const displayItems: DisplayItem[] = deduped.map((t) => {
+    const config = DOCUMENT_TYPE_CONFIG[t.document_type as DocumentType]
+    const variant = t.variant ?? ''
+    const label =
+      t.document_type === 'demanda' && variant
+        ? getDemandaVariantLabel(variant)
+        : config?.label ?? t.name
+    const hasOrg = orgByKey.has(`${t.document_type}:${variant}`)
+    const orgTemplate = orgByKey.get(`${t.document_type}:${variant}`)
+    return {
+      documentType: t.document_type as DocumentType,
+      variant,
+      label,
+      description: config?.description ?? '',
+      hasOrg,
+      templateId: orgTemplate?.id,
+    }
+  })
+
+  const handlePersonalize = async (documentType: DocumentType, variant: string) => {
+    const key = `${documentType}:${variant}`
+    setCreating(key)
     try {
       const res = await fetch('/api/lexia/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentType }),
+        body: JSON.stringify({ documentType, variant }),
       })
       if (res.ok) {
         const created = await res.json()
         setTemplates((prev) => [...prev, created])
-        router.push(`/lexia/plantillas/${documentType}`)
+        const url = variant
+          ? `/lexia/plantillas/${documentType}?variant=${encodeURIComponent(variant)}`
+          : `/lexia/plantillas/${documentType}`
+        router.push(url)
       } else {
         const err = await res.json()
         throw new Error(err.error || 'Error al crear plantilla')
       }
     } catch (err) {
       console.error('[TemplateList] Create error:', err)
-        toast.error(err instanceof Error ? err.message : 'Error al crear plantilla')
+      toast.error(err instanceof Error ? err.message : 'Error al crear plantilla')
     } finally {
       setCreating(null)
     }
@@ -90,31 +134,33 @@ export function TemplateList() {
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {DOCUMENT_TYPES.map((documentType) => {
-          const config = DOCUMENT_TYPE_CONFIG[documentType]
-          const Icon = config.icon
-          const orgTemplate = orgTemplatesByType.get(documentType)
-          const hasOrg = !!orgTemplate
+        {displayItems.map((item) => {
+          const config = DOCUMENT_TYPE_CONFIG[item.documentType]
+          const Icon = config?.icon
+          const key = `${item.documentType}:${item.variant}`
+          const editUrl = item.variant
+            ? `/lexia/plantillas/${item.documentType}?variant=${encodeURIComponent(item.variant)}`
+            : `/lexia/plantillas/${item.documentType}`
 
           return (
-            <Card key={documentType} className="overflow-hidden">
+            <Card key={key} className="overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                    <Icon className="h-5 w-5 text-primary" />
+                    {Icon ? <Icon className="h-5 w-5 text-primary" /> : null}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{config.label}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{config.description}</p>
-                    <Badge variant={hasOrg ? 'default' : 'secondary'} className="text-xs">
-                      {hasOrg ? 'Plantilla del estudio' : 'Plantilla estándar'}
+                    <p className="font-medium">{item.label}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
+                    <Badge variant={item.hasOrg ? 'default' : 'secondary'} className="text-xs">
+                      {item.hasOrg ? 'Plantilla del estudio' : 'Plantilla estándar'}
                     </Badge>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  {hasOrg ? (
+                  {item.hasOrg ? (
                     <Button asChild size="sm" variant="outline" className="flex-1">
-                      <Link href={`/lexia/plantillas/${documentType}`}>
+                      <Link href={editUrl}>
                         <Pencil className="h-4 w-4 mr-1" />
                         Editar
                       </Link>
@@ -124,10 +170,10 @@ export function TemplateList() {
                       size="sm"
                       variant="outline"
                       className="flex-1"
-                      onClick={() => handlePersonalize(documentType)}
-                      disabled={creating === documentType}
+                      onClick={() => handlePersonalize(item.documentType, item.variant)}
+                      disabled={creating === key}
                     >
-                      {creating === documentType ? (
+                      {creating === key ? (
                         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                       ) : (
                         <Settings2 className="h-4 w-4 mr-1" />

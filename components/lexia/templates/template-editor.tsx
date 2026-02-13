@@ -29,9 +29,10 @@ interface TemplateData {
 
 interface TemplateEditorProps {
   documentType: DocumentType
+  variant?: string
 }
 
-export function TemplateEditor({ documentType }: TemplateEditorProps) {
+export function TemplateEditor({ documentType, variant = '' }: TemplateEditorProps) {
   const router = useRouter()
   const [template, setTemplate] = useState<TemplateData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -44,7 +45,9 @@ export function TemplateEditor({ documentType }: TemplateEditorProps) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/lexia/templates/by-type/${documentType}`)
+        const url = new URL(`/api/lexia/templates/by-type/${documentType}`, window.location.origin)
+        url.searchParams.set('variant', variant)
+        const res = await fetch(url.toString())
         if (res.ok) {
           const data = await res.json()
           setTemplate(data)
@@ -61,7 +64,7 @@ export function TemplateEditor({ documentType }: TemplateEditorProps) {
       }
     }
     load()
-  }, [documentType])
+  }, [documentType, variant])
 
   const handleSave = async () => {
     if (!template?.id || !template.isOrgTemplate) return

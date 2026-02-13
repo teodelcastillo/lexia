@@ -11,7 +11,7 @@ import { getFieldsForDocumentType } from '@/lib/ai/draft-schemas'
 import type { StructureSchema } from '@/lib/ai/draft-schemas'
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ documentType: string }> }
 ) {
   try {
@@ -19,6 +19,9 @@ export async function GET(
     if (!isDocumentType(documentType)) {
       return NextResponse.json({ error: 'Invalid documentType' }, { status: 400 })
     }
+
+    const { searchParams } = new URL(req.url)
+    const variant = searchParams.get('variant') ?? ''
 
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -48,8 +51,9 @@ export async function GET(
     if (orgId) {
       const { data: orgTemplate } = await supabase
         .from('lexia_document_templates')
-        .select('id, organization_id, document_type, name, structure_schema, template_content, system_prompt_fragment, is_active')
+        .select('id, organization_id, document_type, variant, name, structure_schema, template_content, system_prompt_fragment, is_active')
         .eq('document_type', documentType)
+        .eq('variant', variant)
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .limit(1)
@@ -60,8 +64,9 @@ export async function GET(
     if (!template) {
       const { data: globalTemplate } = await supabase
         .from('lexia_document_templates')
-        .select('id, organization_id, document_type, name, structure_schema, template_content, system_prompt_fragment, is_active')
+        .select('id, organization_id, document_type, variant, name, structure_schema, template_content, system_prompt_fragment, is_active')
         .eq('document_type', documentType)
+        .eq('variant', variant)
         .is('organization_id', null)
         .eq('is_active', true)
         .limit(1)
@@ -85,6 +90,7 @@ export async function GET(
       id: template.id,
       organization_id: template.organization_id,
       document_type: template.document_type,
+      variant: (template as { variant?: string }).variant ?? '',
       name: template.name,
       structure_schema: template.structure_schema,
       template_content: template.template_content,

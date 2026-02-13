@@ -1,11 +1,13 @@
 'use client'
 
 import { use } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { FileText, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TemplateEditor } from '@/components/lexia/templates/template-editor'
 import { DOCUMENT_TYPE_CONFIG } from '@/lib/lexia/document-type-config'
+import { getDemandaVariantLabel } from '@/lib/lexia/demand-variants'
 import { isDocumentType, type DocumentType } from '@/lib/ai/draft-schemas'
 
 interface PageProps {
@@ -14,6 +16,8 @@ interface PageProps {
 
 export default function TemplateEditorPage({ params }: PageProps) {
   const { documentType } = use(params)
+  const searchParams = useSearchParams()
+  const variant = searchParams.get('variant') ?? ''
 
   if (!isDocumentType(documentType)) {
     return (
@@ -34,6 +38,10 @@ export default function TemplateEditorPage({ params }: PageProps) {
   }
 
   const config = DOCUMENT_TYPE_CONFIG[documentType as DocumentType]
+  const displayLabel =
+    documentType === 'demanda' && variant
+      ? getDemandaVariantLabel(variant)
+      : config.label
 
   return (
     <div className="flex flex-col h-full">
@@ -43,7 +51,7 @@ export default function TemplateEditorPage({ params }: PageProps) {
             <FileText className="h-4 w-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold">Editar plantilla: {config.label}</h1>
+            <h1 className="font-semibold">Editar plantilla: {displayLabel}</h1>
             <p className="text-xs text-muted-foreground">
               {config.description}
             </p>
@@ -59,7 +67,7 @@ export default function TemplateEditorPage({ params }: PageProps) {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-3xl mx-auto">
-          <TemplateEditor documentType={documentType as DocumentType} />
+          <TemplateEditor documentType={documentType as DocumentType} variant={variant} />
         </div>
       </div>
     </div>

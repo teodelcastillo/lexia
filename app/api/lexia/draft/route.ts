@@ -87,6 +87,7 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const documentType = body.documentType as string
+    const variant = (body.variant as string | undefined) ?? ''
     const formData = (body.formData ?? {}) as Record<string, string>
     const caseContext = body.caseContext as {
       caseId?: string
@@ -132,6 +133,7 @@ export async function POST(req: Request) {
         .from('lexia_document_templates')
         .select('system_prompt_fragment, template_content, structure_schema')
         .eq('document_type', documentType)
+        .eq('variant', variant)
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .limit(1)
@@ -143,6 +145,7 @@ export async function POST(req: Request) {
         .from('lexia_document_templates')
         .select('system_prompt_fragment, template_content, structure_schema')
         .eq('document_type', documentType)
+        .eq('variant', variant)
         .is('organization_id', null)
         .eq('is_active', true)
         .limit(1)

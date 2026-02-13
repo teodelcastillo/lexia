@@ -30,12 +30,18 @@ export async function GET(req: Request) {
 
     let query = supabase
       .from('lexia_document_templates')
-      .select('id, organization_id, document_type, name, is_active, created_at, updated_at')
+      .select('id, organization_id, document_type, variant, name, is_active, created_at, updated_at')
       .eq('is_active', true)
       .order('document_type', { ascending: true })
+      .order('variant', { ascending: true })
 
     if (documentType && isDocumentType(documentType)) {
       query = query.eq('document_type', documentType)
+    }
+
+    const variantParam = searchParams.get('variant')
+    if (variantParam !== null) {
+      query = query.eq('variant', variantParam)
     }
 
     const { data: templates, error } = await query
@@ -80,6 +86,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}))
     const documentType = body.documentType as string
+    const variant = (body.variant as string | undefined) ?? ''
     const name = body.name as string | undefined
     const systemPromptFragment = body.system_prompt_fragment as string | undefined
     const templateContent = body.template_content as string | undefined
@@ -94,12 +101,13 @@ export async function POST(req: Request) {
       .select('id')
       .eq('organization_id', orgId)
       .eq('document_type', documentType)
+      .eq('variant', variant)
       .limit(1)
       .maybeSingle()
 
     if (existing) {
       return NextResponse.json(
-        { error: 'Organization already has a template for this document type' },
+        { error: 'Organization already has a template for this document type and variant' },
         { status: 409 }
       )
     }
@@ -108,28 +116,43 @@ export async function POST(req: Request) {
       .from('lexia_document_templates')
       .select('name, structure_schema, template_content, system_prompt_fragment')
       .eq('document_type', documentType)
+      .eq('variant', variant)
       .is('organization_id', null)
       .eq('is_active', true)
       .limit(1)
       .maybeSingle()
 
+    const globalFallback = !globalTemplate && variant
+      ? await supabase
+          .from('lexia_document_templates')
+          .select('name, structure_schema, template_content, system_prompt_fragment')
+          .eq('document_type', documentType)
+          .eq('variant', '')
+          .is('organization_id', null)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
+
     const defaultSchema = DOCUMENT_TYPE_SCHEMAS[documentType as DocumentType]
     const defaultStructureSchema = { fields: defaultSchema.fields.map((f) => f.key) }
+    const baseTemplate = globalTemplate ?? globalFallback.data
 
     const insert = {
       organization_id: orgId,
       document_type: documentType,
-      name: name ?? globalTemplate?.name ?? documentType,
-      structure_schema: structureSchema ?? globalTemplate?.structure_schema ?? defaultStructureSchema,
-      template_content: templateContent ?? globalTemplate?.template_content ?? '',
-      system_prompt_fragment: systemPromptFragment ?? globalTemplate?.system_prompt_fragment ?? '',
+      variant,
+      name: name ?? baseTemplate?.name ?? documentType,
+      structure_schema: structureSchema ?? baseTemplate?.structure_schema ?? defaultStructureSchema,
+      template_content: templateContent ?? baseTemplate?.template_content ?? '',
+      system_prompt_fragment: systemPromptFragment ?? baseTemplate?.system_prompt_fragment ?? '',
       is_active: true,
     }
 
     const { data: created, error } = await supabase
       .from('lexia_document_templates')
       .insert(insert)
-      .select('id, document_type, name, organization_id, created_at')
+      .select('id, document_type, variant, name, organization_id, created_at')
       .single()
 
     if (error) {

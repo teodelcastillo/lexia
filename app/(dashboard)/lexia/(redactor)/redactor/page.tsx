@@ -7,7 +7,10 @@ import { PenTool, Briefcase } from 'lucide-react'
 import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
 import { useLexiaCaseContext } from '@/lib/lexia/lexia-case-context'
 import { Button } from '@/components/ui/button'
-import { RedactorDocumentTypeSelect } from '@/components/lexia/redactor/redactor-document-type-select'
+import {
+  RedactorDocumentTypeSelect,
+  type SelectedTemplate,
+} from '@/components/lexia/redactor/redactor-document-type-select'
 import { RedactorForm } from '@/components/lexia/redactor/redactor-form'
 import { RedactorDraftView } from '@/components/lexia/redactor/redactor-draft-view'
 import { RedactorIterationChat } from '@/components/lexia/redactor/redactor-iteration-chat'
@@ -44,6 +47,7 @@ export default function RedactorPage() {
 
   const [step, setStep] = useState<Step>('select')
   const [documentType, setDocumentType] = useState<DocumentType | null>(null)
+  const [selectedVariant, setSelectedVariant] = useState<string>('')
   const [formData, setFormData] = useState<Record<string, string>>({})
   const [draftContent, setDraftContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -142,7 +146,9 @@ export default function RedactorPage() {
       })
       .then(async (draft) => {
         const type = draft.document_type as DocumentType
+        const variant = (draft.variant as string) ?? ''
         setDocumentType(type)
+        setSelectedVariant(variant)
         setFormData((draft.form_data || {}) as Record<string, string>)
         setDraftContent(draft.content || '')
         setStep('draft')
@@ -150,7 +156,7 @@ export default function RedactorPage() {
         if (draft.case_id) {
           loadCaseById(draft.case_id)
         }
-        loadTemplate(type)
+        loadTemplate(type, variant)
       })
       .catch((err) => {
         toast.error(err.message || 'Error al cargar el borrador')
@@ -171,6 +177,7 @@ export default function RedactorPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             documentType,
+            variant: selectedVariant,
             formData: data,
             caseContext: ctx
               ? { caseId: ctx.id, caseNumber: ctx.caseNumber, title: ctx.title, type: ctx.type }
@@ -207,13 +214,15 @@ export default function RedactorPage() {
         setIsGenerating(false)
       }
     },
-    [documentType, caseContext, loadCaseContext]
+    [documentType, selectedVariant, caseContext, loadCaseContext]
   )
 
-  const loadTemplate = useCallback(async (type: DocumentType) => {
+  const loadTemplate = useCallback(async (type: DocumentType, variant: string = '') => {
     setTemplateLoaded(false)
     try {
-      const res = await fetch(`/api/lexia/templates/by-type/${type}`)
+      const url = new URL(`/api/lexia/templates/by-type/${type}`, window.location.origin)
+      url.searchParams.set('variant', variant)
+      const res = await fetch(url.toString())
       if (res.ok) {
         const data = await res.json()
         setTemplateFields(data.fields ?? null)
@@ -231,12 +240,13 @@ export default function RedactorPage() {
     }
   }, [])
 
-  const handleSelectType = (type: DocumentType) => {
-    setDocumentType(type)
+  const handleSelectType = (template: SelectedTemplate) => {
+    setDocumentType(template.documentType)
+    setSelectedVariant(template.variant ?? '')
     setFormData({})
-    setClientRole(type === 'contestacion' ? 'demandado' : 'actor')
+    setClientRole(template.documentType === 'contestacion' ? 'demandado' : 'actor')
     setStep('form')
-    loadTemplate(type)
+    loadTemplate(template.documentType, template.variant ?? '')
   }
 
   const effectiveDefaults =
@@ -259,6 +269,7 @@ export default function RedactorPage() {
     if (step === 'form') {
       setStep('select')
       setDocumentType(null)
+      setSelectedVariant('')
     }
   }
 
