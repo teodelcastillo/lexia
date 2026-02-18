@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { LandingPage } from '@/components/landing/landing-page'
 
 export const metadata: Metadata = {
-  title: 'Lexia – Asistente legal | Gestión integral para estudios jurídicos',
+  title: 'Lexia - Gestión Integral Para Estudios Jurídicos',
   description:
     'Plataforma de gestión legal: casos, clientes, documentos, tareas, plazos y asistente de IA especializado en derecho argentino. Portal para clientes.',
 }
