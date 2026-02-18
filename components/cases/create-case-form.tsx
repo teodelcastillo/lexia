@@ -17,7 +17,12 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, AlertCircle } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Loader2, AlertCircle, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 import type { CaseStatus } from '@/lib/types'
 
 interface Company {
@@ -47,7 +52,16 @@ export function CreateCaseForm({ companies: initialCompanies = [], organizationI
     case_type: '',
     status: 'pending' as CaseStatus,
     company_id: '',
+    court_number: '',
+    jurisdiction: '',
+    court_name: '',
+    opposing_party: '',
+    opposing_counsel: '',
+    filing_date: '',
+    brief_context: '',
   })
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
 
   // Only load companies if not provided as prop
   useEffect(() => {
@@ -91,6 +105,58 @@ export function CreateCaseForm({ companies: initialCompanies = [], organizationI
     }))
   }
 
+  const handleGenerateDescription = async () => {
+    const companyName = companies.find(c => c.id === formData.company_id)?.company_name
+      || companies.find(c => c.id === formData.company_id)?.name
+      || ''
+    const hasAnyContext =
+      formData.case_number.trim() ||
+      formData.title.trim() ||
+      formData.case_type.trim() ||
+      companyName ||
+      formData.court_number.trim() ||
+      formData.jurisdiction.trim() ||
+      formData.court_name.trim() ||
+      formData.opposing_party.trim() ||
+      formData.opposing_counsel.trim() ||
+      formData.filing_date.trim() ||
+      formData.brief_context.trim()
+
+    if (!hasAnyContext) {
+      setError('Complete al menos título, tipo de caso o cliente para generar la descripción')
+      return
+    }
+
+    setError(null)
+    setIsGeneratingDesc(true)
+    try {
+      const res = await fetch('/api/cases/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          case_number: formData.case_number.trim(),
+          title: formData.title.trim(),
+          case_type: formData.case_type.trim(),
+          company_name: companyName || undefined,
+          court_number: formData.court_number.trim() || undefined,
+          jurisdiction: formData.jurisdiction.trim() || undefined,
+          court_name: formData.court_name.trim() || undefined,
+          opposing_party: formData.opposing_party.trim() || undefined,
+          opposing_counsel: formData.opposing_counsel.trim() || undefined,
+          filing_date: formData.filing_date.trim() || undefined,
+          brief_context: formData.brief_context.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al generar')
+      handleChange('description', data.description)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al generar la descripción')
+    } finally {
+      setIsGeneratingDesc(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -127,14 +193,19 @@ export function CreateCaseForm({ companies: initialCompanies = [], organizationI
 
       // Create case
       // organization_id will be auto-assigned by trigger, but we include it explicitly if available
-      const insertData: any = {
+      const insertData: Record<string, unknown> = {
         case_number: formData.case_number.trim(),
         title: formData.title.trim(),
         description: formData.description.trim() || null,
-        case_type: formData.case_type.trim() || null,
+        case_type: formData.case_type.trim() || 'Sin especificar',
         status: formData.status,
         company_id: formData.company_id,
-        // created_at and updated_at have defaults in DB, no need to send explicitly
+        court_number: formData.court_number.trim() || null,
+        jurisdiction: formData.jurisdiction.trim() || null,
+        court_name: formData.court_name.trim() || null,
+        opposing_party: formData.opposing_party.trim() || null,
+        opposing_counsel: formData.opposing_counsel.trim() || null,
+        filing_date: formData.filing_date.trim() || null,
       }
 
       // Include organization_id if provided (trigger will handle it if not)
@@ -293,18 +364,144 @@ export function CreateCaseForm({ companies: initialCompanies = [], organizationI
               </Select>
             </div>
 
-            {/* Row 4: Description */}
+            {/* Row 4: Más información contextual */}
+            <Collapsible open={contextOpen} onOpenChange={setContextOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex items-center gap-2 -ml-2"
+                  disabled={isLoading}
+                >
+                  {contextOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  Más información contextual (jurisdicción, contraparte, fechas…)
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="grid gap-4 sm:grid-cols-2 pt-4 space-y-4">
+                  <div className="space-y-2 sm:col-span-2">
+                    <label htmlFor="court_number" className="text-sm font-medium">
+                      Número de expediente judicial
+                    </label>
+                    <Input
+                      id="court_number"
+                      placeholder="Ej: 12345/2025"
+                      value={formData.court_number}
+                      onChange={(e) => handleChange('court_number', e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="jurisdiction" className="text-sm font-medium">
+                      Jurisdicción
+                    </label>
+                    <Input
+                      id="jurisdiction"
+                      placeholder="Ej: Córdoba Capital, 1ª Circunscripción"
+                      value={formData.jurisdiction}
+                      onChange={(e) => handleChange('jurisdiction', e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="court_name" className="text-sm font-medium">
+                      Tribunal
+                    </label>
+                    <Input
+                      id="court_name"
+                      placeholder="Ej: Juzgado Civil y Comercial Nº 5"
+                      value={formData.court_name}
+                      onChange={(e) => handleChange('court_name', e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="opposing_party" className="text-sm font-medium">
+                      Contraparte
+                    </label>
+                    <Input
+                      id="opposing_party"
+                      placeholder="Nombre de la parte contraria"
+                      value={formData.opposing_party}
+                      onChange={(e) => handleChange('opposing_party', e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="opposing_counsel" className="text-sm font-medium">
+                      Abogado de la contraparte
+                    </label>
+                    <Input
+                      id="opposing_counsel"
+                      placeholder="Nombre del letrado"
+                      value={formData.opposing_counsel}
+                      onChange={(e) => handleChange('opposing_counsel', e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="filing_date" className="text-sm font-medium">
+                      Fecha de presentación
+                    </label>
+                    <Input
+                      id="filing_date"
+                      type="date"
+                      value={formData.filing_date}
+                      onChange={(e) => handleChange('filing_date', e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <label htmlFor="brief_context" className="text-sm font-medium">
+                      Contexto adicional
+                    </label>
+                    <Textarea
+                      id="brief_context"
+                      placeholder="Hechos relevantes, objeto del conflicto, pretensiones principales..."
+                      value={formData.brief_context}
+                      onChange={(e) => handleChange('brief_context', e.target.value)}
+                      disabled={isLoading}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Row 5: Description */}
             <div className="space-y-2">
-              <label htmlFor="description" className="text-sm font-medium">
-                Descripción
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="description" className="text-sm font-medium">
+                  Descripción
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateDescription}
+                  disabled={isLoading || isGeneratingDesc}
+                >
+                  {isGeneratingDesc ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span className="ml-1.5">
+                    {isGeneratingDesc ? 'Generando...' : 'Generar descripción'}
+                  </span>
+                </Button>
+              </div>
               <Textarea
                 id="description"
-                placeholder="Descripción detallada del caso..."
+                placeholder="Descripción detallada del caso. Complete los campos anteriores y use «Generar descripción» para crearla automáticamente."
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
                 disabled={isLoading}
-                rows={4}
+                rows={5}
               />
             </div>
 
