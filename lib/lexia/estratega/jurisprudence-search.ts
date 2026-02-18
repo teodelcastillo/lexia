@@ -12,8 +12,8 @@ const jurisprudenceSchema = z.object({
       summary: z.string(),
       relevance: z.string(),
       keyArguments: z.array(z.string()).min(1).max(5),
-      url: z.string().optional(),
-      indemnizationAmount: z.string().optional(),
+      url: z.string().nullable(),
+      indemnizationAmount: z.string().nullable(),
     })
   ).min(2).max(5),
 })

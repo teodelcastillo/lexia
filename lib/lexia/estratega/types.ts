@@ -35,8 +35,8 @@ export interface Jurisprudence {
   summary: string
   relevance: string
   keyArguments: string[]
-  url?: string
-  indemnizationAmount?: string
+  url: string | null
+  indemnizationAmount: string | null
 }
 
 // ── Scenarios ────────────────────────────────────────────────
