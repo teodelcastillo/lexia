@@ -182,6 +182,18 @@ export default function PortalLoginPage() {
             Volver al inicio de sesión principal
           </Link>
         </div>
+
+        {/* Footer */}
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Al acceder, acepta nuestros{' '}
+          <Link href="/terminos" className="underline hover:text-foreground">
+            Términos de Servicio
+          </Link>{' '}
+          y{' '}
+          <Link href="/privacidad" className="underline hover:text-foreground">
+            Política de Privacidad
+          </Link>
+        </p>
       </div>
     </div>
   )
