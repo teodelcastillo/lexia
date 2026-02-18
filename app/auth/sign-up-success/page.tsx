@@ -49,7 +49,7 @@ export default function SignUpSuccessPage() {
             <Scale className="h-8 w-8" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            LegalHub
+            Lexia
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Sistema de Gestión Legal
@@ -136,10 +136,10 @@ export default function SignUpSuccessPage() {
               <p>
                 Verifique su carpeta de spam. Si no aparece, contacte a{' '}
                 <a
-                  href="mailto:soporte@legalhub.com"
+                  href="mailto:soporte@Lexia.com"
                   className="font-medium text-primary hover:underline"
                 >
-                  soporte@legalhub.com
+                  soporte@Lexia.com
                 </a>
               </p>
             </div>

@@ -84,7 +84,7 @@ export default async function PortalLayout({ children }: PortalLayoutProps) {
       <footer className="border-t border-border mt-auto">
         <div className="container mx-auto px-4 py-6 max-w-6xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <p>Portal de Clientes - LegalHub</p>
+            <p>Portal de Clientes - Lexia</p>
             <p>Para consultas, contacte a su abogado asignado</p>
           </div>
         </div>

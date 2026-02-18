@@ -199,12 +199,12 @@ export default async function PortalHelpPage() {
                 </a>
                 
                 <a 
-                  href="mailto:contacto@legalhub.com"
+                  href="mailto:contacto@Lexia.com"
                   className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
                   <Mail className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="text-sm font-medium">contacto@legalhub.com</p>
+                    <p className="text-sm font-medium">contacto@Lexia.com</p>
                     <p className="text-xs text-muted-foreground">Consultas generales</p>
                   </div>
                 </a>
@@ -296,7 +296,7 @@ export default async function PortalHelpPage() {
                   </p>
                 </div>
                 <Button variant="outline" asChild className="flex-shrink-0 bg-transparent">
-                  <a href={leadLawyer?.profile?.email ? `mailto:${leadLawyer.profile.email}` : 'mailto:contacto@legalhub.com'}>
+                  <a href={leadLawyer?.profile?.email ? `mailto:${leadLawyer.profile.email}` : 'mailto:contacto@Lexia.com'}>
                     <Mail className="h-4 w-4 mr-2" />
                     Enviar Email
                   </a>

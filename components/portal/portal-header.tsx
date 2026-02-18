@@ -93,7 +93,7 @@ export function PortalHeader({ userName, isAdminPreview, clientsList = [], viewA
               <Scale className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold tracking-tight">LegalHub</span>
+              <span className="font-semibold tracking-tight">Lexia</span>
               <span className="text-xs text-muted-foreground flex items-center gap-2">
                 Portal de Clientes
                 {isAdminPreview && (

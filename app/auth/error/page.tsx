@@ -79,7 +79,7 @@ export default function AuthErrorPage() {
             <Scale className="h-8 w-8" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            LegalHub
+            Lexia
           </h1>
         </div>
 

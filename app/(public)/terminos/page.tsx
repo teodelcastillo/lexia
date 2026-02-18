@@ -1,14 +1,14 @@
 /**
  * Términos de Servicio - Página pública
  *
- * Define las condiciones de uso de la aplicación LegalHub.
+ * Define las condiciones de uso de la aplicación Lexia.
  */
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Términos de Servicio',
-  description: 'Términos y condiciones de uso de LegalHub. Lea las condiciones que rigen el uso de la plataforma.',
+  description: 'Términos y condiciones de uso de Lexia. Lea las condiciones que rigen el uso de la plataforma.',
 }
 
 export default function TerminosPage() {
@@ -27,21 +27,21 @@ export default function TerminosPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">1. Aceptación de los términos</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Al acceder o utilizar LegalHub (&quot;la aplicación&quot;, &quot;el servicio&quot;), usted acepta estar sujeto a estos Términos de Servicio. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar el servicio.
+            Al acceder o utilizar Lexia (&quot;la aplicación&quot;, &quot;el servicio&quot;), usted acepta estar sujeto a estos Términos de Servicio. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar el servicio.
           </p>
         </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">2. Descripción del servicio</h2>
           <p className="text-muted-foreground leading-relaxed">
-            LegalHub es una plataforma de gestión legal diseñada para estudios jurídicos, abogados y sus clientes. Ofrece herramientas para la administración de casos, clientes, documentos, tareas, vencimientos, calendario y asistencia con inteligencia artificial. El servicio incluye un portal de clientes para que estos consulten el estado de sus asuntos.
+            Lexia es una plataforma de gestión legal diseñada para estudios jurídicos, abogados y sus clientes. Ofrece herramientas para la administración de casos, clientes, documentos, tareas, vencimientos, calendario y asistencia con inteligencia artificial. El servicio incluye un portal de clientes para que estos consulten el estado de sus asuntos.
           </p>
         </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">3. Uso aceptable</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Usted se compromete a utilizar LegalHub únicamente para fines legítimos y de conformidad con la ley. Queda prohibido:
+            Usted se compromete a utilizar Lexia únicamente para fines legítimos y de conformidad con la ley. Queda prohibido:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
             <li>Utilizar el servicio para actividades ilegales o que violen normas éticas profesionales.</li>
@@ -62,14 +62,14 @@ export default function TerminosPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">5. Contenido y responsabilidad</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Usted es responsable del contenido que ingresa en la aplicación (casos, documentos, comunicaciones). LegalHub actúa como plataforma de almacenamiento y procesamiento; no asume responsabilidad por el contenido legal o la calidad de los servicios profesionales que usted preste a sus clientes. Debe cumplir con las obligaciones de secreto profesional y normativa aplicable a la abogacía.
+            Usted es responsable del contenido que ingresa en la aplicación (casos, documentos, comunicaciones). Lexia actúa como plataforma de almacenamiento y procesamiento; no asume responsabilidad por el contenido legal o la calidad de los servicios profesionales que usted preste a sus clientes. Debe cumplir con las obligaciones de secreto profesional y normativa aplicable a la abogacía.
           </p>
         </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">6. Herramientas de inteligencia artificial</h2>
           <p className="text-muted-foreground leading-relaxed">
-            LegalHub puede incluir funcionalidades asistidas por IA (por ejemplo, redacción, análisis, procesamiento de documentos). Los resultados generados por IA son orientativos y no constituyen asesoramiento legal. El profesional es responsable de revisar, validar y adaptar cualquier contenido antes de utilizarlo en su práctica.
+            Lexia puede incluir funcionalidades asistidas por IA (por ejemplo, redacción, análisis, procesamiento de documentos). Los resultados generados por IA son orientativos y no constituyen asesoramiento legal. El profesional es responsable de revisar, validar y adaptar cualquier contenido antes de utilizarlo en su práctica.
           </p>
         </section>
 
@@ -83,14 +83,14 @@ export default function TerminosPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">8. Propiedad intelectual</h2>
           <p className="text-muted-foreground leading-relaxed">
-            LegalHub y sus elementos (interfaz, código, marcas) son propiedad de sus titulares. Usted conserva la propiedad del contenido que sube. Al utilizar el servicio, nos otorga una licencia limitada para almacenar, procesar y mostrar su contenido con el fin de prestar el servicio.
+            Lexia y sus elementos (interfaz, código, marcas) son propiedad de sus titulares. Usted conserva la propiedad del contenido que sube. Al utilizar el servicio, nos otorga una licencia limitada para almacenar, procesar y mostrar su contenido con el fin de prestar el servicio.
           </p>
         </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">9. Limitación de responsabilidad</h2>
           <p className="text-muted-foreground leading-relaxed">
-            En la medida permitida por la ley, LegalHub no será responsable por daños indirectos, incidentales, especiales o consecuentes derivados del uso o la imposibilidad de uso del servicio. La responsabilidad total se limita al monto pagado por el servicio en el período en que ocurrió el hecho, cuando aplique.
+            En la medida permitida por la ley, Lexia no será responsable por daños indirectos, incidentales, especiales o consecuentes derivados del uso o la imposibilidad de uso del servicio. La responsabilidad total se limita al monto pagado por el servicio en el período en que ocurrió el hecho, cuando aplique.
           </p>
         </section>
 
@@ -118,7 +118,7 @@ export default function TerminosPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">13. Contacto</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Para consultas sobre estos Términos de Servicio, contacte al administrador de su organización o al responsable del servicio LegalHub.
+            Para consultas sobre estos Términos de Servicio, contacte al administrador de su organización o al responsable del servicio Lexia.
           </p>
         </section>
 

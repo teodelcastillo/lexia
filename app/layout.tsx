@@ -24,12 +24,12 @@ const _geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'LegalHub - Sistema de Gestión Legal',
-    template: '%s | LegalHub',
+    default: 'Lexia - Sistema de Gestión Legal',
+    template: '%s | Lexia',
   },
   description: 'Sistema de gestión integral para estudios jurídicos. Administre casos, clientes, tareas, documentos y plazos en un solo lugar.',
   keywords: ['gestión legal', 'abogados', 'casos legales', 'estudio jurídico', 'Argentina'],
-  authors: [{ name: 'LegalHub' }],
+  authors: [{ name: 'Lexia' }],
   generator: 'v0.app',
   icons: {
     icon: [
