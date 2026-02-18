@@ -3,6 +3,7 @@
  * 
  * System configuration and settings management.
  */
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -12,16 +13,13 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import {
-  Settings,
   Building2,
   Bell,
   Shield,
   Cloud,
   Mail,
-  Calendar,
-  Database,
-  ExternalLink,
 } from 'lucide-react'
+import { GoogleIntegrations } from '@/components/settings/google-integrations'
 
 export const metadata = {
   title: 'Configuración',
@@ -106,43 +104,9 @@ export default async function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Google Drive */}
-            <div className="flex items-center justify-between p-4 rounded-lg border border-border">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Database className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">Google Drive</p>
-                  <p className="text-sm text-muted-foreground">
-                    Almacenamiento de documentos
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Conectar
-              </Button>
-            </div>
-
-            {/* Google Calendar */}
-            <div className="flex items-center justify-between p-4 rounded-lg border border-border">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">Google Calendar</p>
-                  <p className="text-sm text-muted-foreground">
-                    Sincronización de calendario
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Conectar
-              </Button>
-            </div>
+            <Suspense fallback={<div className="p-4 text-muted-foreground">Cargando integraciones...</div>}>
+              <GoogleIntegrations />
+            </Suspense>
 
             {/* Email */}
             <div className="flex items-center justify-between p-4 rounded-lg border border-border">

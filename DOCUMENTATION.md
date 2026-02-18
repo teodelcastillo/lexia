@@ -629,6 +629,18 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxx
 SUPABASE_SERVICE_ROLE_KEY=xxxxx
 ```
 
+### Integración Google (Calendar, Drive, Sheets, Docs)
+
+Para habilitar la conexión con Google, agregar a `.env.local`:
+
+```
+GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=xxxxx
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/callback
+```
+
+Ver `docs/04-integracion-google.md` para la configuración completa en Google Cloud Console.
+
 ### Agregar Nuevo Rol
 
 1. Actualizar enum `user_role` en Supabase

@@ -178,15 +178,28 @@ export function DeadlineForm({
         if (error) throw error
         toast.success('Vencimiento actualizado correctamente')
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('deadlines')
           .insert(deadlineData)
+          .select('id')
+          .single()
 
         if (error) throw error
-        
-        // Show calendar sync message (conceptual)
-        if (syncToCalendar) {
-          toast.success('Vencimiento creado y sincronizado con calendario')
+
+        // Sync to Google Calendar if requested
+        if (syncToCalendar && inserted?.id) {
+          try {
+            const syncRes = await fetch(`/api/deadlines/${inserted.id}/sync-google`, {
+              method: 'POST',
+            })
+            if (syncRes.ok) {
+              toast.success('Vencimiento creado y sincronizado con Google Calendar')
+            } else {
+              toast.success('Vencimiento creado correctamente')
+            }
+          } catch {
+            toast.success('Vencimiento creado correctamente')
+          }
         } else {
           toast.success('Vencimiento creado correctamente')
         }

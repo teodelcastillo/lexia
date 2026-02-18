@@ -537,6 +537,53 @@ export type Database = {
           },
         ]
       }
+      google_connections: {
+        Row: {
+          id: string
+          user_id: string
+          service: string
+          access_token: string
+          refresh_token: string | null
+          token_expires_at: string | null
+          google_email: string | null
+          google_name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          service: string
+          access_token: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          google_email?: string | null
+          google_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          service?: string
+          access_token?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          google_email?: string | null
+          google_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       people: {
         Row: {
           address: string | null

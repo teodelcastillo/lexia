@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft, Mail, Phone, MapPin, Building2, Shield } from 'lucide-react'
+import { Suspense, useState } from 'react'
+import { ArrowLeft, Mail, Phone, MapPin, Building2, Shield, Cloud } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { GoogleIntegrations } from '@/components/settings/google-integrations'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -159,6 +160,24 @@ export function ProfileView({ profile, user }: ProfileViewProps) {
             <Button variant="outline" className="w-full bg-transparent">
               Autenticación de Dos Factores
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Integrations Card - Google Calendar, Drive, etc. */}
+        <Card className="border-border/60">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cloud className="h-5 w-5" />
+              Integraciones
+            </CardTitle>
+            <CardDescription>
+              Conecta tu cuenta de Google para sincronizar calendario y documentos
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Suspense fallback={<div className="p-2 text-muted-foreground text-sm">Cargando...</div>}>
+              <GoogleIntegrations />
+            </Suspense>
           </CardContent>
         </Card>
 
