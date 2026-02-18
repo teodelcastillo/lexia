@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Briefcase,
+  Sparkles,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,8 @@ export default function CedulasPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [cases, setCases] = useState<CaseOption[]>([])
   const [selectedCaseId, setSelectedCaseId] = useState<string>('')
+  const [suggestedCase, setSuggestedCase] = useState<CaseOption | null>(null)
+  const [matchReason, setMatchReason] = useState<string | null>(null)
   const [isLoadingCases, setIsLoadingCases] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
 
@@ -127,25 +130,48 @@ export default function CedulasPage() {
   const openCreateDialog = useCallback(async () => {
     setShowCreateDialog(true)
     setSelectedCaseId('')
+    setSuggestedCase(null)
+    setMatchReason(null)
     setIsLoadingCases(true)
     try {
       const supabase = createClient()
-      const { data, error: err } = await supabase
-        .from('cases')
-        .select('id, case_number, title')
-        .in('status', ['active', 'pending'])
-        .order('case_number', { ascending: false })
-        .limit(100)
+      const [casesRes, suggestionRes] = await Promise.all([
+        supabase
+          .from('cases')
+          .select('id, case_number, title')
+          .in('status', ['active', 'pending'])
+          .order('case_number', { ascending: false })
+          .limit(100),
+        analysis?.numero_expediente || analysis?.partes
+          ? fetch('/api/herramientas/cedulas/sugerir-caso', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                numero_expediente: analysis?.numero_expediente ?? '',
+                partes: analysis?.partes ?? '',
+              }),
+            }).then((r) => r.json())
+          : Promise.resolve({ suggestedCase: null, matchReason: null }),
+      ])
 
+      const { data: casesData, error: err } = casesRes
       if (err) throw err
-      setCases(data ?? [])
+      setCases(casesData ?? [])
+
+      const sug = suggestionRes?.suggestedCase
+      const reason = suggestionRes?.matchReason
+      if (sug) {
+        setSuggestedCase(sug)
+        setMatchReason(reason ?? null)
+        setSelectedCaseId(sug.id)
+      }
     } catch (err) {
       toast.error('No se pudieron cargar los casos')
       setCases([])
     } finally {
       setIsLoadingCases(false)
     }
-  }, [])
+  }, [analysis])
 
   const handleCreateVencimiento = useCallback(async () => {
     if (!analysis || !selectedCaseId) {
@@ -382,11 +408,15 @@ export default function CedulasPage() {
               </div>
             )}
 
-            <div className="pt-4">
+            <div className="pt-4 space-y-2">
               <Button onClick={openCreateDialog} className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
                 Crear Vencimiento
               </Button>
+              <p className="text-xs text-muted-foreground">
+                Si la cédula incluye expediente o carátula, se sugerirá un caso relacionado al
+                confirmar.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -401,11 +431,25 @@ export default function CedulasPage() {
               Crear Vencimiento
             </DialogTitle>
             <DialogDescription>
-              Seleccioná el caso al que asociar este vencimiento. El título y la fecha se
-              completan automáticamente.
+              Seleccioná el caso al que asociar este vencimiento. Si la cédula incluye expediente o
+              carátula, se sugiere un caso relacionado. El título y la fecha se completan automáticamente.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {suggestedCase && matchReason && (
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Caso sugerido</p>
+                  <p className="text-sm text-muted-foreground">
+                    {suggestedCase.case_number} - {suggestedCase.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {matchReason}. Podés elegir otro caso si corresponde.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Caso</Label>
               <Select
@@ -424,7 +468,14 @@ export default function CedulasPage() {
                   )}
                   {cases.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.case_number} - {c.title}
+                      <span className="flex items-center gap-2">
+                        {c.case_number} - {c.title}
+                        {suggestedCase?.id === c.id && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            Sugerido
+                          </Badge>
+                        )}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
