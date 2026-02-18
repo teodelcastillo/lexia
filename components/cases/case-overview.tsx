@@ -1,22 +1,24 @@
 /**
  * Case Overview Component
- * 
+ *
  * Displays general information and description of a case.
  * Shows court info, opponent details, and case summary.
  */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Scale, 
-  User, 
-  Building2, 
+import {
+  Scale,
+  User,
+  Building2,
   FileText,
   Clock,
   Gavel,
 } from 'lucide-react'
+import { CaseDescriptionCard } from '@/components/cases/case-description-card'
 
 interface CaseOverviewProps {
   caseData: {
+    id?: string
     description?: string | null
     opponent?: string | null
     opponent_lawyer?: string | null
@@ -26,6 +28,8 @@ interface CaseOverviewProps {
     created_at: string
     updated_at: string
   }
+  /** When provided, shows the interactive description card with update button */
+  canEdit?: boolean
 }
 
 /**
@@ -55,35 +59,45 @@ function InfoField({
   )
 }
 
-export function CaseOverview({ caseData }: CaseOverviewProps) {
+export function CaseOverview({ caseData, canEdit }: CaseOverviewProps) {
+  const useInteractiveDescription = caseData.id && canEdit
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Description Card - Full Width */}
-      <Card className="border-border/60 lg:col-span-2">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            Descripcion del Caso
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {caseData.description ? (
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {caseData.description}
-            </p>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <FileText className="mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                No se ha agregado una descripcion para este caso
+      {useInteractiveDescription ? (
+        <CaseDescriptionCard
+          caseId={caseData.id}
+          description={caseData.description ?? null}
+          canEdit={canEdit}
+        />
+      ) : (
+        <Card className="border-border/60 lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              Descripción del Caso
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {caseData.description ? (
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {caseData.description}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Agrega una descripcion para documentar los detalles del caso
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <FileText className="mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">
+                  No se ha agregado una descripción para este caso
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Agregue una descripción para documentar los detalles del caso
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Court Information */}
       <Card className="border-border/60">

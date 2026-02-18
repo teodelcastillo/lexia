@@ -275,6 +275,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   // Map DB column names to UI expectations (court_name -> court, etc.)
   const overviewData = {
     ...caseData,
+    id: caseData.id,
     court: (caseData as { court_name?: string; court?: string }).court_name ?? (caseData as { court?: string }).court,
     file_number: (caseData as { court_number?: string; file_number?: string }).court_number ?? (caseData as { file_number?: string }).file_number,
     opponent: (caseData as { opposing_party?: string; opponent?: string }).opposing_party ?? (caseData as { opponent?: string }).opponent,
@@ -486,7 +487,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         {/* Overview Tab */}
         <TabsContent value="overview">
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <CaseOverview caseData={overviewData} />
+            <CaseOverview caseData={overviewData} canEdit={canEdit} />
           </Suspense>
         </TabsContent>
 
