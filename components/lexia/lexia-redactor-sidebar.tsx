@@ -8,6 +8,7 @@ import {
   FileText,
   FileEdit,
   Scale,
+  Target,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -23,6 +24,7 @@ export function LexiaRedactorSidebar({ caseContext }: LexiaRedactorSidebarProps)
   const isRedactor = pathname.startsWith('/lexia/redactor')
   const isBorradores = pathname.startsWith('/lexia/borradores')
   const isContestacion = pathname.startsWith('/lexia/contestacion')
+  const isEstrategaPage = pathname.startsWith('/lexia/estratega')
   const effectiveCaseId = caseContext?.id ?? null
 
   useEffect(() => {
@@ -78,6 +80,18 @@ export function LexiaRedactorSidebar({ caseContext }: LexiaRedactorSidebarProps)
         >
           <Scale className="h-4 w-4" />
           Contestación guiada
+        </Link>
+
+        <Link
+          href={effectiveCaseId ? `/lexia/estratega?caso=${effectiveCaseId}` : '/lexia/estratega'}
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+            isEstrategaPage
+              ? 'bg-background text-foreground shadow-sm border border-border'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Target className="h-4 w-4" />
+          Estratega
         </Link>
 
         {hasOrg && (

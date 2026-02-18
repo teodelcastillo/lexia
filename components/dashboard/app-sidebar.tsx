@@ -35,6 +35,7 @@ import {
   Clock,
   UserCog,
   ExternalLink,
+  Target,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -164,6 +165,12 @@ const navigationSections: NavSection[] = [
         title: 'Redactor',
         href: '/lexia/redactor',
         icon: PenTool,
+      },
+      {
+        title: 'Estratega',
+        href: '/lexia/estratega',
+        icon: Target,
+        badge: 'IA',
       },
     ],
   },
