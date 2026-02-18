@@ -96,7 +96,17 @@ export default function CedulasPage() {
           body: formData,
         })
 
-        const data = await res.json()
+        const text = await res.text()
+        let data: { analysis?: CedulaAnalysis; error?: string } = {}
+        try {
+          data = text ? JSON.parse(text) : {}
+        } catch {
+          throw new Error(
+            res.ok
+              ? 'La respuesta del servidor no es válida. Intentá de nuevo.'
+              : 'Error del servidor. Verificá tu conexión e intentá de nuevo.'
+          )
+        }
 
         if (!res.ok) {
           throw new Error(data.error ?? 'Error al procesar el documento')

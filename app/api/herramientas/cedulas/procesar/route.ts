@@ -7,6 +7,8 @@
  */
 
 import { NextResponse } from 'next/server'
+
+export const maxDuration = 90
 import { createClient } from '@/lib/supabase/server'
 import { PDFParse } from 'pdf-parse'
 import { generateObject } from 'ai'
@@ -133,8 +135,10 @@ ${extractedText.slice(0, 100_000)}
     return NextResponse.json({ analysis: object })
   } catch (err) {
     console.error('[Cedulas] Procesar error:', err)
+    const message =
+      err instanceof Error ? err.message : 'Error al procesar el documento'
     return NextResponse.json(
-      { error: 'Error al procesar el documento' },
+      { error: message },
       { status: 500 }
     )
   }
