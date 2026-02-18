@@ -1,38 +1,37 @@
 /**
  * Root Page - Entry Point
- * 
- * Redirects users based on their authentication and role:
- * - Unauthenticated: Login page
- * - Internal users (admin, lawyer, assistant): Dashboard
- * - External users (clients): Client Portal
+ *
+ * - Unauthenticated: Landing page (descripción de la app, enlace a privacidad).
+ * - Authenticated: Redirect by role (dashboard or client portal).
  */
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { LandingPage } from '@/components/landing/landing-page'
+
+export const metadata: Metadata = {
+  title: 'Lexia – Asistente legal | Gestión integral para estudios jurídicos',
+  description:
+    'Plataforma de gestión legal: casos, clientes, documentos, tareas, plazos y asistente de IA especializado en derecho argentino. Portal para clientes.',
+}
 
 export default async function RootPage() {
   const supabase = await createClient()
-  
-  // Check if user is authenticated
+
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) {
-    // Not authenticated - redirect to login
-    redirect('/auth/login')
+    return <LandingPage />
   }
 
-  // Get user's profile to determine their role
   const { data: profile } = await supabase
     .from('profiles')
     .select('system_role')
     .eq('id', user.id)
     .single()
 
-  // Redirect based on user role
   if (profile?.system_role === 'client') {
-    // External client - redirect to client portal
     redirect('/portal')
-  } else {
-    // Internal user - redirect to dashboard
-    redirect('/dashboard')
   }
+  redirect('/dashboard')
 }

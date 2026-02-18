@@ -1,14 +1,14 @@
 /**
  * Política de Privacidad - Página pública
  *
- * Describe cómo LegalHub recopila, usa y protege la información de los usuarios.
+ * Describe cómo Lexia recopila, usa y protege la información de los usuarios.
  */
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad',
-  description: 'Política de privacidad de LegalHub. Conozca cómo recopilamos, usamos y protegemos su información.',
+  description: 'Política de privacidad de Lexia. Conozca cómo recopilamos, usamos y protegemos su información.',
 }
 
 export default function PrivacidadPage() {
@@ -27,7 +27,7 @@ export default function PrivacidadPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">1. Introducción</h2>
           <p className="text-muted-foreground leading-relaxed">
-            LegalHub (&quot;nosotros&quot;, &quot;nuestro&quot; o &quot;la aplicación&quot;) se compromete a proteger la privacidad de los usuarios. Esta Política de Privacidad describe qué información recopilamos, cómo la utilizamos y qué medidas tomamos para protegerla. Al utilizar LegalHub, usted acepta las prácticas descritas en este documento.
+            Lexia (&quot;nosotros&quot;, &quot;nuestro&quot; o &quot;la aplicación&quot;) se compromete a proteger la privacidad de los usuarios. Esta Política de Privacidad describe qué información recopilamos, cómo la utilizamos y qué medidas tomamos para protegerla. Al utilizar Lexia, usted acepta las prácticas descritas en este documento.
           </p>
         </section>
 
@@ -50,7 +50,7 @@ export default function PrivacidadPage() {
             Utilizamos la información recopilada para:
           </p>
           <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>Proporcionar, mantener y mejorar el servicio LegalHub.</li>
+            <li>Proporcionar, mantener y mejorar el servicio Lexia.</li>
             <li>Autenticar usuarios y gestionar el acceso a la plataforma.</li>
             <li>Procesar y almacenar casos, documentos y comunicaciones relacionadas con su práctica legal.</li>
             <li>Enviar notificaciones relevantes (tareas, vencimientos, actualizaciones del sistema).</li>
@@ -74,7 +74,7 @@ export default function PrivacidadPage() {
           <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
             <li>Con proveedores de servicios que nos ayudan a operar la plataforma (hosting, autenticación, análisis), bajo acuerdos de confidencialidad.</li>
             <li>Cuando sea requerido por ley o por orden judicial.</li>
-            <li>Para proteger los derechos, la seguridad o la propiedad de LegalHub, sus usuarios o terceros.</li>
+            <li>Para proteger los derechos, la seguridad o la propiedad de Lexia, sus usuarios o terceros.</li>
           </ul>
         </section>
 
@@ -109,16 +109,16 @@ export default function PrivacidadPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">10. Contacto</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Para consultas sobre esta Política de Privacidad o el tratamiento de sus datos personales, contacte al administrador de su estudio jurídico o al responsable del servicio LegalHub.
+            Para consultas sobre esta Política de Privacidad o el tratamiento de sus datos personales, contacte al administrador de su estudio jurídico o al responsable del servicio Lexia.
           </p>
         </section>
 
         <div className="pt-8 border-t border-border">
           <Link
-            href="/auth/login"
+            href="/"
             className="text-primary hover:underline font-medium"
           >
-            ← Volver al inicio de sesión
+            ← Volver al inicio
           </Link>
         </div>
       </div>
