@@ -60,7 +60,7 @@ export function LandingPage() {
     <div className="min-h-svh flex flex-col bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between px-4">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4">
           <Link
             href="/"
             className="flex items-center gap-2 font-semibold text-foreground hover:text-primary transition-colors"
@@ -94,7 +94,7 @@ export function LandingPage() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="container px-4 py-16 md:py-24 lg:py-32">
+        <section className="container mx-auto px-4 py-16 md:py-24 lg:py-32">
           <div className="mx-auto max-w-3xl text-center space-y-6">
             <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
               Gestión legal integral para su estudio jurídico
@@ -120,7 +120,7 @@ export function LandingPage() {
 
         {/* Purpose - for verification */}
         <section className="border-y border-border/60 bg-muted/30">
-          <div className="container px-4 py-10 md:py-14">
+          <div className="container mx-auto px-4 py-10 md:py-14">
             <div className="mx-auto max-w-2xl text-center space-y-4">
               <h2 className="text-2xl font-semibold text-foreground">
                 Propósito de la aplicación
@@ -133,7 +133,7 @@ export function LandingPage() {
         </section>
 
         {/* Features */}
-        <section className="container px-4 py-16 md:py-24">
+        <section className="container mx-auto px-4 py-16 md:py-24">
           <div className="mx-auto max-w-2xl text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
               Todo lo que su estudio necesita
@@ -142,7 +142,7 @@ export function LandingPage() {
               Módulos pensados para el día a día del abogado y del equipo.
             </p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto max-w-5xl grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {features.map(({ icon: Icon, title, description }) => (
               <Card key={title} className="border-border/60">
                 <CardContent className="pt-6">
@@ -161,7 +161,7 @@ export function LandingPage() {
 
         {/* Who it's for */}
         <section className="border-t border-border/60 bg-muted/20">
-          <div className="container px-4 py-16 md:py-20">
+          <div className="container mx-auto px-4 py-16 md:py-20">
             <div className="flex flex-col items-center gap-8 md:flex-row md:justify-center md:gap-16">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -190,7 +190,7 @@ export function LandingPage() {
         </section>
 
         {/* CTA */}
-        <section className="container px-4 py-16 md:py-24">
+        <section className="container mx-auto px-4 py-16 md:py-24">
           <div className="mx-auto max-w-2xl text-center space-y-6 rounded-2xl border border-border bg-card p-8 md:p-12">
             <h2 className="text-2xl font-bold text-foreground md:text-3xl">
               Centralice su práctica legal
@@ -210,13 +210,13 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border/40 py-8">
-        <div className="container px-4">
+        <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center gap-2 font-semibold text-foreground">
               <Scale className="h-5 w-5 text-primary" />
               Lexia – Asistente legal
             </div>
-            <p className="text-sm text-muted-foreground text-center md:text-left">
+            <p className="text-sm text-muted-foreground text-center">
               <Link href="/privacidad" className="underline hover:text-foreground">
                 Política de Privacidad
               </Link>
