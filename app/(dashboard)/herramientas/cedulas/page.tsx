@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { buildDocumentStoragePath } from '@/lib/storage/documents'
 import { toast } from 'sonner'
 import { format, parseISO, differenceInBusinessDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -59,6 +60,7 @@ export default function CedulasPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [analysis, setAnalysis] = useState<CedulaAnalysis | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -82,6 +84,7 @@ export default function CedulasPage() {
 
       setError(null)
       setAnalysis(null)
+      setUploadedFile(null)
       setIsProcessing(true)
 
       try {
@@ -104,6 +107,7 @@ export default function CedulasPage() {
         }
 
         setAnalysis(data.analysis)
+        setUploadedFile(file)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al procesar')
         toast.error(err instanceof Error ? err.message : 'Error al procesar')
@@ -209,6 +213,45 @@ export default function CedulasPage() {
         .filter(Boolean)
         .join('\n')
 
+      // Almacenar el PDF de la cédula como documento en el caso
+      if (uploadedFile) {
+        const documentId = crypto.randomUUID()
+        const storagePath = buildDocumentStoragePath(
+          selectedCaseId,
+          documentId,
+          uploadedFile.name || 'cedula.pdf'
+        )
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(storagePath, uploadedFile, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError)
+          toast.error('No se pudo guardar el PDF. El vencimiento se creó igual.')
+        } else {
+          const { error: docError } = await supabase.from('documents').insert({
+            id: documentId,
+            case_id: selectedCaseId,
+            name: title,
+            description: description || null,
+            file_path: storagePath,
+            file_size: uploadedFile.size,
+            mime_type: uploadedFile.type || 'application/pdf',
+            category: 'court_filing',
+            is_visible_to_client: false,
+            uploaded_by: user.id,
+          })
+
+          if (docError) {
+            console.error('Document insert error:', docError)
+          }
+        }
+      }
+
       const { error: insertError } = await supabase.from('deadlines').insert({
         title,
         description: description || null,
@@ -221,9 +264,14 @@ export default function CedulasPage() {
 
       if (insertError) throw insertError
 
-      toast.success('Vencimiento creado correctamente')
+      toast.success(
+        uploadedFile
+          ? 'Vencimiento creado y cédula guardada en el caso'
+          : 'Vencimiento creado correctamente'
+      )
       setShowCreateDialog(false)
       setAnalysis(null)
+      setUploadedFile(null)
       router.push('/vencimientos')
       router.refresh()
     } catch (err) {
@@ -232,7 +280,7 @@ export default function CedulasPage() {
     } finally {
       setIsCreating(false)
     }
-  }, [analysis, selectedCaseId, router])
+  }, [analysis, selectedCaseId, uploadedFile, router])
 
   const isUrgent =
     analysis?.fecha_vencimiento &&
@@ -414,8 +462,8 @@ export default function CedulasPage() {
                 Crear Vencimiento
               </Button>
               <p className="text-xs text-muted-foreground">
-                Si la cédula incluye expediente o carátula, se sugerirá un caso relacionado al
-                confirmar.
+                Al confirmar, el PDF se guardará en el caso y se creará el vencimiento. Si la
+                cédula incluye expediente o carátula, se sugerirá un caso relacionado.
               </p>
             </div>
           </CardContent>
@@ -431,8 +479,9 @@ export default function CedulasPage() {
               Crear Vencimiento
             </DialogTitle>
             <DialogDescription>
-              Seleccioná el caso al que asociar este vencimiento. Si la cédula incluye expediente o
-              carátula, se sugiere un caso relacionado. El título y la fecha se completan automáticamente.
+              Seleccioná el caso al que asociar este vencimiento. El PDF de la cédula se guardará
+              como documento en el caso. Si la cédula incluye expediente o carátula, se sugiere un
+              caso relacionado.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
