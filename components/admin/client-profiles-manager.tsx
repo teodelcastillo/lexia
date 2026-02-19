@@ -99,7 +99,7 @@ export default function ClientProfilesManager() {
                         {client.name}
                       </CardTitle>
                       <Badge className={`mt-2 ${personTypeColors[client.person_type ?? 'other'] || ''}`}>
-                        {personTypeLabels[client.person_type ?? 'other'] || client.person_type ?? 'other'}
+                        {(personTypeLabels[client.person_type ?? 'other'] || client.person_type) ?? 'other'}
                       </Badge>
                     </div>
                   </div>
