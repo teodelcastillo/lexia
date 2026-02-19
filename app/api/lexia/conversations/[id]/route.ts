@@ -36,7 +36,7 @@ export async function GET(
     const messages = conversation.messages ?? []
     const validated = await safeValidateUIMessages({
       messages,
-      tools: lexiaTools,
+      tools: lexiaTools as Record<string, import('ai').Tool<unknown, unknown>>,
     })
     const normalizedMessages = validated.success ? validated.data : messages
 
