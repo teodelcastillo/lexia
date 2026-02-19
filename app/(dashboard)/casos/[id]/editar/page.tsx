@@ -54,7 +54,7 @@ async function validateAccess(caseId: string) {
   }
 
   const caseRole = assignment.case_role as CaseRole
-  const canEdit = caseRole === 'leader' || caseRole === 'case_leader'
+  const canEdit = caseRole === 'leader'
 
   if (!canEdit) {
     redirect(`/casos/${caseId}`)
