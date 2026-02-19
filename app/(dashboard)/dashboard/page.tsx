@@ -50,7 +50,10 @@ async function getCurrentUser(): Promise<{ user: { id: string; email: string }; 
     redirect('/portal')
   }
 
-  return { user, profile: profile as UserProfile }
+  return {
+    user: { id: user.id, email: user.email ?? '' },
+    profile: profile as UserProfile,
+  }
 }
 
 /**
