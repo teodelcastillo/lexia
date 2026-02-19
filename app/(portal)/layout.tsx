@@ -41,7 +41,7 @@ async function validateClientAccess() {
 }
 
 export default async function PortalLayout({ children }: PortalLayoutProps) {
-  const { profile } = await validateClientAccess()
+  const { user, profile } = await validateClientAccess()
   const isAdmin = profile?.system_role === 'admin_general'
 
   const viewAsProfile = isAdmin ? await getViewAsClientProfile() : null
@@ -52,11 +52,20 @@ export default async function PortalLayout({ children }: PortalLayoutProps) {
   let clientsList: PortalClientOption[] = []
   if (isAdmin) {
     const supabase = await createClient()
-    const { data } = await supabase
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+    const query = supabase
       .from('profiles')
       .select('id, first_name, last_name, email')
       .eq('system_role', 'client')
       .order('last_name', { ascending: true })
+    if (adminProfile?.organization_id) {
+      query.eq('organization_id', adminProfile.organization_id)
+    }
+    const { data } = await query
     clientsList = (data || []).map((p) => ({
       id: p.id,
       first_name: p.first_name ?? '',

@@ -32,23 +32,38 @@ export async function getEffectivePortalUserId(): Promise<string | null> {
     return user.id
   }
 
-  // Admins can view as a client via cookie
+  // Admins can view as a client via cookie (only when enabled; org isolation enforced below)
   if (profile?.system_role !== 'admin_general') {
     return null
   }
 
+  const { isViewAsEnabled } = await import('@/lib/utils/feature-flags')
+  if (!isViewAsEnabled()) {
+    return user.id
+  }
+
   const cookieStore = await cookies()
   const viewAs = cookieStore.get(VIEW_AS_COOKIE)?.value
-  if (!viewAs) return user.id // admin without "view as" sees empty portal or we could return null
+  if (!viewAs) return user.id
 
-  // Validate that viewAs is a client (optional: prevent tampering)
+  // Validate: target must be client AND same organization as admin (multi-tenant isolation)
+  const { data: adminProfile } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('id', user.id)
+    .single()
+
   const { data: targetProfile } = await supabase
     .from('profiles')
-    .select('system_role')
+    .select('system_role, organization_id')
     .eq('id', viewAs)
     .single()
 
-  if (targetProfile?.system_role === 'client') {
+  if (
+    targetProfile?.system_role === 'client' &&
+    adminProfile?.organization_id &&
+    targetProfile.organization_id === adminProfile.organization_id
+  ) {
     return viewAs
   }
 
@@ -57,7 +72,7 @@ export async function getEffectivePortalUserId(): Promise<string | null> {
 
 /**
  * Returns the profile (name) for the user currently being "viewed as" in the portal.
- * Used by layout/header to show the client name when admin is viewing as.
+ * Only returns data if target is in same organization as current admin.
  */
 export async function getViewAsClientProfile(): Promise<{
   id: string
@@ -69,13 +84,29 @@ export async function getViewAsClientProfile(): Promise<{
   if (!viewAs) return null
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: adminProfile } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('id', user.id)
+    .single()
+
   const { data } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name')
+    .select('id, first_name, last_name, organization_id')
     .eq('id', viewAs)
     .single()
 
-  return data
+  if (
+    !data ||
+    data.organization_id !== adminProfile?.organization_id
+  ) {
+    return null
+  }
+
+  return { id: data.id, first_name: data.first_name ?? '', last_name: data.last_name ?? '' }
 }
 
 export { VIEW_AS_COOKIE }

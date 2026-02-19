@@ -7,6 +7,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createAuthUser, deleteAuthUser, listAuthUsers } from '@/lib/admin/auth-operations'
 
 /**
  * Test user credentials and metadata
@@ -71,6 +73,11 @@ const testUsers: TestUser[] = [
  * Returns array of created user credentials for testing
  */
 export async function seedTestUsers() {
+  const { isSeedUsersEnabled } = await import('@/lib/utils/feature-flags')
+  if (!isSeedUsersEnabled()) {
+    throw new Error('Creación de usuarios de prueba deshabilitada en este entorno.')
+  }
+
   const supabase = await createClient()
 
   console.log('[v0] Starting seed users process')
@@ -102,15 +109,16 @@ export async function seedTestUsers() {
   const createdUsers = []
   const errors = []
 
+  const { users: existingAuthUsers, error: listError } = await listAuthUsers()
+  if (listError) {
+    throw new Error('No se pudo verificar usuarios existentes.')
+  }
+
   for (const testUser of testUsers) {
     try {
       console.log('[v0] Processing user:', testUser.email)
 
-      // Check if user already exists in auth
-      const { data: existingAuthUsers } = await supabase.auth.admin.listUsers()
-      const existingUser = existingAuthUsers?.users?.find(
-        (u) => u.email === testUser.email,
-      )
+      const existingUser = existingAuthUsers.find((u) => u.email === testUser.email)
 
       if (existingUser) {
         console.log('[v0] User already exists:', testUser.email)
@@ -121,44 +129,40 @@ export async function seedTestUsers() {
         continue
       }
 
-      // Create auth user using admin API
       console.log('[v0] Creating auth user:', testUser.email)
-      const { data: authData, error: authError } =
-        await supabase.auth.admin.createUser({
-          email: testUser.email,
-          password: testUser.password,
-          email_confirm: true,
-          user_metadata: {
-            first_name: testUser.firstName,
-            last_name: testUser.lastName,
-            system_role: testUser.role,
-          },
-        })
+      const { user: authUser, error: authError } = await createAuthUser({
+        email: testUser.email,
+        password: testUser.password,
+        emailConfirm: true,
+        metadata: {
+          first_name: testUser.firstName,
+          last_name: testUser.lastName,
+          system_role: testUser.role,
+        },
+      })
 
-      if (authError || !authData.user) {
+      if (authError || !authUser) {
         console.log('[v0] Auth error:', authError)
         errors.push({
           email: testUser.email,
-          error: authError?.message || 'Error creating auth user',
+          error: authError || 'Error creating auth user',
         })
         continue
       }
 
-      console.log('[v0] Auth user created:', authData.user.id)
+      console.log('[v0] Auth user created:', authUser.id)
 
       // Wait a bit for the trigger to create the profile
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Check if profile was auto-created by trigger
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
-        .eq('id', authData.user.id)
+        .eq('id', authUser.id)
         .maybeSingle()
 
       if (existingProfile) {
         console.log('[v0] Profile auto-created by trigger')
-        // Update the profile with correct data
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -168,46 +172,40 @@ export async function seedTestUsers() {
             phone: '+54 9 351 000-0000',
             location: 'Córdoba, Argentina',
           })
-          .eq('id', authData.user.id)
+          .eq('id', authUser.id)
 
         if (updateError) {
           console.log('[v0] Profile update error:', updateError)
-          await supabase.auth.admin.deleteUser(authData.user.id)
-          errors.push({
-            email: testUser.email,
-            error: 'Error actualizando perfil: ' + updateError.message,
-          })
+          const { error: delErr } = await deleteAuthUser(authUser.id)
+          if (delErr) console.error('[v0] Cleanup error:', delErr)
+          errors.push({ email: testUser.email, error: 'Error actualizando perfil' })
           continue
         }
       } else {
-        // Create profile manually if trigger didn't work
-        // Get default organization for seed users
-        const { data: defaultOrg } = await supabase
+        const admin = createAdminClient()
+        const { data: defaultOrg } = await admin
           .from('organizations')
           .select('id')
           .eq('slug', 'default')
           .single()
-        
+
         console.log('[v0] Creating profile manually')
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
+        const { error: profileError } = await admin.from('profiles').insert({
+          id: authUser.id,
           email: testUser.email,
           first_name: testUser.firstName,
           last_name: testUser.lastName,
           system_role: testUser.role,
           phone: '+54 9 351 000-0000',
-          organization_id: defaultOrg?.id || null, // Assign to default org if exists
+          organization_id: defaultOrg?.id || null,
           is_active: true,
         })
 
         if (profileError) {
           console.log('[v0] Profile creation error:', profileError)
-          // Delete auth user if profile creation fails
-          await supabase.auth.admin.deleteUser(authData.user.id)
-          errors.push({
-            email: testUser.email,
-            error: 'Error creando perfil: ' + profileError.message,
-          })
+          const { error: delErr } = await deleteAuthUser(authUser.id)
+          if (delErr) console.error('[v0] Cleanup error:', delErr)
+          errors.push({ email: testUser.email, error: 'Error creando perfil' })
           continue
         }
       }
@@ -220,7 +218,7 @@ export async function seedTestUsers() {
         lastName: testUser.lastName,
         role: testUser.role,
         description: testUser.description,
-        userId: authData.user.id,
+        userId: authUser.id,
       })
     } catch (error) {
       console.log('[v0] Unexpected error for', testUser.email, ':', error)

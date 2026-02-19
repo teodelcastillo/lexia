@@ -28,8 +28,9 @@ export async function GET(request: Request) {
     'google_oauth_service=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0',
   ]
 
+  const origin = new URL(request.url).origin
   const redirectToConfig = (success: boolean) => {
-    const base = `${request.nextUrl.origin}/configuracion`
+    const base = `${origin}/configuracion`
     const url = new URL(base)
     url.searchParams.set('google', success ? 'connected' : 'error')
     if (error) url.searchParams.set('error', error)

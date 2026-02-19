@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAuthUser, deleteAuthUser } from '@/lib/admin/auth-operations'
 import { NextResponse } from 'next/server'
 
 /**
@@ -63,7 +64,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // Validate that person belongs to admin's organization
     if (person.organization_id && person.organization_id !== profile.organization_id) {
       return NextResponse.json(
         { error: 'La persona seleccionada no pertenece a su organización' },
@@ -71,52 +71,68 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create auth user with organization_id and system_role in metadata
-    // IMPORTANT: organization_id must be passed as string in metadata for trigger to read it
-    const { data: authData, error: signUpError } = await supabase.auth.admin.createUser({
+    // Validate company belongs to admin's organization
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('id, organization_id')
+      .eq('id', companyId)
+      .single()
+
+    if (companyError || !company) {
+      return NextResponse.json(
+        { error: 'Empresa no encontrada' },
+        { status: 404 }
+      )
+    }
+    if (company.organization_id && company.organization_id !== profile.organization_id) {
+      return NextResponse.json(
+        { error: 'La empresa seleccionada no pertenece a su organización' },
+        { status: 403 }
+      )
+    }
+
+    // Create auth user via service role (server-only)
+    const tempPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+    const { user: authUser, error: signUpError } = await createAuthUser({
       email,
-      password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
-      email_confirm: true,
-      user_metadata: {
-        organization_id: profile.organization_id ? String(profile.organization_id) : null, // Pass as string for trigger
-        system_role: 'client', // Required for trigger to set correct role
+      password: tempPassword,
+      emailConfirm: true,
+      metadata: {
+        organization_id: profile.organization_id ? String(profile.organization_id) : null,
+        system_role: 'client',
         first_name: person.first_name || person.name?.split(' ')[0] || '',
         last_name: person.last_name || person.name?.split(' ')[1] || '',
       },
     })
 
-    if (signUpError || !authData.user) {
+    if (signUpError || !authUser) {
       console.error('[create-client-user] Error creating auth user:', signUpError)
-      // Provide more specific error messages
-      if (signUpError?.message.includes('already registered') || signUpError?.message.includes('already exists')) {
+      if (signUpError?.includes('already registered') || signUpError?.includes('already exists')) {
         return NextResponse.json(
           { error: 'Este email ya está registrado en el sistema' },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: signUpError?.message || 'Error al crear usuario' },
+        { error: 'Error al crear usuario. Intente nuevamente.' },
         { status: 400 }
       )
     }
 
     // The trigger should create the profile automatically, but verify it was created
-    // Wait a bit for trigger to execute
     await new Promise(resolve => setTimeout(resolve, 500))
     
-    // Check if profile was created by trigger
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('id', authData.user.id)
+      .eq('id', authUser.id)
       .single()
 
-    // Create profile manually if trigger didn't create it
     if (!existingProfile) {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .insert({
-          id: authData.user.id,
+          id: authUser.id,
           email,
           first_name: person.first_name || person.name?.split(' ')[0] || '',
           last_name: person.last_name || person.name?.split(' ')[1] || '',
@@ -129,43 +145,33 @@ export async function POST(req: Request) {
 
       if (profileError) {
         console.error('[create-client-user] Error creating profile:', profileError)
-        // Clean up auth user if profile creation fails
-        try {
-          await supabase.auth.admin.deleteUser(authData.user.id)
-        } catch (deleteError) {
-          console.error('[create-client-user] Error cleaning up auth user:', deleteError)
-        }
+        const { error: delErr } = await deleteAuthUser(authUser.id)
+        if (delErr) console.error('[create-client-user] Error cleaning up auth user:', delErr)
         return NextResponse.json(
-          { error: `Error al crear perfil de usuario: ${profileError.message || 'Error desconocido'}` },
+          { error: 'Error al crear perfil de usuario. Intente nuevamente.' },
           { status: 400 }
         )
       }
     }
 
-    // Get the created profile
     const { data: finalProfile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', authData.user.id)
+      .eq('id', authUser.id)
       .single()
 
     if (!finalProfile) {
-      // Clean up auth user if profile doesn't exist
-      try {
-        await supabase.auth.admin.deleteUser(authData.user.id)
-      } catch (deleteError) {
-        console.error('[create-client-user] Error cleaning up auth user:', deleteError)
-      }
+      const { error: delErr } = await deleteAuthUser(authUser.id)
+      if (delErr) console.error('[create-client-user] Error cleaning up auth user:', delErr)
       return NextResponse.json(
         { error: 'Error: El perfil no se creó correctamente' },
         { status: 500 }
       )
     }
 
-    // Link the person to the portal user by updating portal_user_id
     const { error: updatePersonError } = await supabase
       .from('people')
-      .update({ portal_user_id: authData.user.id })
+      .update({ portal_user_id: authUser.id })
       .eq('id', personId)
 
     if (updatePersonError) {

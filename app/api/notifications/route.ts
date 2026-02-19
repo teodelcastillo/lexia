@@ -1,5 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
+
+const GET_QUERY_SCHEMA = z.object({
+  category: z.enum(['activity', 'work']).optional(),
+  unread: z.enum(['true', 'false']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+const PATCH_BODY_SCHEMA = z.object({
+  markAll: z.boolean().optional(),
+  category: z.enum(['activity', 'work']).optional(),
+  notificationIds: z.array(z.string().uuid()).max(200).optional(),
+})
 
 /**
  * GET /api/notifications
@@ -8,10 +21,16 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
-  
-  const category = searchParams.get('category') // 'activity' | 'work' | null (all)
+
+  const parsed = GET_QUERY_SCHEMA.safeParse({
+    category: searchParams.get('category') ?? undefined,
+    unread: searchParams.get('unread') ?? undefined,
+    limit: searchParams.get('limit') ?? 20,
+  })
+  const { category, limit } = parsed.success
+    ? parsed.data
+    : { category: undefined, limit: 20 }
   const unreadOnly = searchParams.get('unread') === 'true'
-  const limit = parseInt(searchParams.get('limit') || '20')
   
   // Get current user
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,7 +52,7 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (category) {
+  if (category && (category === 'activity' || category === 'work')) {
     query = query.eq('category', category)
   }
 
@@ -91,8 +110,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { notificationIds, markAll, category } = body
+  const rawBody = await request.json().catch(() => ({}))
+  const parsed = PATCH_BODY_SCHEMA.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  const { notificationIds, markAll, category } = parsed.data
 
   if (markAll) {
     // Mark all notifications as read (optionally by category)

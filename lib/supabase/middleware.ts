@@ -101,13 +101,31 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (viewAsParam && currentProfile?.system_role === 'admin_general') {
+    const viewAsEnabled =
+      typeof process.env.VIEW_AS_ENABLED !== 'undefined' &&
+      process.env.VIEW_AS_ENABLED === 'true'
+    if (
+      viewAsEnabled &&
+      viewAsParam &&
+      currentProfile?.system_role === 'admin_general'
+    ) {
+      const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
       const { data: targetProfile } = await supabase
         .from('profiles')
-        .select('system_role')
+        .select('system_role, organization_id')
         .eq('id', viewAsParam)
         .single()
-      if (targetProfile?.system_role === 'client') {
+      const sameOrg =
+        adminProfile?.organization_id &&
+        targetProfile?.organization_id === adminProfile.organization_id
+      if (
+        targetProfile?.system_role === 'client' &&
+        sameOrg
+      ) {
         supabaseResponse.cookies.set('view_as_client', viewAsParam, {
           path: '/portal',
           maxAge: 60 * 60 * 24, // 24h

@@ -147,6 +147,7 @@ export function NewUserForm() {
   }
 
   if (success) {
+    const isClientUser = userType === 'client'
     return (
       <Card>
         <CardContent className="pt-6">
@@ -158,7 +159,9 @@ export function NewUserForm() {
               Usuario creado exitosamente
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Se ha enviado un email de invitación a {formData.email}
+              {isClientUser
+                ? `Cuenta de portal creada para ${formData.email}. El cliente puede acceder con su email.`
+                : `Se ha enviado un email de invitación a ${formData.email} para establecer su contraseña.`}
             </p>
             <p className="mt-4 text-sm text-muted-foreground">
               Redirigiendo a la lista de usuarios...

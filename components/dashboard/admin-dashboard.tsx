@@ -74,7 +74,7 @@ async function getGlobalStats(organizationId: string | null) {
     buildQuery('cases', supabase.from('cases').select('*', { count: 'exact', head: true })),
     buildQuery('cases', supabase.from('cases').select('*', { count: 'exact', head: true }).eq('status', 'active')),
     buildQuery('companies', supabase.from('companies').select('*', { count: 'exact', head: true })),
-    buildQuery('companies', supabase.from('companies').select('*', { count: 'exact', head: true })),
+    buildQuery('companies', supabase.from('companies').select('*', { count: 'exact', head: true }).or('is_active.eq.true,is_active.is.null')),
     buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['pending', 'in_progress'])),
     buildQuery('tasks', supabase.from('tasks').select('*', { count: 'exact', head: true })
       .in('status', ['pending', 'in_progress'])

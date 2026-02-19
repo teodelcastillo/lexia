@@ -9,6 +9,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAuthUser, deleteAuthUser } from '@/lib/admin/auth-operations'
 
 interface CreateTeamMemberData {
   email: string
@@ -55,31 +56,28 @@ export async function createTeamMember(
     // Generate a temporary password (user will change it via email)
     const tempPassword = `Temp${Math.random().toString(36).slice(-8)}!`
 
-    // Create the auth user using admin API (doesn't require email confirmation)
-    // This is necessary when admins create users, as signUp() requires email confirmation
-    // IMPORTANT: organization_id must be passed as string in metadata for trigger to read it
-    const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
+    // Create the auth user using service role (server-only, never exposed to client)
+    const { user: newUser, error: createUserError } = await createAuthUser({
       email: data.email,
       password: tempPassword,
-      email_confirm: true, // Auto-confirm email so user can login immediately
-      user_metadata: {
+      emailConfirm: true,
+      metadata: {
         first_name: data.firstName,
         last_name: data.lastName,
         system_role: data.role,
-        organization_id: profile.organization_id ? String(profile.organization_id) : null, // Pass as string for trigger
+        organization_id: profile.organization_id ? String(profile.organization_id) : null,
       },
     })
 
     if (createUserError) {
       console.error('[createTeamMember] Error creating user:', createUserError)
-      // Provide more specific error messages
-      if (createUserError.message.includes('already registered') || createUserError.message.includes('already exists')) {
+      if (createUserError.includes('already registered') || createUserError.includes('already exists')) {
         return { error: 'Este email ya está registrado en el sistema' }
       }
-      return { error: `Error al crear usuario: ${createUserError.message}` }
+      return { error: 'Error al crear usuario. Intente nuevamente.' }
     }
 
-    if (!newUser.user) {
+    if (!newUser) {
       return { error: 'No se pudo crear el usuario' }
     }
 
@@ -90,7 +88,7 @@ export async function createTeamMember(
     const { data: createdProfile, error: profileError } = await supabase
       .from('profiles')
       .select('id')
-      .eq('id', newUser.user.id)
+      .eq('id', newUser.id)
       .single()
 
     if (profileError || !createdProfile) {
@@ -100,7 +98,7 @@ export async function createTeamMember(
       const { error: manualProfileError } = await supabase
         .from('profiles')
         .insert({
-          id: newUser.user.id,
+          id: newUser.id,
           email: data.email,
           first_name: data.firstName,
           last_name: data.lastName,
@@ -111,13 +109,9 @@ export async function createTeamMember(
 
       if (manualProfileError) {
         console.error('[createTeamMember] Error creating profile manually:', manualProfileError)
-        // Try to clean up the auth user if profile creation fails
-        try {
-          await supabase.auth.admin.deleteUser(newUser.user.id)
-        } catch (deleteError) {
-          console.error('[createTeamMember] Error cleaning up auth user:', deleteError)
-        }
-        return { error: `Error al crear perfil: ${manualProfileError.message || 'Error desconocido'}` }
+        const { error: delErr } = await deleteAuthUser(newUser.id)
+        if (delErr) console.error('[createTeamMember] Error cleaning up auth user:', delErr)
+        return { error: 'Error al crear perfil. Intente nuevamente.' }
       }
     }
 
