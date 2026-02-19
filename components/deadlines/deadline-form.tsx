@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { logActivity } from '@/lib/services/activity-log'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -179,6 +180,17 @@ export function DeadlineForm({
 
         if (error) throw error
 
+        await logActivity({
+          supabase,
+          userId: currentUserId,
+          actionType: 'updated',
+          entityType: 'deadline',
+          entityId: existingDeadline.id,
+          caseId: caseId === 'none' ? null : caseId,
+          description: `actualizó el evento "${title.trim()}"`,
+          newValues: { title: title.trim() },
+        })
+
         if (syncToCalendar) {
           try {
             const syncRes = await fetch(`/api/deadlines/${existingDeadline.id}/sync-google`, {
@@ -204,6 +216,19 @@ export function DeadlineForm({
           .single()
 
         if (error) throw error
+
+        if (inserted?.id) {
+          await logActivity({
+            supabase,
+            userId: currentUserId,
+            actionType: 'created',
+            entityType: 'deadline',
+            entityId: inserted.id,
+            caseId: caseId === 'none' ? null : caseId,
+            description: `agendó el evento "${title.trim()}"`,
+            newValues: { title: title.trim() },
+          })
+        }
 
         // Sync to Google Calendar if requested
         if (syncToCalendar && inserted?.id) {

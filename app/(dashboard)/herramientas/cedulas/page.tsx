@@ -262,17 +262,35 @@ export default function CedulasPage() {
         }
       }
 
-      const { error: insertError } = await supabase.from('deadlines').insert({
-        title,
-        description: description || null,
-        deadline_type: 'judicial',
-        due_date: dueDate.toISOString(),
-        case_id: selectedCaseId,
-        created_by: user.id,
-        status: 'pending',
-      })
+      const { data: inserted, error: insertError } = await supabase
+        .from('deadlines')
+        .insert({
+          title,
+          description: description || null,
+          deadline_type: 'judicial',
+          due_date: dueDate.toISOString(),
+          case_id: selectedCaseId,
+          created_by: user.id,
+          status: 'pending',
+        })
+        .select('id')
+        .single()
 
       if (insertError) throw insertError
+
+      if (inserted?.id) {
+        const { logActivity } = await import('@/lib/services/activity-log')
+        await logActivity({
+          supabase,
+          userId: user.id,
+          actionType: 'created',
+          entityType: 'deadline',
+          entityId: inserted.id,
+          caseId: selectedCaseId,
+          description: `agendó el evento "${title}" desde cédula`,
+          newValues: { title },
+        })
+      }
 
       toast.success(
         uploadedFile

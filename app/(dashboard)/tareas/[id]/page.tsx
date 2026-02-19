@@ -232,9 +232,11 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
         {/* Actions */}
         {canEdit && (
           <div className="flex items-center gap-2 flex-wrap">
-            <TaskStatusActions 
-              taskId={task.id} 
-              currentStatus={task.status as TaskStatus} 
+            <TaskStatusActions
+              taskId={task.id}
+              currentStatus={task.status as TaskStatus}
+              taskTitle={task.title}
+              caseId={task.case_id}
             />
             <Separator orientation="vertical" className="h-8" />
             <Button variant="outline" size="sm" asChild className="bg-transparent">

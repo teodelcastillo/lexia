@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { logActivity } from '@/lib/services/activity-log'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -210,13 +211,50 @@ export function TaskForm({
           .eq('id', existingTask.id)
 
         if (error) throw error
+
+        const prevAssigned = existingTask.assigned_to
+        const isAssignment = (assignedTo || null) !== (prevAssigned || null)
+        const assignee = assignedTo ? teamMembers.find((m) => m.id === assignedTo) : null
+        const assigneeName = assignee ? `${assignee.first_name} ${assignee.last_name}` : null
+        const desc = isAssignment && assigneeName
+          ? `asignó la tarea "${title.trim()}" a ${assigneeName}`
+          : isAssignment && !assigneeName
+            ? `quitó la asignación de la tarea "${title.trim()}"`
+            : `actualizó la tarea "${title.trim()}"`
+        await logActivity({
+          supabase,
+          userId: currentUserId,
+          actionType: isAssignment ? 'assigned' : 'updated',
+          entityType: 'task',
+          entityId: existingTask.id,
+          caseId: resolvedCaseId,
+          description: desc,
+          newValues: { title: title.trim(), assigned_to: assignedTo || null },
+        })
+
         toast.success('Tarea actualizada correctamente')
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('tasks')
           .insert(taskData)
+          .select('id')
+          .single()
 
         if (error) throw error
+
+        if (inserted?.id) {
+          await logActivity({
+            supabase,
+            userId: currentUserId,
+            actionType: 'created',
+            entityType: 'task',
+            entityId: inserted.id,
+            caseId: resolvedCaseId,
+            description: `creó la tarea "${title.trim()}"`,
+            newValues: { title: title.trim() },
+          })
+        }
+
         toast.success('Tarea creada correctamente')
       }
 

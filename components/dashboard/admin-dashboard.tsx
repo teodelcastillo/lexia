@@ -597,10 +597,16 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-foreground">
                             <span className="font-medium">
-                              {profile ? `${profile.first_name} ${profile.last_name.charAt(0)}.` : 'Usuario'}
+                              {profile ? `${profile.first_name} ${profile.last_name}` : 'Usuario'}
                             </span>
-                            {' '}{activity.description || (actionLabels[activity.action_type] || activity.action_type)}{' '}
-                            {entityLabels[activity.entity_type] || activity.entity_type}
+                            {activity.description ? (
+                              <> {activity.description}</>
+                            ) : (
+                              <>
+                                {' '}{actionLabels[activity.action_type] || activity.action_type}{' '}
+                                {entityLabels[activity.entity_type] || activity.entity_type}
+                              </>
+                            )}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {formatRelativeTime(activity.created_at)}

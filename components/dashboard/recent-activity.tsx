@@ -151,25 +151,26 @@ export async function RecentActivity() {
 
                   {/* Activity content */}
                   <div className="flex-1 space-y-1 pb-4">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-5 w-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Avatar className="h-5 w-5 shrink-0">
                         <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
                           {profile ? getInitials(profile.first_name, profile.last_name) : 'U'}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium text-foreground">
-                        {profile ? `${profile.first_name} ${profile.last_name}` : 'Usuario'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
+                      <p className="text-sm text-foreground">
+                        <span className="font-medium">
+                          {profile ? `${profile.first_name} ${profile.last_name}` : 'Usuario'}
+                        </span>
+                        {activity.description ? (
+                          <> {activity.description}</>
+                        ) : (
+                          <> {formatAction(activity.action_type)} un {entityLabel}</>
+                        )}
+                      </p>
+                      <span className="text-xs text-muted-foreground shrink-0">
                         {formatRelativeTime(activity.created_at)}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {activity.description 
-                        ? activity.description
-                        : `${formatAction(activity.action_type)} un ${entityLabel}`
-                      }
-                    </p>
                   </div>
                 </div>
               )

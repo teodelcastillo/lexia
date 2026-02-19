@@ -49,16 +49,34 @@ export function KanbanQuickAdd({
     setLoading(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('tasks').insert({
-        title: title.trim(),
-        status,
-        case_id: resolvedCaseId,
-        created_by: currentUserId,
-        assigned_to: currentUserId,
-        priority: 'medium',
-      })
+      const { data: inserted, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: title.trim(),
+          status,
+          case_id: resolvedCaseId,
+          created_by: currentUserId,
+          assigned_to: currentUserId,
+          priority: 'medium',
+        })
+        .select('id')
+        .single()
 
       if (error) throw error
+
+      if (inserted?.id) {
+        const { logActivity } = await import('@/lib/services/activity-log')
+        await logActivity({
+          supabase,
+          userId: currentUserId,
+          actionType: 'created',
+          entityType: 'task',
+          entityId: inserted.id,
+          caseId: resolvedCaseId,
+          description: `creó la tarea "${title.trim()}"`,
+          newValues: { title: title.trim() },
+        })
+      }
 
       toast.success('Tarea creada')
       setTitle('')

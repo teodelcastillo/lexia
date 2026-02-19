@@ -7,6 +7,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/services/activity-log'
 
 export async function POST(
   _request: Request,
@@ -19,6 +20,12 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
+
+    const { data: deadline } = await supabase
+      .from('deadlines')
+      .select('title, case_id')
+      .eq('id', id)
+      .single()
 
     const { error } = await supabase
       .from('deadlines')
@@ -37,6 +44,18 @@ export async function POST(
         { status: 500 }
       )
     }
+
+    const title = deadline?.title || 'Evento'
+    await logActivity({
+      supabase,
+      userId: user.id,
+      actionType: 'completed',
+      entityType: 'deadline',
+      entityId: id,
+      caseId: deadline?.case_id ?? null,
+      description: `completó el evento "${title}"`,
+      newValues: { status: 'completed' },
+    })
 
     return NextResponse.json({ success: true })
   } catch (err) {

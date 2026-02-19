@@ -352,7 +352,12 @@ export default async function CalendarEventDetailPage({ params }: EventDetailPag
 
                     {canEditTask && (
                       <>
-                        <TaskStatusActions taskId={task.id} currentStatus={task.status} />
+                        <TaskStatusActions
+                          taskId={task.id}
+                          currentStatus={task.status}
+                          taskTitle={task.title}
+                          caseId={task.case?.id}
+                        />
                         <Separator />
                       </>
                     )}

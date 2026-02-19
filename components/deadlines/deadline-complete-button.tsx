@@ -38,7 +38,7 @@ export function DeadlineCompleteButton({
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Error al completar')
       }
-      toast.success('Vencimiento marcado como completado')
+      toast.success('Evento marcado como completado')
       router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se pudo completar')

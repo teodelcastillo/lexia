@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/services/activity-log'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +37,10 @@ interface TaskStatusActionsProps {
   taskId: string
   /** Current task status */
   currentStatus: TaskStatus
+  /** Task title for activity log */
+  taskTitle?: string
+  /** Case ID for activity log */
+  caseId?: string | null
 }
 
 /** Status transition configuration */
@@ -65,7 +70,7 @@ const statusTransitions: Record<TaskStatus, Array<{
   ],
 }
 
-export function TaskStatusActions({ taskId, currentStatus }: TaskStatusActionsProps) {
+export function TaskStatusActions({ taskId, currentStatus, taskTitle, caseId }: TaskStatusActionsProps) {
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState<TaskStatus | null>(null)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -76,6 +81,8 @@ export function TaskStatusActions({ taskId, currentStatus }: TaskStatusActionsPr
 
     try {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
 
       const { error } = await supabase
         .from('tasks')
@@ -95,6 +102,24 @@ export function TaskStatusActions({ taskId, currentStatus }: TaskStatusActionsPr
         cancelled: 'cancelada',
       }
 
+      const title = taskTitle || 'Tarea'
+      const actionDesc =
+        newStatus === 'completed'
+          ? `terminó la tarea "${title}"`
+          : newStatus === 'cancelled'
+            ? `canceló la tarea "${title}"`
+            : `cambió el estado de la tarea "${title}" a ${statusLabels[newStatus]}`
+      await logActivity({
+        supabase,
+        userId: user.id,
+        actionType: newStatus === 'completed' ? 'completed' : 'updated',
+        entityType: 'task',
+        entityId: taskId,
+        caseId,
+        description: actionDesc,
+        newValues: { status: newStatus },
+      })
+
       toast.success(`Tarea marcada como ${statusLabels[newStatus]}`)
       router.refresh()
 
@@ -113,6 +138,8 @@ export function TaskStatusActions({ taskId, currentStatus }: TaskStatusActionsPr
 
     try {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
 
       const { error } = await supabase
         .from('tasks')
@@ -123,6 +150,18 @@ export function TaskStatusActions({ taskId, currentStatus }: TaskStatusActionsPr
         .eq('id', taskId)
 
       if (error) throw error
+
+      const title = taskTitle || 'Tarea'
+      await logActivity({
+        supabase,
+        userId: user.id,
+        actionType: 'updated',
+        entityType: 'task',
+        entityId: taskId,
+        caseId,
+        description: `canceló la tarea "${title}"`,
+        newValues: { status: 'cancelled' },
+      })
 
       toast.success('Tarea cancelada')
       router.refresh()
