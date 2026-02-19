@@ -244,6 +244,12 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   }
 
   // Group documents by company > case for tree view
+  type CompanyGroup = {
+    name: string
+    type?: string
+    cases: Record<string, { name: string; documents: typeof documents }>
+  }
+
   const groupedByCompany = documents?.reduce((acc, doc) => {
     const company = doc.case?.companies as { id: string; company_name?: string; name?: string } | null
     const companyId = company?.id || 'sin-empresa'
@@ -259,7 +265,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     }
     acc[companyId].cases[caseId].documents.push(doc)
     return acc
-  }, {} as Record<string, { name: string; type?: string; cases: Record<string, { name: string; documents: typeof documents }> }>)
+  }, {} as Record<string, CompanyGroup>)
 
   return (
     <div className="space-y-6">
@@ -488,7 +494,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
       {viewMode === 'tree' ? (
         /* Tree View - Company > Case > Documents */
         <div className="space-y-4">
-          {groupedByCompany && Object.entries(groupedByCompany).map(([companyId, company]) => (
+          {groupedByCompany && Object.entries(groupedByCompany as Record<string, CompanyGroup>).map(([companyId, company]) => (
             <Card key={companyId} className="border-border/60">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
