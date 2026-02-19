@@ -75,6 +75,7 @@ export async function updateSession(request: NextRequest) {
                            pathname.startsWith('/personas') ||
                            pathname.startsWith('/empresas') ||
                            pathname.startsWith('/tareas') ||
+                           pathname.startsWith('/eventos') ||
                            pathname.startsWith('/vencimientos') ||
                            pathname.startsWith('/documentos') ||
                            pathname.startsWith('/calendario') ||

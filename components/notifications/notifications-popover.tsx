@@ -257,7 +257,7 @@ export function NotificationsPopover() {
     } else if (notification.task_id) {
       router.push(`/tareas`)
     } else if (notification.deadline_id) {
-      router.push(`/vencimientos`)
+      router.push(`/eventos`)
     } else if (notification.metadata?.google_calendar_event_id) {
       router.push(`/calendario`)
     }

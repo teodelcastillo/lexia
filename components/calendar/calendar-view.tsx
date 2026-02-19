@@ -68,12 +68,13 @@ export type CalendarItem =
 
 function getEventColor(item: CalendarItem): string {
   if (item.type === 'google') return 'bg-chart-3 text-chart-3-foreground'
-  const type = item.type === 'deadline' ? (item.deadline_type || 'deadline') : 'task'
+  if (item.type === 'task') return 'bg-chart-2 text-chart-2-foreground'
+  const type = item.deadline_type || 'event'
   const colors: Record<string, string> = {
+    event: 'bg-muted text-muted-foreground',
     deadline: 'bg-destructive text-destructive-foreground',
     hearing: 'bg-primary text-primary-foreground',
     meeting: 'bg-blue-500 text-white',
-    task: 'bg-chart-2 text-chart-2-foreground',
   }
   return colors[type] || 'bg-muted text-muted-foreground'
 }
@@ -81,12 +82,17 @@ function getEventColor(item: CalendarItem): string {
 function getEventLabel(item: CalendarItem): string {
   if (item.type === 'task') return 'Tarea'
   if (item.type === 'google') return 'Google'
+  if (!item.deadline_type) return 'Evento'
   const labels: Record<string, string> = {
     deadline: 'Vencimiento',
     hearing: 'Audiencia',
     meeting: 'Reunión',
+    legal: 'Legal',
+    judicial: 'Judicial',
+    administrative: 'Administrativo',
+    internal: 'Interno',
   }
-  return labels[item.deadline_type || 'deadline'] || 'Evento'
+  return labels[item.deadline_type] || item.deadline_type
 }
 
 function getItemStatus(item: CalendarItem, now: Date): EventStatusResult | null {

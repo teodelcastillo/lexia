@@ -532,7 +532,7 @@ export async function LawyerDashboard({ userId }: LawyerDashboardProps) {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold">Próximos Vencimientos</CardTitle>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/vencimientos" className="text-xs">
+          <Link href="/eventos" className="text-xs">
             Ver todos
             <ArrowRight className="ml-1 h-3 w-3" />
           </Link>

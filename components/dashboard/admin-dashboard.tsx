@@ -369,7 +369,7 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              próximos vencimientos
+              próximos eventos
             </p>
           </CardContent>
         </Card>
@@ -439,7 +439,7 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
           <Card className="border-border/60">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">Vencimientos Críticos</CardTitle>
+                <CardTitle className="text-base font-semibold">Eventos Críticos</CardTitle>
                 <CardDescription>Próximos 7 días</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
@@ -454,7 +454,7 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Calendar className="mb-2 h-8 w-8 text-muted-foreground/50" />
                   <p className="text-sm text-muted-foreground">
-                    No hay vencimientos esta semana
+                    No hay eventos esta semana
                   </p>
                 </div>
               ) : (
@@ -584,7 +584,7 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
                       client: 'cliente',
                       task: 'tarea',
                       document: 'documento',
-                      deadline: 'vencimiento',
+                      deadline: 'evento',
                     }
 
                     return (

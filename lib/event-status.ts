@@ -93,6 +93,11 @@ const deadlineTypeToKind: Record<string, EventKind> = {
   filing_deadline: 'deliverable',
   meeting: 'meeting',
   other: 'other',
+  legal: 'deliverable',
+  judicial: 'deliverable',
+  administrative: 'deliverable',
+  hearing: 'hearing',
+  internal: 'other',
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
  * New Calendar Event Page
  *
- * Redirects to the new deadline form at /vencimientos/nuevo.
+ * Redirects to the new event form at /eventos/nuevo.
  * Preserves the caso query param when coming from a case context.
  */
 import { redirect } from 'next/navigation'
@@ -20,5 +20,5 @@ export const metadata = {
 export default async function CalendarioNuevoPage({ searchParams }: CalendarioNuevoPageProps) {
   const params = await searchParams
   const query = params.caso ? `?caso=${params.caso}` : ''
-  redirect(`/vencimientos/nuevo${query}`)
+  redirect(`/eventos/nuevo${query}`)
 }

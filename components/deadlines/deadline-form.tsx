@@ -36,11 +36,12 @@ import { Badge } from '@/components/ui/badge'
 import { CalendarIcon, Briefcase, User, Clock, Loader2, AlertTriangle, Gavel, FileText, Building2, Bell, CalendarIcon as CalendarIconSolid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/** Deadline type configuration */
+/** Event/deadline type configuration. Empty value = no type (generic event) */
 const deadlineTypes = [
-  { 
-    value: 'legal', 
-    label: 'Legal', 
+  { value: '', label: 'Sin tipo', description: 'Evento genérico', icon: CalendarIconSolid },
+  {
+    value: 'legal',
+    label: 'Legal',
     description: 'Plazo establecido por ley',
     icon: Gavel,
   },
@@ -97,7 +98,7 @@ interface DeadlineFormProps {
     id: string
     title: string
     description: string | null
-    deadline_type: string
+    deadline_type: string | null
     due_date: string
     case_id: string | null
     assigned_to: string | null
@@ -119,7 +120,7 @@ export function DeadlineForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [title, setTitle] = useState(existingDeadline?.title || '')
   const [description, setDescription] = useState(existingDeadline?.description || '')
-  const [deadlineType, setDeadlineType] = useState(existingDeadline?.deadline_type || 'legal')
+  const [deadlineType, setDeadlineType] = useState(existingDeadline?.deadline_type ?? '')
   const [dueDate, setDueDate] = useState<Date | undefined>(
     existingDeadline?.due_date ? new Date(existingDeadline.due_date) : undefined
   )
@@ -142,13 +143,13 @@ export function DeadlineForm({
     }
 
     if (!dueDate) {
-      toast.error('La fecha de vencimiento es obligatoria')
+      toast.error('La fecha es obligatoria')
       return
     }
 
     // Validate case_id is required for creation (deadlines.case_id is NOT NULL)
     if (!isEditing && (caseId === 'none' || !caseId)) {
-      toast.error('Debe seleccionar un caso para crear el vencimiento')
+      toast.error('Debe seleccionar un caso para crear el evento')
       return
     }
 
@@ -160,7 +161,7 @@ export function DeadlineForm({
       const deadlineData = {
         title: title.trim(),
         description: description.trim() || null,
-        deadline_type: deadlineType,
+        deadline_type: deadlineType || null,
         due_date: dueDate.toISOString(),
         case_id: caseId === 'none' ? null : caseId,
         assigned_to: assignedTo || null,
@@ -184,16 +185,16 @@ export function DeadlineForm({
               method: 'POST',
             })
             if (syncRes.ok) {
-              toast.success('Vencimiento actualizado y sincronizado con Google Calendar')
+              toast.success('Evento actualizado y sincronizado con Google Calendar')
             } else {
               const data = await syncRes.json().catch(() => ({}))
-              toast.warning(data.error ?? 'Vencimiento actualizado, pero no se pudo sincronizar con Google Calendar')
+              toast.warning(data.error ?? 'Evento actualizado, pero no se pudo sincronizar con Google Calendar')
             }
           } catch {
-            toast.warning('Vencimiento actualizado, pero no se pudo sincronizar con Google Calendar')
+            toast.warning('Evento actualizado, pero no se pudo sincronizar con Google Calendar')
           }
         } else {
-          toast.success('Vencimiento actualizado correctamente')
+          toast.success('Evento actualizado correctamente')
         }
       } else {
         const { data: inserted, error } = await supabase
@@ -211,16 +212,16 @@ export function DeadlineForm({
               method: 'POST',
             })
             if (syncRes.ok) {
-              toast.success('Vencimiento creado y sincronizado con Google Calendar')
+              toast.success('Evento creado y sincronizado con Google Calendar')
             } else {
               const data = await syncRes.json().catch(() => ({}))
-              toast.warning(data.error ?? 'Vencimiento creado, pero no se pudo sincronizar con Google Calendar')
+              toast.warning(data.error ?? 'Evento creado, pero no se pudo sincronizar con Google Calendar')
             }
           } catch {
-            toast.warning('Vencimiento creado, pero no se pudo sincronizar con Google Calendar')
+            toast.warning('Evento creado, pero no se pudo sincronizar con Google Calendar')
           }
         } else {
-          toast.success('Vencimiento creado correctamente')
+          toast.success('Evento creado correctamente')
         }
       }
 
@@ -228,13 +229,13 @@ export function DeadlineForm({
       if (preselectedCase) {
         router.push(`/casos/${preselectedCase.id}?tab=cronologia`)
       } else {
-        router.push('/vencimientos')
+        router.push('/eventos')
       }
       router.refresh()
 
     } catch (error) {
       console.error('Error saving deadline:', error)
-      toast.error('Error al guardar el vencimiento')
+      toast.error('Error al guardar el evento')
     } finally {
       setIsSubmitting(false)
     }
@@ -324,7 +325,7 @@ export function DeadlineForm({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Gavel className="h-5 w-5" />
-                Tipo de Vencimiento
+                Tipo de evento
               </CardTitle>
             </CardHeader>
             <CardContent>

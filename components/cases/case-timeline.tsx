@@ -20,8 +20,6 @@ import {
   Circle,
   AlertCircle,
 } from 'lucide-react'
-import type { DeadlineType } from '@/lib/types'
-
 interface CaseTimelineProps {
   /** The case ID to fetch timeline events for */
   caseId: string
@@ -34,7 +32,7 @@ interface CaseTimelineProps {
 /**
  * Timeline event type configuration with icons and colors
  */
-const eventTypeConfig: Record<DeadlineType, { 
+const eventTypeConfig: Record<string, { 
   label: string
   icon: typeof Calendar
   bgColor: string
@@ -64,6 +62,17 @@ const eventTypeConfig: Record<DeadlineType, {
     bgColor: 'bg-muted',
     iconColor: 'text-muted-foreground'
   },
+  legal: { label: 'Legal', icon: Gavel, bgColor: 'bg-chart-2/10', iconColor: 'text-chart-2' },
+  judicial: { label: 'Judicial', icon: Gavel, bgColor: 'bg-chart-2/10', iconColor: 'text-chart-2' },
+  administrative: { label: 'Administrativo', icon: FileCheck, bgColor: 'bg-chart-3/10', iconColor: 'text-chart-3' },
+  hearing: { label: 'Audiencia', icon: Gavel, bgColor: 'bg-primary/10', iconColor: 'text-primary' },
+  internal: { label: 'Interno', icon: Clock, bgColor: 'bg-muted', iconColor: 'text-muted-foreground' },
+}
+
+const defaultEventConfig = eventTypeConfig.other
+
+function getEventTypeConfig(type: string | null | undefined) {
+  return (type && eventTypeConfig[type]) || defaultEventConfig
 }
 
 /**
@@ -73,7 +82,7 @@ interface TimelineEvent {
   id: string
   title: string
   description: string | null
-  deadline_type: DeadlineType
+  deadline_type: string | null
   due_date: string
   is_completed: boolean
   }
@@ -217,7 +226,7 @@ export async function CaseTimeline({ caseId, openedAt, canEdit }: CaseTimelinePr
                   {/* Events in this month */}
                   <div className="space-y-4">
                     {monthEvents.map((event, index) => {
-                      const config = eventTypeConfig[event.deadline_type]
+                      const config = getEventTypeConfig(event.deadline_type)
                       const status = getEventStatus(event.due_date, event.is_completed)
                       const EventIcon = config.icon
                       const isLast = index === monthEvents.length - 1

@@ -10,16 +10,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Calendar, Clock, AlertTriangle } from 'lucide-react'
-import type { DeadlineType } from '@/lib/types'
-
 /**
- * Deadline type configuration
+ * Event/deadline type configuration. Null/unknown = generic Evento.
  */
-const deadlineTypeConfig: Record<DeadlineType, { label: string; icon: typeof Calendar }> = {
+const defaultEventConfig = { label: 'Evento', icon: Calendar as typeof Calendar }
+const deadlineTypeConfig: Record<string, { label: string; icon: typeof Calendar }> = {
   court_date: { label: 'Audiencia', icon: Calendar },
   filing_deadline: { label: 'Presentación', icon: Clock },
   meeting: { label: 'Reunión', icon: Calendar },
   other: { label: 'Otro', icon: Clock },
+  legal: { label: 'Legal', icon: Clock },
+  judicial: { label: 'Judicial', icon: Clock },
+  administrative: { label: 'Administrativo', icon: Clock },
+  hearing: { label: 'Audiencia', icon: Calendar },
+  internal: { label: 'Interno', icon: Clock },
+}
+function getEventTypeConfig(type: string | null | undefined) {
+  return (type && deadlineTypeConfig[type]) || defaultEventConfig
 }
 
 /**
@@ -85,7 +92,7 @@ export async function UpcomingDeadlines() {
   return (
     <Card className="border-border/60">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base font-semibold">Próximos Vencimientos</CardTitle>
+        <CardTitle className="text-base font-semibold">Próximos Eventos</CardTitle>
         <Button variant="ghost" size="sm" asChild>
           <Link href="/calendario" className="text-xs">
             Ver calendario
@@ -98,13 +105,13 @@ export async function UpcomingDeadlines() {
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Calendar className="mb-2 h-8 w-8 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">
-              No hay vencimientos próximos
+              No hay eventos próximos
             </p>
           </div>
         ) : (
           deadlines.map((deadline) => {
             const caseData = deadline.cases as unknown as { id: string; case_number: string; title: string } | null
-            const typeConfig = deadlineTypeConfig[deadline.deadline_type as DeadlineType]
+            const typeConfig = getEventTypeConfig(deadline.deadline_type)
             const daysUntil = getDaysUntil(deadline.due_date)
             const { text: daysText, isUrgent } = formatDaysUntil(daysUntil)
             const TypeIcon = typeConfig.icon

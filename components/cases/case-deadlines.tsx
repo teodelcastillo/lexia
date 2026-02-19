@@ -17,21 +17,28 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { DeadlineCompleteButton } from '@/components/deadlines/deadline-complete-button'
-import type { DeadlineType } from '@/lib/types'
-
 interface CaseDeadlinesProps {
   caseId: string
   canEdit: boolean
 }
 
 /**
- * Deadline type configuration
+ * Event/deadline type configuration. Null/unknown = generic Evento.
  */
-const deadlineTypeConfig: Record<DeadlineType, { label: string; icon: typeof Calendar }> = {
+const defaultEventConfig = { label: 'Evento', icon: Calendar as typeof Calendar }
+const deadlineTypeConfig: Record<string, { label: string; icon: typeof Calendar }> = {
   court_date: { label: 'Audiencia', icon: Calendar },
   filing_deadline: { label: 'Presentación', icon: Clock },
   meeting: { label: 'Reunión', icon: Calendar },
   other: { label: 'Otro', icon: Clock },
+  legal: { label: 'Legal', icon: Clock },
+  judicial: { label: 'Judicial', icon: Clock },
+  administrative: { label: 'Administrativo', icon: Clock },
+  hearing: { label: 'Audiencia', icon: Calendar },
+  internal: { label: 'Interno', icon: Clock },
+}
+function getEventTypeConfig(type: string | null | undefined) {
+  return (type && deadlineTypeConfig[type]) || defaultEventConfig
 }
 
 /**
@@ -123,13 +130,13 @@ export async function CaseDeadlines({ caseId, canEdit }: CaseDeadlinesProps) {
       {/* Header with Add Button */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-foreground">
-          Vencimientos ({deadlines.length})
+          Eventos ({deadlines.length})
         </h3>
         {canEdit && (
           <Button asChild size="sm">
             <Link href={`/calendario/nuevo?caso=${caseId}`}>
               <Plus className="mr-2 h-4 w-4" />
-              Agregar Vencimiento
+              Agregar evento
             </Link>
           </Button>
         )}
@@ -140,12 +147,12 @@ export async function CaseDeadlines({ caseId, canEdit }: CaseDeadlinesProps) {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">
-              No hay vencimientos para este caso
+              No hay eventos para este caso
             </p>
             {canEdit && (
               <Button asChild className="mt-4 bg-transparent" variant="outline">
                 <Link href={`/calendario/nuevo?caso=${caseId}`}>
-                  Agregar Primer Vencimiento
+                  Agregar primer evento
                 </Link>
               </Button>
             )}
@@ -163,7 +170,7 @@ export async function CaseDeadlines({ caseId, canEdit }: CaseDeadlinesProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 {upcomingDeadlines.map((deadline) => {
-                  const typeConfig = deadlineTypeConfig[deadline.deadline_type as DeadlineType]
+                  const typeConfig = getEventTypeConfig(deadline.deadline_type)
                   const daysUntil = getDaysUntil(deadline.due_date)
                   const { text: urgencyText, isUrgent, isPast } = getUrgencyStatus(daysUntil, false)
                   const TypeIcon = typeConfig.icon
@@ -263,7 +270,7 @@ export async function CaseDeadlines({ caseId, canEdit }: CaseDeadlinesProps) {
               </CardHeader>
               <CardContent className="space-y-3">
                 {completedDeadlines.map((deadline) => {
-                  const typeConfig = deadlineTypeConfig[deadline.deadline_type as DeadlineType]
+                  const typeConfig = getEventTypeConfig(deadline.deadline_type)
 
                   return (
                     <div

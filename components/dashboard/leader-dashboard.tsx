@@ -381,7 +381,7 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
           <CardContent>
             <div className="text-2xl font-bold">{stats.upcomingDeadlines}</div>
             <p className="text-xs text-muted-foreground">
-              próximos vencimientos
+              próximos eventos
             </p>
           </CardContent>
         </Card>
@@ -471,7 +471,7 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
                 <CardDescription>De los casos que lidero</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/vencimientos" className="text-xs">
+                <Link href="/eventos" className="text-xs">
                   Ver todos
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Link>
@@ -482,7 +482,7 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
                 <div className="flex flex-col items-center justify-center py-6 text-center">
                   <Calendar className="mb-2 h-6 w-6 text-muted-foreground/50" />
                   <p className="text-sm text-muted-foreground">
-                    No hay vencimientos próximos
+                    No hay eventos próximos
                   </p>
                 </div>
               ) : (
@@ -600,7 +600,7 @@ export async function LeaderDashboard({ userId }: LeaderDashboardProps) {
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start gap-2 bg-transparent" asChild>
-                <Link href="/vencimientos/nuevo">
+                <Link href="/eventos/nuevo">
                   <Calendar className="h-4 w-4" />
                   Nuevo Vencimiento
                 </Link>

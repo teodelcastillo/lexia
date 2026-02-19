@@ -282,7 +282,7 @@ export default function CedulasPage() {
       setShowCreateDialog(false)
       setAnalysis(null)
       setUploadedFile(null)
-      router.push('/vencimientos')
+      router.push('/eventos')
       router.refresh()
     } catch (err) {
       console.error('Error creating deadline:', err)

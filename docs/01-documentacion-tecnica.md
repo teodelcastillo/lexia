@@ -129,7 +129,7 @@ app/auth/callback/route.ts     - Callback de OAuth
 El middleware (`lib/supabase/proxy.ts`) intercepta TODAS las solicitudes y:
 
 1. **Refresca la sesion** en cada request para evitar logouts inesperados.
-2. **Protege rutas internas:** `/dashboard`, `/casos`, `/clientes`, `/personas`, `/empresas`, `/tareas`, `/vencimientos`, `/documentos`, `/calendario`, `/notas`, `/lexia`, `/herramientas`, `/admin`, `/perfil`, `/notificaciones`, `/configuracion`.
+2. **Protege rutas internas:** `/dashboard`, `/casos`, `/clientes`, `/personas`, `/empresas`, `/tareas`, `/eventos`, `/vencimientos` (redirect a /eventos), `/documentos`, `/calendario`, `/notas`, `/lexia`, `/herramientas`, `/admin`, `/perfil`, `/notificaciones`, `/configuracion`.
 3. **Protege el portal de clientes:** `/portal/*` requiere autenticacion con redireccion a `/auth/portal-login`.
 4. **Redirige usuarios autenticados** fuera de las paginas de auth, considerando su rol (clientes al portal, equipo al dashboard).
 
@@ -540,15 +540,18 @@ ENUM task_status: pending | in_progress | under_review | completed | cancelled
 ENUM task_priority: urgent | high | medium | low
 ```
 
-### 6.2 Vencimientos y Audiencias
+### 6.2 Eventos y Vencimientos
+
+Eventos y vencimientos unificados en la tabla `deadlines`. El tipo (`deadline_type`) es opcional: NULL = evento genérico; con valor = vencimiento/audiencia/etc.
 
 **Archivos clave:**
 ```
-app/(dashboard)/vencimientos/page.tsx       - Listado de vencimientos
-app/(dashboard)/vencimientos/nuevo/page.tsx  - Crear vencimiento
-components/deadlines/deadline-form.tsx       - Formulario de vencimiento
-components/cases/case-deadlines.tsx          - Vencimientos del caso
-components/dashboard/upcoming-deadlines.tsx  - Widget de proximos vencimientos
+app/(dashboard)/eventos/page.tsx            - Listado de eventos
+app/(dashboard)/eventos/nuevo/page.tsx      - Crear evento
+app/(dashboard)/vencimientos/*               - Redirects a /eventos (compatibilidad)
+components/deadlines/deadline-form.tsx      - Formulario de evento
+components/cases/case-deadlines.tsx         - Eventos del caso
+components/dashboard/upcoming-deadlines.tsx - Widget de próximos eventos
 ```
 
 ```sql
@@ -557,7 +560,7 @@ TABLE deadlines (
   case_id                   UUID NOT NULL REFERENCES cases(id),
   title                     TEXT NOT NULL,
   description               TEXT,
-  deadline_type             TEXT NOT NULL,
+  deadline_type             TEXT,  -- Opcional: NULL = evento genérico
   due_date                  TIMESTAMPTZ NOT NULL,
   status                    deadline_status DEFAULT 'pending',
   assigned_to               UUID REFERENCES profiles(id),

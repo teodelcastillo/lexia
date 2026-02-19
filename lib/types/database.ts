@@ -380,7 +380,7 @@ export type Database = {
           completed_by: string | null
           created_at: string
           created_by: string
-          deadline_type: string
+          deadline_type: string | null
           description: string | null
           due_date: string
           google_calendar_event_id: string | null
@@ -398,7 +398,7 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by: string
-          deadline_type: string
+          deadline_type?: string | null
           description?: string | null
           due_date: string
           google_calendar_event_id?: string | null
@@ -416,7 +416,7 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by?: string
-          deadline_type?: string
+          deadline_type?: string | null
           description?: string | null
           due_date?: string
           google_calendar_event_id?: string | null

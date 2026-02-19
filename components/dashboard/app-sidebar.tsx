@@ -153,8 +153,8 @@ const navigationSections: NavSection[] = [
         icon: LayoutGrid,
       },
       {
-        title: 'Vencimientos',
-        href: '/vencimientos',
+        title: 'Eventos',
+        href: '/eventos',
         icon: Clock,
       },
     ],
