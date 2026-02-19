@@ -186,7 +186,13 @@ async function getCaseNotes(caseId: string) {
     return []
   }
 
-  return notes
+  // Normalize: Supabase may return profiles as object or array depending on relation
+  type Row = (typeof notes)[number]
+  return (notes ?? []).map((row: Row) => {
+    const profiles = row.profiles
+    const profile = Array.isArray(profiles) ? profiles[0] ?? null : profiles ?? null
+    return { ...row, profiles: profile }
+  })
 }
 
 /**
