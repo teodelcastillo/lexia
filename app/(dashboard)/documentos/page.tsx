@@ -523,20 +523,20 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
                           {caseData.name}
                         </Link>
                         <Badge variant="outline" className="text-xs">
-                          {caseData.documents.length} docs
+                          {caseData.documents?.length ?? 0} docs
                         </Badge>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 pl-4">
-                        {caseData.documents.slice(0, 6).map((doc) => (
+                        {(caseData.documents ?? []).slice(0, 6).map((doc) => (
                           <DocumentGridCard key={doc.id} doc={doc} isAdmin={isAdmin} />
                         ))}
-                        {caseData.documents.length > 6 && (
+                        {(caseData.documents?.length ?? 0) > 6 && (
                           <Link
                             href={`/documentos?case_id=${caseId}`}
                             className="flex items-center justify-center p-4 rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors"
                           >
                             <span className="text-sm text-muted-foreground">
-                              +{caseData.documents.length - 6} más
+                              +{(caseData.documents?.length ?? 0) - 6} más
                             </span>
                           </Link>
                         )}
