@@ -47,10 +47,14 @@ export async function createCalendarEvent(
       requestBody: event,
     })
 
-    return data.id ?? null
+    if (!data?.id) {
+      throw new Error('Google Calendar no devolvió ID del evento')
+    }
+    return data.id
   } catch (err) {
-    console.error('[Google Calendar] createEvent error:', err)
-    return null
+    const msg = err instanceof Error ? err.message : 'Error desconocido'
+    console.error('[Google Calendar] createEvent error:', msg, err)
+    throw new Error(`Google Calendar: ${msg}`)
   }
 }
 
@@ -90,8 +94,9 @@ export async function updateCalendarEvent(
     })
     return true
   } catch (err) {
-    console.error('[Google Calendar] updateEvent error:', err)
-    return false
+    const msg = err instanceof Error ? err.message : 'Error desconocido'
+    console.error('[Google Calendar] updateEvent error:', msg, err)
+    throw new Error(`Google Calendar: ${msg}`)
   }
 }
 
@@ -133,7 +138,7 @@ export async function listCalendarEvents(
     return { events, nextSyncToken }
   } catch (err) {
     console.error('[Google Calendar] listEvents error:', err)
-    return { events: [] }
+    throw err
   }
 }
 

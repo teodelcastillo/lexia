@@ -116,13 +116,24 @@ export function CalendarView({
   const nextMonth = month === 11 ? 0 : month + 1
   const nextYear = month === 11 ? year + 1 : year
 
-  async function handleSync() {
+  async function handleSync(forceFull = false) {
     setSyncing(true)
     try {
-      const res = await fetch('/api/google/calendar/sync', { method: 'POST' })
+      const url = forceFull ? '/api/google/calendar/sync?full=true' : '/api/google/calendar/sync'
+      const res = await fetch(url, { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
-        toast.success(`Sincronizado: ${data.upserted ?? 0} eventos importados`)
+        const count = data.upserted ?? 0
+        if (count === 0 && !forceFull) {
+          toast.success('Sincronizado (sin cambios). Si esperaba eventos, intente sincronización completa.', {
+            action: {
+              label: 'Sync completo',
+              onClick: () => handleSync(true),
+            },
+          })
+        } else {
+          toast.success(`Sincronizado: ${count} eventos importados`)
+        }
         router.refresh()
       } else {
         toast.error(data.error ?? 'Error al sincronizar')

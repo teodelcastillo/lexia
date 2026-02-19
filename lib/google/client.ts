@@ -81,3 +81,36 @@ export function createAuthenticatedClient(tokens: {
   })
   return client
 }
+
+/**
+ * Ensures tokens are valid, refreshing if expired.
+ * Returns updated tokens (caller should persist to DB if refreshed).
+ */
+export async function ensureValidTokens(tokens: {
+  access_token: string
+  refresh_token?: string | null
+  expiry_date?: number | null
+}): Promise<{
+  access_token: string
+  refresh_token?: string | null
+  expiry_date?: number | null
+  wasRefreshed: boolean
+}> {
+  const client = createAuthenticatedClient(tokens)
+  const needRefresh =
+    !tokens.expiry_date ||
+    tokens.expiry_date < Date.now() + 5 * 60 * 1000 // 5 min buffer
+  if (needRefresh && tokens.refresh_token) {
+    const { credentials } = await client.refreshAccessToken()
+    return {
+      access_token: credentials.access_token!,
+      refresh_token: credentials.refresh_token ?? tokens.refresh_token,
+      expiry_date: credentials.expiry_date ?? null,
+      wasRefreshed: true,
+    }
+  }
+  return {
+    ...tokens,
+    wasRefreshed: false,
+  }
+}

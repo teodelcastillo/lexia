@@ -11,6 +11,7 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
 } from '@/lib/google/calendar'
+import { ensureValidTokens } from '@/lib/google/client'
 import { NextResponse } from 'next/server'
 
 export async function POST(
@@ -52,12 +53,26 @@ export async function POST(
     const startDate = new Date(deadline.due_date)
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // +1h
 
-    const tokens = {
+    let tokens = {
       access_token: connection.access_token,
       refresh_token: connection.refresh_token,
       expiry_date: connection.token_expires_at
         ? new Date(connection.token_expires_at).getTime()
         : null,
+    }
+    const validTokens = await ensureValidTokens(tokens)
+    tokens = validTokens
+    if (validTokens.wasRefreshed) {
+      await supabase
+        .from('google_connections')
+        .update({
+          access_token: validTokens.access_token,
+          token_expires_at: validTokens.expiry_date
+            ? new Date(validTokens.expiry_date).toISOString()
+            : null,
+        })
+        .eq('user_id', user.id)
+        .eq('service', 'calendar')
     }
 
     const params = {
@@ -79,13 +94,6 @@ export async function POST(
     }
 
     const eventId = await createCalendarEvent(tokens, params)
-
-    if (!eventId) {
-      return NextResponse.json(
-        { error: 'No se pudo crear el evento en Google Calendar' },
-        { status: 500 }
-      )
-    }
 
     const { error: updateError } = await supabase
       .from('deadlines')

@@ -14,7 +14,9 @@ import {
   Clock, 
   AlertTriangle,
   CheckCircle,
+  CheckSquare,
 } from 'lucide-react'
+import { DeadlineCompleteButton } from '@/components/deadlines/deadline-complete-button'
 import type { DeadlineType } from '@/lib/types'
 
 interface CaseDeadlinesProps {
@@ -61,6 +63,28 @@ async function getCaseDeadlines(caseId: string) {
 }
 
 /**
+ * Fetches tasks linked to deadlines for this case
+ */
+async function getTasksByDeadline(caseId: string) {
+  const supabase = await createClient()
+  const { data: tasks, error } = await supabase
+    .from('tasks')
+    .select('id, title, status, deadline_id')
+    .eq('case_id', caseId)
+    .not('deadline_id', 'is', null)
+  if (error) return new Map<string, Array<{ id: string; title: string; status: string }>>()
+  const byDeadline = new Map<string, Array<{ id: string; title: string; status: string }>>()
+  for (const t of tasks ?? []) {
+    if (t.deadline_id) {
+      const list = byDeadline.get(t.deadline_id) ?? []
+      list.push({ id: t.id, title: t.title, status: t.status })
+      byDeadline.set(t.deadline_id, list)
+    }
+  }
+  return byDeadline
+}
+
+/**
  * Calculates days until deadline
  */
 function getDaysUntil(dateString: string): number {
@@ -85,7 +109,10 @@ function getUrgencyStatus(days: number, isCompleted: boolean): { text: string; i
 }
 
 export async function CaseDeadlines({ caseId, canEdit }: CaseDeadlinesProps) {
-  const deadlines = await getCaseDeadlines(caseId)
+  const [deadlines, tasksByDeadline] = await Promise.all([
+    getCaseDeadlines(caseId),
+    getTasksByDeadline(caseId),
+  ])
 
   // Separate by status
   const upcomingDeadlines = deadlines.filter(d => !d.is_completed)
@@ -191,7 +218,34 @@ export async function CaseDeadlines({ caseId, canEdit }: CaseDeadlinesProps) {
                             {deadline.description}
                           </p>
                         )}
+                        {(() => {
+                          const tasks = tasksByDeadline.get(deadline.id) ?? []
+                          if (tasks.length === 0) return null
+                          return (
+                            <div className="mt-2 space-y-1 pl-2 border-l-2 border-muted">
+                              {tasks.map((task) => (
+                                <Link
+                                  key={task.id}
+                                  href={`/casos/${caseId}?tab=tareas`}
+                                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  <CheckSquare className="h-3 w-3 shrink-0" />
+                                  <span className={task.status === 'completed' ? 'line-through' : ''}>
+                                    {task.title}
+                                  </span>
+                                </Link>
+                              ))}
+                            </div>
+                          )
+                        })()}
                       </div>
+                      {canEdit && (
+                        <DeadlineCompleteButton
+                          deadlineId={deadline.id}
+                          variant="outline"
+                          size="sm"
+                        />
+                      )}
                     </div>
                   )
                 })}

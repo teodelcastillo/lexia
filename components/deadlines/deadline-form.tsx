@@ -186,10 +186,11 @@ export function DeadlineForm({
             if (syncRes.ok) {
               toast.success('Vencimiento actualizado y sincronizado con Google Calendar')
             } else {
-              toast.success('Vencimiento actualizado correctamente')
+              const data = await syncRes.json().catch(() => ({}))
+              toast.warning(data.error ?? 'Vencimiento actualizado, pero no se pudo sincronizar con Google Calendar')
             }
           } catch {
-            toast.success('Vencimiento actualizado correctamente')
+            toast.warning('Vencimiento actualizado, pero no se pudo sincronizar con Google Calendar')
           }
         } else {
           toast.success('Vencimiento actualizado correctamente')
@@ -212,10 +213,11 @@ export function DeadlineForm({
             if (syncRes.ok) {
               toast.success('Vencimiento creado y sincronizado con Google Calendar')
             } else {
-              toast.success('Vencimiento creado correctamente')
+              const data = await syncRes.json().catch(() => ({}))
+              toast.warning(data.error ?? 'Vencimiento creado, pero no se pudo sincronizar con Google Calendar')
             }
           } catch {
-            toast.success('Vencimiento creado correctamente')
+            toast.warning('Vencimiento creado, pero no se pudo sincronizar con Google Calendar')
           }
         } else {
           toast.success('Vencimiento creado correctamente')
@@ -422,36 +424,79 @@ export function DeadlineForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal bg-transparent',
-                      !dueDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? (
-                      dueDate.toLocaleDateString('es-AR', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })
-                    ) : (
-                      'Seleccionar fecha'
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={setDueDate}
-                    initialFocus
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'flex-1 justify-start text-left font-normal bg-transparent',
+                        !dueDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dueDate ? (
+                        dueDate.toLocaleDateString('es-AR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      ) : (
+                        'Seleccionar fecha'
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          const newDate = new Date(date)
+                          if (dueDate) {
+                            newDate.setHours(dueDate.getHours(), dueDate.getMinutes(), 0, 0)
+                          } else {
+                            newDate.setHours(9, 0, 0, 0)
+                          }
+                          setDueDate(newDate)
+                        } else {
+                          setDueDate(undefined)
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="due-time" className="text-xs text-muted-foreground">
+                    Hora
+                  </Label>
+                  <Input
+                    id="due-time"
+                    type="time"
+                    className="w-[110px]"
+                    value={
+                      dueDate
+                        ? `${String(dueDate.getHours()).padStart(2, '0')}:${String(dueDate.getMinutes()).padStart(2, '0')}`
+                        : '09:00'
+                    }
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(':').map(Number)
+                      if (dueDate) {
+                        const d = new Date(dueDate)
+                        d.setHours(h, m, 0, 0)
+                        setDueDate(d)
+                      } else {
+                        const d = new Date()
+                        d.setHours(h, m, 0, 0)
+                        setDueDate(d)
+                      }
+                    }}
                   />
-                </PopoverContent>
-              </Popover>
+                </div>
+              </div>
 
               {/* Urgency indicator */}
               {dueDate && (

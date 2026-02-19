@@ -45,19 +45,34 @@ export default async function NewTaskPage({ searchParams }: NewTaskPageProps) {
   }
 
   const organizationId = await getCurrentUserOrganizationId()
+  const isAdmin = profile?.system_role === 'admin_general'
 
-  // Fetch available cases for assignment (filtered by organization)
-  const casesQuery = supabase
-    .from('cases')
-    .select('id, case_number, title')
-    .in('status', ['active', 'pending'])
-    .order('case_number', { ascending: false })
+  // Fetch case IDs the user is assigned to (required for tasks RLS)
+  const { data: assignments } = await supabase
+    .from('case_assignments')
+    .select('case_id')
+    .eq('user_id', user.id)
+  const assignedCaseIds = (assignments ?? []).map((a) => a.case_id)
 
-  if (organizationId) {
-    casesQuery.eq('organization_id', organizationId)
+  // Fetch available cases: admins see all org cases, others only assigned cases
+  let cases: Array<{ id: string; case_number: string; title: string }> = []
+  if (isAdmin && organizationId) {
+    const { data } = await supabase
+      .from('cases')
+      .select('id, case_number, title')
+      .eq('organization_id', organizationId)
+      .in('status', ['active', 'pending'])
+      .order('case_number', { ascending: false })
+    cases = data ?? []
+  } else if (assignedCaseIds.length > 0) {
+    const { data } = await supabase
+      .from('cases')
+      .select('id, case_number, title')
+      .in('id', assignedCaseIds)
+      .in('status', ['active', 'pending'])
+      .order('case_number', { ascending: false })
+    cases = data ?? []
   }
-
-  const { data: cases } = await casesQuery
 
   // Fetch team members for assignment (filtered by organization)
   const teamMembersQuery = supabase
@@ -73,21 +88,11 @@ export default async function NewTaskPage({ searchParams }: NewTaskPageProps) {
 
   const { data: teamMembers } = await teamMembersQuery
 
-  // If caso param provided, get that case's details
-  let preselectedCase = null
-  if (params.caso) {
-    const caseQuery = supabase
-      .from('cases')
-      .select('id, case_number, title')
-      .eq('id', params.caso)
-    
-    if (organizationId) {
-      caseQuery.eq('organization_id', organizationId)
-    }
-    
-    const { data: caseData } = await caseQuery.single()
-    preselectedCase = caseData
-  }
+  // If caso param provided, use it as preselected only if user has access
+  const preselectedCase =
+    params.caso && cases.some((c) => c.id === params.caso)
+      ? cases.find((c) => c.id === params.caso) ?? null
+      : null
 
   return (
     <div className="space-y-6">
@@ -111,10 +116,15 @@ export default async function NewTaskPage({ searchParams }: NewTaskPageProps) {
 
       {/* Task Form */}
       <TaskForm 
-        cases={cases || []}
+        cases={cases}
         teamMembers={teamMembers || []}
         preselectedCase={preselectedCase}
         currentUserId={user.id}
+        noCasesMessage={
+          cases.length === 0
+            ? 'No hay casos asignados. Asigne un caso primero desde la ficha del caso.'
+            : undefined
+        }
       />
     </div>
   )

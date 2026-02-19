@@ -13,7 +13,7 @@
 
 import React from "react"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -95,6 +95,8 @@ interface TaskFormProps {
   preselectedCase?: { id: string; case_number: string; title: string } | null
   /** Current user ID for default assignment */
   currentUserId: string
+  /** Message when no cases available (e.g. not assigned to any case) */
+  noCasesMessage?: string
   /** Existing task data for editing */
   existingTask?: {
     id: string
@@ -104,6 +106,7 @@ interface TaskFormProps {
     due_date: string | null
     case_id: string | null
     assigned_to: string | null
+    deadline_id?: string | null
   }
 }
 
@@ -112,6 +115,7 @@ export function TaskForm({
   teamMembers, 
   preselectedCase, 
   currentUserId,
+  noCasesMessage,
   existingTask,
 }: TaskFormProps) {
   const router = useRouter()
@@ -126,11 +130,39 @@ export function TaskForm({
     existingTask?.due_date ? new Date(existingTask.due_date) : undefined
   )
   const [caseId, setCaseId] = useState(
-    existingTask?.case_id || preselectedCase?.id || 'defaultCaseId'
+    existingTask?.case_id || preselectedCase?.id || (cases?.[0]?.id ?? '')
   )
   const [assignedTo, setAssignedTo] = useState(
     existingTask?.assigned_to || currentUserId
   )
+  const [deadlineId, setDeadlineId] = useState<string | 'none'>(
+    existingTask?.deadline_id || 'none'
+  )
+  const [deadlinesForCase, setDeadlinesForCase] = useState<Array<{ id: string; title: string; due_date: string }>>([])
+
+  const resolvedCaseId = caseId || preselectedCase?.id || cases?.[0]?.id
+
+  useEffect(() => {
+    if (!resolvedCaseId || resolvedCaseId === 'none') {
+      setDeadlinesForCase([])
+      setDeadlineId('none')
+      return
+    }
+    const supabase = createClient()
+    supabase
+      .from('deadlines')
+      .select('id, title, due_date')
+      .eq('case_id', resolvedCaseId)
+      .eq('is_completed', false)
+      .order('due_date', { ascending: true })
+      .then(({ data }) => {
+        setDeadlinesForCase(data ?? [])
+        setDeadlineId((prev) => {
+          const valid = data?.some((d) => d.id === prev)
+          return valid ? prev : 'none'
+        })
+      })
+  }, [resolvedCaseId])
 
   /** Handles form submission */
   async function handleSubmit(e: React.FormEvent) {
@@ -138,6 +170,12 @@ export function TaskForm({
     
     if (!title.trim()) {
       toast.error('El título es obligatorio')
+      return
+    }
+
+    const resolvedCaseId = caseId || preselectedCase?.id || cases?.[0]?.id
+    if (!isEditing && !resolvedCaseId) {
+      toast.error('Debe seleccionar un caso para crear la tarea')
       return
     }
 
@@ -151,8 +189,9 @@ export function TaskForm({
         description: description.trim() || null,
         priority,
         due_date: dueDate?.toISOString() || null,
-        case_id: caseId || null,
+        case_id: resolvedCaseId!,
         assigned_to: assignedTo || null,
+        deadline_id: deadlineId && deadlineId !== 'none' ? deadlineId : null,
         ...(isEditing ? {} : { 
           status: 'pending' as const,
           created_by: currentUserId,
@@ -186,7 +225,10 @@ export function TaskForm({
 
     } catch (error) {
       console.error('Error saving task:', error)
-      toast.error('Error al guardar la tarea')
+      const message = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: string }).message)
+        : 'Error al guardar la tarea'
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -199,6 +241,8 @@ export function TaskForm({
       day: 'numeric',
       month: 'long',
       year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     })
   }
 
@@ -316,36 +360,79 @@ export function TaskForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal bg-transparent',
-                      !dueDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? (
-                      dueDate.toLocaleDateString('es-AR', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })
-                    ) : (
-                      'Seleccionar fecha'
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={setDueDate}
-                    initialFocus
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'flex-1 justify-start text-left font-normal bg-transparent',
+                        !dueDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dueDate ? (
+                        dueDate.toLocaleDateString('es-AR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      ) : (
+                        'Seleccionar fecha'
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          const newDate = new Date(date)
+                          if (dueDate) {
+                            newDate.setHours(dueDate.getHours(), dueDate.getMinutes(), 0, 0)
+                          } else {
+                            newDate.setHours(9, 0, 0, 0)
+                          }
+                          setDueDate(newDate)
+                        } else {
+                          setDueDate(undefined)
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="due-time" className="text-xs text-muted-foreground">
+                    Hora
+                  </Label>
+                  <Input
+                    id="due-time"
+                    type="time"
+                    className="w-[110px]"
+                    value={
+                      dueDate
+                        ? `${String(dueDate.getHours()).padStart(2, '0')}:${String(dueDate.getMinutes()).padStart(2, '0')}`
+                        : '09:00'
+                    }
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(':').map(Number)
+                      if (dueDate) {
+                        const d = new Date(dueDate)
+                        d.setHours(h, m, 0, 0)
+                        setDueDate(d)
+                      } else {
+                        const d = new Date()
+                        d.setHours(h, m, 0, 0)
+                        setDueDate(d)
+                      }
+                    }}
                   />
-                </PopoverContent>
-              </Popover>
+                </div>
+              </div>
 
               {/* Due date indicator */}
               {dueDate && (
@@ -450,12 +537,16 @@ export function TaskForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Select value={caseId} onValueChange={setCaseId}>
+              {noCasesMessage && cases.length === 0 && !isEditing && (
+                <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                  {noCasesMessage}
+                </div>
+              )}
+              <Select value={caseId} onValueChange={setCaseId} disabled={cases.length === 0 && !preselectedCase}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar caso (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="defaultCaseId">Sin caso vinculado</SelectItem>
                   {cases.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       <span className="flex flex-col">
@@ -468,6 +559,35 @@ export function TaskForm({
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Deadline association (optional, filtered by case) */}
+              {resolvedCaseId && deadlinesForCase.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="deadline_id">Vincular a vencimiento (opcional)</Label>
+                  <Select value={deadlineId} onValueChange={setDeadlineId}>
+                    <SelectTrigger id="deadline_id">
+                      <SelectValue placeholder="Ninguno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ninguno</SelectItem>
+                      {deadlinesForCase.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          <span className="flex flex-col">
+                            <span className="font-medium">{d.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(d.due_date).toLocaleDateString('es-AR', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Selected case preview */}
               {caseId && (

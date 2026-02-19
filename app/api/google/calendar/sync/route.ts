@@ -2,12 +2,14 @@
  * Google Calendar Sync - Pull events from Google into Lexia
  *
  * POST /api/google/calendar/sync
+ * Query: ?full=true to force full sync (ignore sync_token)
  *
- * Initial sync: timeMin/timeMax (-30d to +180d)
+ * Initial sync: timeMin/timeMax (-30d to +180d) in UTC
  * Incremental: uses syncToken from google_calendar_sync_state
  */
 import { createClient } from '@/lib/supabase/server'
 import { listCalendarEvents } from '@/lib/google/calendar'
+import { ensureValidTokens } from '@/lib/google/client'
 import { NextResponse } from 'next/server'
 
 function parseEventDate(
@@ -20,8 +22,11 @@ function parseEventDate(
   return { startAt, endAt, allDay }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const url = new URL(request.url)
+    const forceFullSync = url.searchParams.get('full') === 'true'
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -42,12 +47,26 @@ export async function POST() {
       )
     }
 
-    const tokens = {
+    let tokens = {
       access_token: connection.access_token,
       refresh_token: connection.refresh_token,
       expiry_date: connection.token_expires_at
         ? new Date(connection.token_expires_at).getTime()
         : null,
+    }
+    const validTokens = await ensureValidTokens(tokens)
+    tokens = validTokens
+    if (validTokens.wasRefreshed) {
+      await supabase
+        .from('google_connections')
+        .update({
+          access_token: validTokens.access_token,
+          token_expires_at: validTokens.expiry_date
+            ? new Date(validTokens.expiry_date).toISOString()
+            : null,
+        })
+        .eq('user_id', user.id)
+        .eq('service', 'calendar')
     }
 
     const calendarId = 'primary'
@@ -63,14 +82,27 @@ export async function POST() {
     let timeMax: Date | undefined
     let syncToken: string | undefined
 
-    if (syncState?.sync_token) {
-      syncToken = syncState.sync_token
-    } else {
+    if (forceFullSync && syncState?.sync_token) {
+      await supabase
+        .from('google_calendar_sync_state')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('calendar_id', calendarId)
+      console.log('[Google Calendar Sync] Forced full sync - cleared sync_token')
+    }
+
+    if (forceFullSync || !syncState?.sync_token) {
       const now = new Date()
       timeMin = new Date(now)
       timeMin.setDate(timeMin.getDate() - 30)
+      timeMin.setHours(0, 0, 0, 0)
       timeMax = new Date(now)
       timeMax.setDate(timeMax.getDate() + 180)
+      timeMax.setHours(23, 59, 59, 999)
+      console.log('[Google Calendar Sync] Initial sync', { timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() })
+    } else {
+      syncToken = syncState.sync_token
+      console.log('[Google Calendar Sync] Incremental sync with syncToken')
     }
 
     const { events, nextSyncToken } = await listCalendarEvents(tokens, {
@@ -138,6 +170,8 @@ export async function POST() {
           { onConflict: 'user_id,calendar_id' }
         )
     }
+
+    console.log('[Google Calendar Sync] Done', { total: events.length, upserted, deleted, nextSyncToken: !!nextSyncToken })
 
     return NextResponse.json({
       success: true,

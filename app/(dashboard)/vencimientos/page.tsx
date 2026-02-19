@@ -39,6 +39,7 @@ import {
 import Link from 'next/link'
 import { Suspense } from 'react'
 import Loading from './loading'
+import { DeadlineCompleteButton } from '@/components/deadlines/deadline-complete-button'
 
 export const metadata = {
   title: 'Vencimientos',
@@ -409,10 +410,11 @@ export default async function DeadlinesPage({ searchParams }: DeadlinesPageProps
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             {deadline.status !== 'completed' && (
-                              <Button variant="ghost" size="sm">
-                                <CheckCircle2 className="h-4 w-4" />
-                                <span className="sr-only">Marcar completado</span>
-                              </Button>
+                              <DeadlineCompleteButton
+                                deadlineId={deadline.id}
+                                variant="ghost"
+                                size="sm"
+                              />
                             )}
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="h-4 w-4" />
