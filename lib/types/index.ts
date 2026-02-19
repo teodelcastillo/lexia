@@ -391,7 +391,13 @@ export interface CasePermissionContext {
 }
 
 /** Activity log action type. */
-export type ActivityAction = 'created' | 'updated' | 'deleted'
+export type ActivityAction =
+  | 'created'
+  | 'updated'
+  | 'deleted'
+  | 'status_changed'
+  | 'assigned'
+  | 'commented'
 
 /** Activity log entity type for display. */
 export type ActivityEntityType = 'case' | 'client' | 'task' | 'document' | 'deadline' | 'note'
