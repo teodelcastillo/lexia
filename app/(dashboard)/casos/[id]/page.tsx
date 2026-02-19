@@ -239,7 +239,7 @@ async function validateAccess(caseId: string) {
   return {
     user,
     profile,
-    canEdit: caseRole === 'leader' || caseRole === 'case_leader',
+    canEdit: caseRole === 'leader',
     canManageTeam: caseRole === 'leader',
     caseRole,
   }
