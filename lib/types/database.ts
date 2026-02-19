@@ -599,6 +599,9 @@ export type Database = {
           start_at: string
           end_at: string
           all_day: boolean
+          event_kind: string | null
+          preparation_override: string | null
+          prepared_at: string | null
           created_at: string
           updated_at: string
         }
@@ -616,6 +619,9 @@ export type Database = {
           start_at: string
           end_at: string
           all_day?: boolean
+          event_kind?: string | null
+          preparation_override?: string | null
+          prepared_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -633,6 +639,9 @@ export type Database = {
           start_at?: string
           end_at?: string
           all_day?: boolean
+          event_kind?: string | null
+          preparation_override?: string | null
+          prepared_at?: string | null
           created_at?: string
           updated_at?: string
         }

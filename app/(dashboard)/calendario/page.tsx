@@ -86,6 +86,21 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     itemsByDay[day].push(item)
   }
 
+  const deadlineIds = deadlines.map((d) => d.id)
+  const { data: deadlineTasks } =
+    deadlineIds.length > 0
+      ? await supabase
+          .from('tasks')
+          .select('id, status, deadline_id')
+          .in('deadline_id', deadlineIds)
+          .neq('status', 'cancelled')
+      : { data: [] as { id: string; status: string; deadline_id: string }[] }
+  const gridTasksByDeadline = new Map<string, { status: string }[]>()
+  for (const t of deadlineTasks ?? []) {
+    const list = gridTasksByDeadline.get(t.deadline_id) ?? []
+    list.push({ status: t.status })
+    gridTasksByDeadline.set(t.deadline_id, list)
+  }
   deadlines.forEach((d) => {
     const day = new Date(d.due_date).getDate()
     addToDay(day, {
@@ -95,6 +110,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       date: d.due_date,
       deadline_type: d.deadline_type ?? undefined,
       case: d.case as { case_number?: string },
+      tasks: gridTasksByDeadline.get(d.id) ?? [],
     })
   })
 
@@ -110,6 +126,21 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     })
   })
 
+  const googleEventIds = googleEvents.map((e) => e.google_event_id)
+  const { data: googleEventTasks } =
+    googleEventIds.length > 0
+      ? await supabase
+          .from('tasks')
+          .select('id, status, google_calendar_event_id')
+          .in('google_calendar_event_id', googleEventIds)
+          .neq('status', 'cancelled')
+      : { data: [] as { id: string; status: string; google_calendar_event_id: string }[] }
+  const gridTasksByGoogleEvent = new Map<string, { status: string }[]>()
+  for (const t of googleEventTasks ?? []) {
+    const list = gridTasksByGoogleEvent.get(t.google_calendar_event_id) ?? []
+    list.push({ status: t.status })
+    gridTasksByGoogleEvent.set(t.google_calendar_event_id, list)
+  }
   googleEvents.forEach((e) => {
     const day = new Date(e.start_at).getDate()
     addToDay(day, {
@@ -121,6 +152,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       end_at: e.end_at,
       description: e.description,
       location: e.location,
+      tasks: gridTasksByGoogleEvent.get(e.google_event_id) ?? [],
     })
   })
 
@@ -139,6 +171,21 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     .gte('due_date', now.toISOString())
     .order('due_date', { ascending: true })
     .limit(5)
+  const upcomingDeadlineIds = (upcomingDeadlines.data ?? []).map((d) => d.id)
+  const { data: upcomingDeadlineTasks } =
+    upcomingDeadlineIds.length > 0
+      ? await supabase
+          .from('tasks')
+          .select('id, status, deadline_id')
+          .in('deadline_id', upcomingDeadlineIds)
+          .neq('status', 'cancelled')
+      : { data: [] as { id: string; status: string; deadline_id: string }[] }
+  const tasksByDeadline = new Map<string, { status: string }[]>()
+  for (const t of upcomingDeadlineTasks ?? []) {
+    const list = tasksByDeadline.get(t.deadline_id) ?? []
+    list.push({ status: t.status })
+    tasksByDeadline.set(t.deadline_id, list)
+  }
   ;(upcomingDeadlines.data ?? []).forEach((d) =>
     upcomingItems.push({
       type: 'deadline',
@@ -147,11 +194,12 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       date: d.due_date,
       deadline_type: d.deadline_type ?? undefined,
       case: d.case as { case_number?: string },
+      tasks: tasksByDeadline.get(d.id) ?? [],
     })
   )
   const upcomingTasks = await supabase
     .from('tasks')
-    .select(`id, title, due_date, case:cases(id, case_number, title)`)
+    .select(`id, title, due_date, status, case:cases(id, case_number, title)`)
     .not('due_date', 'is', null)
     .gte('due_date', now.toISOString())
     .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
@@ -165,16 +213,32 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         title: t.title,
         date: t.due_date,
         case: t.case as { case_number?: string },
+        status: t.status,
       })
   })
   const upcomingGoogle = await supabase
     .from('google_calendar_events')
-    .select('id, google_event_id, summary, start_at, end_at')
+    .select('id, google_event_id, summary, description, start_at, end_at')
     .eq('user_id', user.id)
     .neq('status', 'cancelled')
     .gte('start_at', now.toISOString())
     .order('start_at', { ascending: true })
     .limit(5)
+  const upcomingGoogleIds = (upcomingGoogle.data ?? []).map((e) => e.google_event_id)
+  const { data: upcomingGoogleTasks } =
+    upcomingGoogleIds.length > 0
+      ? await supabase
+          .from('tasks')
+          .select('id, status, google_calendar_event_id')
+          .in('google_calendar_event_id', upcomingGoogleIds)
+          .neq('status', 'cancelled')
+      : { data: [] as { id: string; status: string; google_calendar_event_id: string }[] }
+  const tasksByGoogleEvent = new Map<string, { status: string }[]>()
+  for (const t of upcomingGoogleTasks ?? []) {
+    const list = tasksByGoogleEvent.get(t.google_calendar_event_id) ?? []
+    list.push({ status: t.status })
+    tasksByGoogleEvent.set(t.google_calendar_event_id, list)
+  }
   ;(upcomingGoogle.data ?? []).forEach((e) =>
     upcomingItems.push({
       type: 'google',
@@ -183,6 +247,8 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       summary: e.summary,
       start_at: e.start_at,
       end_at: e.end_at,
+      description: e.description,
+      tasks: tasksByGoogleEvent.get(e.google_event_id) ?? [],
     })
   )
   upcomingItems.sort((a, b) => {

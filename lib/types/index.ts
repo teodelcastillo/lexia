@@ -1,6 +1,28 @@
 // Re-export all database types
 export * from './database'
 
+// Event status (temporal, preparation, legal risk)
+export type {
+  TemporalState,
+  PreparationState,
+  LegalRisk,
+  EventKind,
+  TaskLike,
+  EventStatusResult,
+} from '@/lib/event-status'
+export {
+  getTemporalState,
+  getPreparationState,
+  getLegalRisk,
+  inferEventKind,
+  getPreparationPercent,
+  getEventStatus,
+  temporalStateLabels,
+  preparationStateLabels,
+  legalRiskLabels,
+  eventKindLabels,
+} from '@/lib/event-status'
+
 // Import database types for use in this file
 import type {
   Profile as DBProfile,

@@ -20,6 +20,17 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  getEventStatus,
+  temporalStateLabels,
+  preparationStateLabels,
+  legalRiskLabels,
+  type EventStatusResult,
+} from '@/lib/event-status'
+
+export interface TaskLike {
+  status: string
+}
 
 export type CalendarItem =
   | {
@@ -29,6 +40,7 @@ export type CalendarItem =
       date: string
       deadline_type?: string
       case?: { case_number?: string }
+      tasks?: TaskLike[]
     }
   | {
       type: 'task'
@@ -36,6 +48,7 @@ export type CalendarItem =
       title: string
       date: string
       case?: { case_number?: string }
+      status?: string
     }
   | {
       type: 'google'
@@ -46,6 +59,7 @@ export type CalendarItem =
       end_at: string
       description?: string | null
       location?: string | null
+      tasks?: TaskLike[]
     }
 
 function getEventColor(item: CalendarItem): string {
@@ -69,6 +83,31 @@ function getEventLabel(item: CalendarItem): string {
     meeting: 'Reunión',
   }
   return labels[item.deadline_type || 'deadline'] || 'Evento'
+}
+
+function getItemStatus(item: CalendarItem, now: Date): EventStatusResult | null {
+  const date = item.type === 'google' ? item.start_at : item.date
+  let tasks: TaskLike[] = []
+  let summary: string | null = null
+  let description: string | null = null
+  let deadlineType: string | undefined
+  if (item.type === 'google') {
+    tasks = item.tasks ?? []
+    summary = item.summary
+    description = item.description ?? null
+    deadlineType = undefined
+  } else if (item.type === 'deadline') {
+    tasks = item.tasks ?? []
+    summary = item.title
+    deadlineType = item.deadline_type
+  } else if (item.type === 'task') {
+    tasks = item.status ? [{ status: item.status }] : []
+    summary = item.title
+    deadlineType = undefined
+  } else {
+    return null
+  }
+  return getEventStatus(date, tasks, undefined, summary, description, deadlineType, undefined, now)
 }
 
 interface CalendarViewProps {
@@ -281,20 +320,23 @@ export function CalendarView({
               {upcomingItems.length > 0 ? (
                 upcomingItems.map((item) => {
                   const date = item.type === 'google' ? new Date(item.start_at) : new Date(item.date)
-                  const isOverdue = date < now
-                  const isUrgent =
-                    !isOverdue && date.getTime() - now.getTime() < 3 * 24 * 60 * 60 * 1000
+                  const status = getItemStatus(item, now)
+                  const legalRisk = status?.legalRisk ?? 'ninguno'
+                  const barColor =
+                    legalRisk === 'alto'
+                      ? 'bg-destructive'
+                      : legalRisk === 'medio'
+                        ? 'bg-amber-500'
+                        : date.getTime() - now.getTime() < 3 * 24 * 60 * 60 * 1000
+                          ? 'bg-amber-500'
+                          : 'bg-primary'
                   const title = item.type === 'google' ? (item.summary || 'Sin título') : item.title
                   const content = (
                     <div
                       key={`${item.type}-${item.id}`}
                       className="flex gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                     >
-                      <div
-                        className={`w-1 rounded-full flex-shrink-0 ${
-                          isOverdue ? 'bg-destructive' : isUrgent ? 'bg-amber-500' : 'bg-primary'
-                        }`}
-                      />
+                      <div className={`w-1 rounded-full flex-shrink-0 ${barColor}`} />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{title}</p>
                         {item.type !== 'google' && item.case && (
@@ -303,15 +345,31 @@ export function CalendarView({
                             {item.case.case_number}
                           </p>
                         )}
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <Badge
-                            variant={
-                              isOverdue ? 'destructive' : isUrgent ? 'outline' : 'secondary'
-                            }
-                            className="text-[10px]"
-                          >
-                            {isOverdue ? 'Vencido' : getEventLabel(item)}
-                          </Badge>
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                          {status && (
+                            <>
+                              <Badge variant="outline" className="text-[10px]">
+                                {temporalStateLabels[status.temporal]}
+                              </Badge>
+                              <Badge
+                                variant={
+                                  status.preparation === 'listo'
+                                    ? 'outline'
+                                    : status.preparation === 'sin_iniciar' && status.legalRisk === 'alto'
+                                      ? 'destructive'
+                                      : 'secondary'
+                                }
+                                className="text-[10px]"
+                              >
+                                {preparationStateLabels[status.preparation]}
+                              </Badge>
+                              {status.totalCount > 0 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {status.completedCount}/{status.totalCount}
+                                </span>
+                              )}
+                            </>
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {date.toLocaleDateString('es-AR', {
                               day: 'numeric',

@@ -9,6 +9,13 @@ import { TaskStatusActions } from '@/components/tasks/task-status-actions'
 import { TaskComments } from '@/components/tasks/task-comments'
 import type { TaskStatus } from '@/lib/types'
 import {
+  getEventStatus,
+  temporalStateLabels,
+  preparationStateLabels,
+  legalRiskLabels,
+  eventKindLabels,
+} from '@/lib/event-status'
+import {
   ArrowLeft,
   Calendar,
   Clock,
@@ -50,12 +57,38 @@ export default async function CalendarEventDetailPage({ params }: EventDetailPag
     redirect('/portal')
   }
 
-  const { data: event } = await supabase
+  const baseSelect = 'id, google_event_id, summary, description, location, start_at, end_at, status'
+  let event: {
+    id: string
+    google_event_id: string
+    summary: string | null
+    description: string | null
+    location: string | null
+    start_at: string
+    end_at: string
+    status: string
+    event_kind?: string | null
+    preparation_override?: string | null
+  } | null = null
+
+  const { data: eventWithCols, error } = await supabase
     .from('google_calendar_events')
-    .select('id, google_event_id, summary, description, location, start_at, end_at, status')
+    .select(`${baseSelect}, event_kind, preparation_override`)
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
+
+  if (eventWithCols) {
+    event = eventWithCols
+  } else if (error) {
+    const { data: eventBase } = await supabase
+      .from('google_calendar_events')
+      .select(baseSelect)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+    event = eventBase ? { ...eventBase, event_kind: null, preparation_override: null } : null
+  }
 
   if (!event) notFound()
 
@@ -163,6 +196,16 @@ export default async function CalendarEventDetailPage({ params }: EventDetailPag
   const eventDateStart = new Date(event.start_at)
   const eventDateEnd = new Date(event.end_at)
 
+  const eventStatus = getEventStatus(
+    event.start_at,
+    tasks.map((t) => ({ status: t.status })),
+    event.event_kind ?? undefined,
+    event.summary,
+    event.description,
+    undefined,
+    event.preparation_override ?? undefined
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -225,9 +268,34 @@ export default async function CalendarEventDetailPage({ params }: EventDetailPag
                 {event.description}
               </div>
             )}
-            <Badge variant="outline">
-              {event.status === 'confirmed' ? 'Confirmado' : event.status}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{eventKindLabels[eventStatus.eventKind]}</Badge>
+              <Badge variant="outline">{temporalStateLabels[eventStatus.temporal]}</Badge>
+              <Badge
+                variant={
+                  eventStatus.preparation === 'listo'
+                    ? 'outline'
+                    : eventStatus.legalRisk === 'alto'
+                      ? 'destructive'
+                      : 'secondary'
+                }
+              >
+                {preparationStateLabels[eventStatus.preparation]}
+              </Badge>
+              {eventStatus.totalCount > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  Preparación: {eventStatus.completedCount}/{eventStatus.totalCount} ({eventStatus.percentReady}%)
+                </span>
+              )}
+              {eventStatus.legalRisk !== 'ninguno' && eventStatus.legalRisk !== 'bajo' && (
+                <Badge variant={eventStatus.legalRisk === 'alto' ? 'destructive' : 'outline'}>
+                  {legalRiskLabels[eventStatus.legalRisk]}
+                </Badge>
+              )}
+              <Badge variant="outline">
+                {event.status === 'confirmed' ? 'Confirmado' : event.status}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
 
