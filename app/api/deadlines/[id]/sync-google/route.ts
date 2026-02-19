@@ -3,11 +3,14 @@
  *
  * POST /api/deadlines/[id]/sync-google
  *
- * Creates or updates the deadline in the user's Google Calendar.
+ * Creates or updates the deadline in the user's Google Calendar (idempotent).
  * Requires user to have connected Google Calendar (google_connections).
  */
 import { createClient } from '@/lib/supabase/server'
-import { createCalendarEvent } from '@/lib/google/calendar'
+import {
+  createCalendarEvent,
+  updateCalendarEvent,
+} from '@/lib/google/calendar'
 import { NextResponse } from 'next/server'
 
 export async function POST(
@@ -57,12 +60,25 @@ export async function POST(
         : null,
     }
 
-    const eventId = await createCalendarEvent(tokens, {
+    const params = {
       title: deadline.title,
       description: deadline.description ?? undefined,
       startDate,
       endDate,
-    })
+    }
+
+    if (deadline.google_calendar_event_id) {
+      const ok = await updateCalendarEvent(tokens, deadline.google_calendar_event_id, params)
+      if (!ok) {
+        return NextResponse.json(
+          { error: 'No se pudo actualizar el evento en Google Calendar' },
+          { status: 500 }
+        )
+      }
+      return NextResponse.json({ success: true, eventId: deadline.google_calendar_event_id })
+    }
+
+    const eventId = await createCalendarEvent(tokens, params)
 
     if (!eventId) {
       return NextResponse.json(

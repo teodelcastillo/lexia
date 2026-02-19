@@ -584,6 +584,106 @@ export type Database = {
           },
         ]
       }
+      google_calendar_events: {
+        Row: {
+          id: string
+          user_id: string
+          calendar_id: string
+          google_event_id: string
+          etag: string | null
+          google_updated_at: string | null
+          status: string
+          summary: string | null
+          description: string | null
+          location: string | null
+          start_at: string
+          end_at: string
+          all_day: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          calendar_id?: string
+          google_event_id: string
+          etag?: string | null
+          google_updated_at?: string | null
+          status?: string
+          summary?: string | null
+          description?: string | null
+          location?: string | null
+          start_at: string
+          end_at: string
+          all_day?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          calendar_id?: string
+          google_event_id?: string
+          etag?: string | null
+          google_updated_at?: string | null
+          status?: string
+          summary?: string | null
+          description?: string | null
+          location?: string | null
+          start_at?: string
+          end_at?: string
+          all_day?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_sync_state: {
+        Row: {
+          id: string
+          user_id: string
+          calendar_id: string
+          sync_token: string | null
+          last_synced_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          calendar_id?: string
+          sync_token?: string | null
+          last_synced_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          calendar_id?: string
+          sync_token?: string | null
+          last_synced_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_sync_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       people: {
         Row: {
           address: string | null

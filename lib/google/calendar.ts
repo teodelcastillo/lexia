@@ -96,6 +96,66 @@ export async function updateCalendarEvent(
 }
 
 /**
+ * Lists calendar events (for sync Google → App)
+ * Supports initial sync (timeMin/timeMax) and incremental (syncToken)
+ */
+export async function listCalendarEvents(
+  tokens: { access_token: string; refresh_token?: string | null; expiry_date?: number | null },
+  options: {
+    calendarId?: string
+    timeMin?: Date
+    timeMax?: Date
+    syncToken?: string
+    singleEvents?: boolean
+    showDeleted?: boolean
+  } = {}
+): Promise<{ events: calendar_v3.Schema$Event[]; nextSyncToken?: string }> {
+  try {
+    const auth = createAuthenticatedClient(tokens)
+    const calendar = google.calendar({ version: 'v3', auth })
+    const calendarId = options.calendarId ?? 'primary'
+
+    const params: calendar_v3.Params$Resource$Events$List = {
+      calendarId,
+      singleEvents: options.singleEvents ?? true,
+      showDeleted: options.showDeleted ?? true,
+    }
+    if (options.syncToken) {
+      params.syncToken = options.syncToken
+    } else if (options.timeMin || options.timeMax) {
+      if (options.timeMin) params.timeMin = options.timeMin.toISOString()
+      if (options.timeMax) params.timeMax = options.timeMax.toISOString()
+    }
+
+    const { data } = await calendar.events.list(params)
+    const events = data.items ?? []
+    const nextSyncToken = data.nextSyncToken ?? undefined
+    return { events, nextSyncToken }
+  } catch (err) {
+    console.error('[Google Calendar] listEvents error:', err)
+    return { events: [] }
+  }
+}
+
+/**
+ * Gets a single event by ID (for PATCH/DELETE verification)
+ */
+export async function getCalendarEvent(
+  tokens: { access_token: string; refresh_token?: string | null; expiry_date?: number | null },
+  eventId: string,
+  calendarId: string = 'primary'
+): Promise<calendar_v3.Schema$Event | null> {
+  try {
+    const auth = createAuthenticatedClient(tokens)
+    const calendar = google.calendar({ version: 'v3', auth })
+    const { data } = await calendar.events.get({ calendarId, eventId })
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Deletes a calendar event
  */
 export async function deleteCalendarEvent(

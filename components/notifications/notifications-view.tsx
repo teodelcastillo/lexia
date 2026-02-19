@@ -39,6 +39,7 @@ interface Notification {
   task_id?: string
   deadline_id?: string
   document_id?: string
+  metadata?: { google_calendar_event_id?: string }
   triggered_by_profile?: {
     id: string
     first_name: string
@@ -64,6 +65,8 @@ function getNotificationIcon(type: string) {
     case 'deadline_approaching':
     case 'deadline_overdue':
     case 'deadline_created':
+    case 'task_approaching':
+    case 'calendar_event_approaching':
       return Calendar
     case 'document_uploaded':
     case 'document_deleted':
@@ -167,6 +170,8 @@ export function NotificationsView() {
       router.push(`/tareas`)
     } else if (notification.deadline_id) {
       router.push(`/vencimientos`)
+    } else if (notification.metadata?.google_calendar_event_id) {
+      router.push(`/calendario`)
     }
   }
 

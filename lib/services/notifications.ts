@@ -1,13 +1,28 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-type NotificationType = 
-  | 'user_login' | 'user_created' | 'case_created' | 'case_updated' 
-  | 'case_status_changed' | 'document_uploaded' | 'document_deleted'
-  | 'comment_added' | 'person_created' | 'company_created'
-  | 'task_assigned' | 'task_completed' | 'task_overdue'
-  | 'deadline_approaching' | 'deadline_overdue' | 'deadline_created'
-  | 'case_assigned' | 'mention'
+type NotificationType =
+  | 'user_login'
+  | 'user_created'
+  | 'case_created'
+  | 'case_updated'
+  | 'case_status_changed'
+  | 'document_uploaded'
+  | 'document_deleted'
+  | 'comment_added'
+  | 'person_created'
+  | 'company_created'
+  | 'task_assigned'
+  | 'task_completed'
+  | 'task_overdue'
+  | 'deadline_approaching'
+  | 'deadline_overdue'
+  | 'deadline_created'
+  | 'case_assigned'
+  | 'mention'
+  | 'task_approaching'
+  | 'calendar_event_approaching'
 
 type NotificationCategory = 'activity' | 'work'
 
@@ -26,12 +41,17 @@ interface CreateNotificationParams {
 }
 
 /**
- * Creates notifications for specified users
+ * Creates notifications for specified users.
+ * Pass supabase client for cron/admin context (bypasses RLS).
  */
-export async function createNotifications(params: CreateNotificationParams) {
-  const supabase = await createClient()
-  
-  const notifications = params.userIds.map(userId => ({
+export async function createNotifications(
+  params: CreateNotificationParams,
+  options?: { supabase?: SupabaseClient; metadata?: Record<string, unknown> }
+) {
+  const supabase = options?.supabase ?? (await createClient())
+
+  const metadata = { ...(params.metadata || {}), ...(options?.metadata || {}) }
+  const notifications = params.userIds.map((userId) => ({
     user_id: userId,
     category: params.category,
     type: params.type,
@@ -42,7 +62,7 @@ export async function createNotifications(params: CreateNotificationParams) {
     deadline_id: params.deadlineId || null,
     document_id: params.documentId || null,
     triggered_by: params.triggeredBy || null,
-    metadata: params.metadata || {},
+    metadata: Object.keys(metadata).length ? metadata : {},
   }))
 
   const { error } = await supabase.from('notifications').insert(notifications)
@@ -58,19 +78,23 @@ export async function createNotifications(params: CreateNotificationParams) {
  * - admin_general: gets all activity notifications (within same organization)
  * - case_leader: gets all notifications for their cases
  * - lawyer_executive: gets task and deadline notifications for their assignments
+ * Pass supabase for cron context (admin client).
  */
-export async function getUsersToNotify(params: {
-  caseId?: string
-  taskId?: string
-  deadlineId?: string
-  excludeUserId?: string
-  organizationId?: string | null
-}): Promise<{ admins: string[], caseLeaders: string[], assignees: string[] }> {
-  const supabase = await createClient()
+export async function getUsersToNotify(
+  params: {
+    caseId?: string
+    taskId?: string
+    deadlineId?: string
+    excludeUserId?: string
+    organizationId?: string | null
+  },
+  options?: { supabase?: SupabaseClient }
+): Promise<{ admins: string[]; caseLeaders: string[]; assignees: string[] }> {
+  const supabase = options?.supabase ?? (await createClient())
   
-  // Get organization_id - use provided one or get from current user
+  // Get organization_id - use provided one or get from current user (when in user context)
   let organizationId = params.organizationId
-  if (!organizationId) {
+  if (!organizationId && !options?.supabase) {
     organizationId = await getCurrentUserOrganizationId()
   }
   
@@ -279,35 +303,124 @@ export async function notifyDeadlineApproaching(
   deadlineTitle: string,
   caseId: string,
   dueDate: string,
-  daysRemaining: number
+  daysRemaining: number,
+  options?: { supabase?: SupabaseClient; metadata?: Record<string, unknown> }
 ) {
-  // Get organization_id from the deadline
-  const supabase = await createClient()
+  const supabase = options?.supabase ?? (await createClient())
   const { data: deadlineData } = await supabase
     .from('deadlines')
     .select('organization_id')
     .eq('id', deadlineId)
     .single()
   
-  const users = await getUsersToNotify({ 
-    caseId, 
-    deadlineId,
-    organizationId: deadlineData?.organization_id || null
-  })
-  const allUsers = [...new Set([...users.admins, ...users.caseLeaders, ...users.assignees])]
-  
-  if (allUsers.length > 0) {
-    await createNotifications({
-      userIds: allUsers,
-      category: 'work',
-      type: 'deadline_approaching',
-      title: 'Vencimiento próximo',
-      message: `El plazo "${deadlineTitle}" vence en ${daysRemaining} día${daysRemaining === 1 ? '' : 's'}`,
+  const users = await getUsersToNotify(
+    {
       caseId,
       deadlineId,
-      metadata: { dueDate, daysRemaining },
-    })
+      organizationId: deadlineData?.organization_id || null,
+    },
+    { supabase: options?.supabase }
+  )
+  const allUsers = [...new Set([...users.admins, ...users.caseLeaders, ...users.assignees])]
+
+  if (allUsers.length > 0) {
+    await createNotifications(
+      {
+        userIds: allUsers,
+        category: 'work',
+        type: 'deadline_approaching',
+        title: 'Vencimiento próximo',
+        message: `El plazo "${deadlineTitle}" vence en ${daysRemaining} día${daysRemaining === 1 ? '' : 's'}`,
+        caseId,
+        deadlineId,
+        metadata: { dueDate, daysRemaining },
+      },
+      options
+    )
   }
+}
+
+/**
+ * Notifies about approaching task due date
+ */
+export async function notifyTaskApproaching(
+  taskId: string,
+  taskTitle: string,
+  caseId: string,
+  dueDate: string,
+  daysRemaining: number,
+  options?: { supabase?: SupabaseClient; metadata?: Record<string, unknown> }
+) {
+  const supabase = options?.supabase ?? (await createClient())
+  const { data: taskData } = await supabase
+    .from('tasks')
+    .select('organization_id')
+    .eq('id', taskId)
+    .single()
+
+  const users = await getUsersToNotify(
+    {
+      caseId: caseId || undefined,
+      taskId,
+      organizationId: taskData?.organization_id || null,
+    },
+    { supabase: options?.supabase }
+  )
+  const allUsers = [...new Set([...users.admins, ...users.caseLeaders, ...users.assignees])]
+
+  if (allUsers.length > 0) {
+    await createNotifications(
+      {
+        userIds: allUsers,
+        category: 'work',
+        type: 'task_approaching',
+        title: 'Tarea próxima',
+        message: `La tarea "${taskTitle}" vence en ${daysRemaining} día${daysRemaining === 1 ? '' : 's'}`,
+        caseId: caseId || undefined,
+        taskId,
+        metadata: { dueDate, daysRemaining },
+      },
+      options
+    )
+  }
+}
+
+/**
+ * Notifies about approaching Google Calendar event
+ */
+export async function notifyCalendarEventApproaching(
+  eventId: string,
+  googleEventId: string,
+  summary: string,
+  startAt: string,
+  userId: string,
+  hoursOrDaysRemaining: number,
+  options?: { supabase?: SupabaseClient; metadata?: Record<string, unknown> }
+) {
+  const isToday = hoursOrDaysRemaining === 0
+  const title = isToday ? 'Evento hoy' : 'Evento próximo'
+  const message = isToday
+    ? `"${summary}" comienza hoy`
+    : `"${summary}" en ${hoursOrDaysRemaining} día${hoursOrDaysRemaining === 1 ? '' : 's'}`
+
+  const baseMetadata = {
+    google_calendar_event_id: eventId,
+    google_event_id: googleEventId,
+    start_at: startAt,
+    days_before: hoursOrDaysRemaining,
+    source_id: eventId,
+  }
+  await createNotifications(
+    {
+      userIds: [userId],
+      category: 'work',
+      type: 'calendar_event_approaching',
+      title,
+      message,
+      metadata: baseMetadata,
+    },
+    options
+  )
 }
 
 /**

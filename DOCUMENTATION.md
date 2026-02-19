@@ -641,6 +641,26 @@ GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/callback
 
 Ver `docs/04-integracion-google.md` para la configuración completa en Google Cloud Console.
 
+### Recordatorios de Calendario (Cron)
+
+Las notificaciones de vencimientos, tareas y eventos de Google se generan automáticamente vía cron:
+
+- **Endpoint**: `GET /api/cron/calendar-reminders`
+- **Horario**: 8:00 UTC diario (configurable en `vercel.json`)
+- **Autenticación**: `Authorization: Bearer <CRON_SECRET>`
+
+Variables de entorno en Vercel:
+
+```
+CRON_SECRET=<generar con: openssl rand -hex 32>
+```
+
+Para probar manualmente:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio.vercel.app/api/cron/calendar-reminders
+```
+
 ### Agregar Nuevo Rol
 
 1. Actualizar enum `user_role` en Supabase

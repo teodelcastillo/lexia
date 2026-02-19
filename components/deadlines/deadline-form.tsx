@@ -101,6 +101,7 @@ interface DeadlineFormProps {
     due_date: string
     case_id: string | null
     assigned_to: string | null
+    google_calendar_event_id?: string | null
   }
 }
 
@@ -176,7 +177,23 @@ export function DeadlineForm({
           .eq('id', existingDeadline.id)
 
         if (error) throw error
-        toast.success('Vencimiento actualizado correctamente')
+
+        if (syncToCalendar) {
+          try {
+            const syncRes = await fetch(`/api/deadlines/${existingDeadline.id}/sync-google`, {
+              method: 'POST',
+            })
+            if (syncRes.ok) {
+              toast.success('Vencimiento actualizado y sincronizado con Google Calendar')
+            } else {
+              toast.success('Vencimiento actualizado correctamente')
+            }
+          } catch {
+            toast.success('Vencimiento actualizado correctamente')
+          }
+        } else {
+          toast.success('Vencimiento actualizado correctamente')
+        }
       } else {
         const { data: inserted, error } = await supabase
           .from('deadlines')
