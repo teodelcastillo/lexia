@@ -48,7 +48,7 @@ export interface FormFieldDefinition {
 function buildPartySchema(
   prefixes: string[],
   otherFields: Record<string, boolean>
-): z.ZodObject<z.ZodRawShape> {
+): z.ZodType<Record<string, unknown>> {
   const shape: z.ZodRawShape = {}
   for (const prefix of prefixes) {
     for (const key of getPartyFieldKeys(prefix)) {
@@ -90,7 +90,7 @@ function buildPartySchema(
 
 export const DOCUMENT_TYPE_SCHEMAS: Record<
   DocumentType,
-  { fields: FormFieldDefinition[]; schema: z.ZodObject<z.ZodRawShape> }
+  { fields: FormFieldDefinition[]; schema: z.ZodType<Record<string, unknown>> }
 > = {
   demanda: {
     fields: [
@@ -249,7 +249,7 @@ function isFullStructureSchema(
 // Validation Helpers
 // ============================================
 
-export function getSchemaForDocumentType(type: DocumentType): z.ZodObject<z.ZodRawShape> {
+export function getSchemaForDocumentType(type: DocumentType): z.ZodType<Record<string, unknown>> {
   return DOCUMENT_TYPE_SCHEMAS[type].schema
 }
 

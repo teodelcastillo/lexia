@@ -212,7 +212,7 @@ export async function POST(req: Request) {
       },
       onFinish: async (options) => {
         const durationMs = Date.now() - startTime
-        const tokensUsed = options.usage?.totalTokens ?? 0
+        const tokensUsed = (options as { usage?: { totalTokens?: number } }).usage?.totalTokens ?? 0
         const creditsCharged = getCreditsForIntent(finalDecision.classification.intent)
 
         try {

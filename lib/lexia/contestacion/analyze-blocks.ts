@@ -53,7 +53,7 @@ export async function analyzeDemandBlocks(
     .join('\n\n')
 
   try {
-    const { object } = await generateObject({
+    const { object: raw } = await generateObject({
       model: resolveModel(ANALYZE_MODEL),
       schema: zodSchema(AnalyzeBlocksSchema),
       prompt: `Analiza los siguientes bloques de la demanda. La demanda completa (resumida) está debajo para contexto.
@@ -68,7 +68,8 @@ ${demandaRaw.slice(0, 5000)}
       system: ANALYZE_SYSTEM_PROMPT,
       maxTokens: 4096,
       temperature: 0.3,
-    })
+    } as Parameters<typeof generateObject>[0] & { maxTokens?: number })
+    const object = raw as z.infer<typeof AnalyzeBlocksSchema>
 
     return (object.analisis ?? []) as BlockAnalysis[]
   } catch (err) {

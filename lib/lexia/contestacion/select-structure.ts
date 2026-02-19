@@ -59,7 +59,7 @@ export async function selectContestacionStructure(
   }
 
   try {
-    const { object } = await generateObject({
+    const { object: raw } = await generateObject({
       model: resolveModel(SELECT_MODEL),
       schema: zodSchema(SelectStructureSchema),
       prompt: `Tipo de demanda detectado: "${tipoDemandaDetectado ?? 'desconocido'}"
@@ -70,7 +70,8 @@ Elegí la variante de contestación que mejor coincida. Si no hay coincidencia c
       system: 'Eres un asistente que selecciona la plantilla de contestación adecuada según el tipo de demanda.',
       maxTokens: 64,
       temperature: 0.1,
-    })
+    } as Parameters<typeof generateObject>[0] & { maxTokens?: number })
+    const object = raw as z.infer<typeof SelectStructureSchema>
 
     const v = (object.variant ?? '').trim()
     return templatesDisponibles.includes(v) ? v : ''

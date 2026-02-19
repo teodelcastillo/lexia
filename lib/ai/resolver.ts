@@ -9,13 +9,13 @@
 
 import { openai as openaiProvider } from '@ai-sdk/openai'
 import { anthropic as anthropicProvider } from '@ai-sdk/anthropic'
-import type { LanguageModelV3 } from 'ai'
+import type { LanguageModel } from 'ai'
 
 /**
  * Resolves a model identifier to an AI SDK LanguageModel.
  * Model strings are in the form 'openai/gpt-4-turbo' or 'anthropic/claude-sonnet-4-20250514'.
  */
-export function resolveModel(modelString: string): LanguageModelV3 {
+export function resolveModel(modelString: string): LanguageModel {
   if (modelString.startsWith('openai/')) {
     const modelId = modelString.slice('openai/'.length)
     return openaiProvider(modelId)

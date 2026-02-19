@@ -8,7 +8,7 @@ import type { DocumentType } from '@/lib/ai/draft-schemas'
 export type PartyType = 'persona_fisica' | 'persona_juridica'
 export type DocumentoTipo = 'DNI' | 'PASAPORTE' | 'CUIT'
 
-const PARTY_PAIRS: Record<DocumentType, [string, string] | [string]> = {
+const PARTY_PAIRS: Record<DocumentType, [string, string] | [string] | []> = {
   demanda: ['actor', 'demandado'],
   contestacion: ['demandante', 'demandado'],
   apelacion: ['recurrente', 'recurrido'],

@@ -59,7 +59,7 @@ ${a ? `Análisis: argumentos=${a.argumentos_clave?.length ?? 0}, puntos débiles
     .join('\n\n')
 
   try {
-    const { object } = await generateObject({
+    const { object: raw } = await generateObject({
       model: resolveModel(QUESTIONS_MODEL),
       schema: zodSchema(GenerateQuestionsSchema),
       prompt: `Genera preguntas/propuestas para el abogado demandado sobre los siguientes bloques de la demanda.
@@ -69,7 +69,8 @@ ${bloquesContext}`,
       system: QUESTIONS_SYSTEM_PROMPT,
       maxTokens: 4096,
       temperature: 0.4,
-    })
+    } as Parameters<typeof generateObject>[0] & { maxTokens?: number })
+    const object = raw as z.infer<typeof GenerateQuestionsSchema>
 
     return (object.preguntas ?? []) as BlockQuestion[]
   } catch (err) {

@@ -66,7 +66,7 @@ export function LexiaChat({
 
   const { messages, sendMessage, status, setMessages, error } = useChat({
     id: conversationId,
-    messages: (initialMessages || []) as Parameters<typeof useChat>[0]['messages'],
+    ...((initialMessages?.length ? { initialMessages } : {}) as { initialMessages?: typeof initialMessages }),
     transport: new DefaultChatTransport({
       api: '/api/lexia',
       prepareSendMessagesRequest: ({ messages: msgs }) => ({
@@ -91,7 +91,7 @@ export function LexiaChat({
         window.dispatchEvent(new CustomEvent('lexia-conversations-refresh'))
       }
     },
-  })
+  } as Parameters<typeof useChat>[0] & { initialMessages?: typeof initialMessages })
 
   const isLoading = status === 'streaming' || status === 'submitted'
   const isReady = status === 'ready'

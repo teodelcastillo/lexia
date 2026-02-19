@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
     const finalName = safeName.endsWith('.docx') ? safeName : `${safeName}.docx`
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type':

@@ -77,7 +77,7 @@ export async function getAgentDecision(
   )
 
   try {
-    const { object } = await generateObject({
+    const { object: raw } = await generateObject({
       model: resolveModel(AGENT_MODEL),
       schema: zodSchema(AgentDecisionSchema),
       prompt: `Estado actual:
@@ -88,7 +88,8 @@ Decide la próxima acción.`,
       system: AGENT_SYSTEM_PROMPT,
       maxTokens: 512,
       temperature: 0.2,
-    })
+    } as Parameters<typeof generateObject>[0] & { maxTokens?: number })
+    const object = raw as z.infer<typeof AgentDecisionSchema>
 
     switch (object.action) {
       case 'analyze':

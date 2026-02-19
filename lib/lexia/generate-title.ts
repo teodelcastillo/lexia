@@ -46,7 +46,7 @@ Instrucción del usuario:
 Título:`,
       maxTokens: 30,
       temperature: 0.2,
-    })
+    } as Parameters<typeof generateText>[0] & { maxTokens?: number })
 
     const title = text.trim().replace(/^["']|["']$/g, '').slice(0, MAX_TITLE_LENGTH)
     return title || null

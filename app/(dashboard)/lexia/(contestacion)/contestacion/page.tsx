@@ -73,7 +73,7 @@ export default function ContestacionPage() {
       })
       .then((data) => setCaseDocuments(data.documents ?? []))
       .catch(() => toast.error('No se pudieron cargar los documentos del caso'))
-      .finally(() => setIsLoadingDocs(false))
+      .then(() => setIsLoadingDocs(false), () => setIsLoadingDocs(false))
   }, [caseId, demandaSource])
 
   const sessionParam = searchParams.get('session')

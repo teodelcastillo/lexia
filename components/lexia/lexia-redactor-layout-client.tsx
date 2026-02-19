@@ -41,7 +41,7 @@ export function LexiaRedactorLayoutClient({ children }: { children: React.ReactN
           setCaseContext(null)
         }
       })
-      .finally(() => setIsLoadingContext(false))
+      .then(() => setIsLoadingContext(false), () => setIsLoadingContext(false))
   }, [caseId, supabase])
 
   return (

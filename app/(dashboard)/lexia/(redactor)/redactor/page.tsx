@@ -161,7 +161,7 @@ export default function RedactorPage() {
       .catch((err) => {
         toast.error(err.message || 'Error al cargar el borrador')
       })
-      .finally(() => setLoadingDraft(false))
+      .then(() => setLoadingDraft(false), () => setLoadingDraft(false))
   }, [draftId, loadCaseById])
 
   const generateDraft = useCallback(

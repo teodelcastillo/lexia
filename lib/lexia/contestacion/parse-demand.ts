@@ -67,7 +67,7 @@ export async function parseDemandStructure(
   }
 
   try {
-    const { object } = await generateObject({
+    const { object: raw } = await generateObject({
       model: resolveModel(PARSE_MODEL),
       schema: zodSchema(DemandParseSchema),
       prompt: `Analiza la siguiente demanda judicial y extrae sus bloques/secciones.
@@ -79,7 +79,8 @@ ${trimmed.slice(0, 100_000)}
       system: PARSE_SYSTEM_PROMPT,
       maxTokens: 16384,
       temperature: 0.1,
-    })
+    } as Parameters<typeof generateObject>[0] & { maxTokens?: number })
+    const object = raw as z.infer<typeof DemandParseSchema>
 
     if (!object.bloques || object.bloques.length === 0) {
       return {

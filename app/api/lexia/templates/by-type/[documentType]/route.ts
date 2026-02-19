@@ -37,16 +37,18 @@ export async function GET(
 
     const orgId = profile?.organization_id ?? null
 
-    let template: {
+    type TemplateRow = {
       id: string
       organization_id: string | null
       document_type: string
+      variant?: string
       name: string
       structure_schema: unknown
       template_content: string | null
       system_prompt_fragment: string | null
       is_active: boolean
-    } | null = null
+    }
+    let template: TemplateRow | null = null
 
     if (orgId) {
       const { data: orgTemplate } = await supabase
@@ -58,7 +60,7 @@ export async function GET(
         .eq('is_active', true)
         .limit(1)
         .maybeSingle()
-      if (orgTemplate) template = orgTemplate as typeof template
+      if (orgTemplate) template = orgTemplate as TemplateRow
     }
 
     if (!template) {
@@ -71,7 +73,7 @@ export async function GET(
         .eq('is_active', true)
         .limit(1)
         .maybeSingle()
-      if (globalTemplate) template = globalTemplate as typeof template
+      if (globalTemplate) template = globalTemplate as TemplateRow
     }
 
     if (!template) {

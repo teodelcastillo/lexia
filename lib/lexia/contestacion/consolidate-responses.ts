@@ -61,7 +61,7 @@ export async function consolidateUserResponses(
     .join('\n')
 
   try {
-    const { object } = await generateObject({
+    const { object: raw } = await generateObject({
       model: resolveModel(CONSOLIDATE_MODEL),
       schema: zodSchema(ConsolidateSchema),
       prompt: `Consolida las siguientes respuestas del demandado en la estructura de contestación:
@@ -71,7 +71,8 @@ ${context}`,
       system: CONSOLIDATE_SYSTEM_PROMPT,
       maxTokens: 2048,
       temperature: 0.3,
-    })
+    } as Parameters<typeof generateObject>[0] & { maxTokens?: number })
+    const object = raw as z.infer<typeof ConsolidateSchema>
 
     return {
       hechos_admitidos: object.hechos_admitidos ?? '',

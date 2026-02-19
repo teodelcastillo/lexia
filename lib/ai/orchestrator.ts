@@ -6,13 +6,14 @@
  * The route stays a thin HTTP layer and delegates to this orchestrator.
  */
 
-import { streamText, stepCountIs, type CoreMessage } from 'ai'
+import { streamText, stepCountIs } from 'ai'
 import type { ControllerDecision } from './types'
 import { resolveModel } from './resolver'
 import { getRoutingRule, getModelConfig } from './providers'
 
+/** Messages compatible with streamText (ModelMessage[]). */
 export type StreamOptions = {
-  messages: CoreMessage[]
+  messages: Array<{ role: string; content: unknown }>
   decision: ControllerDecision
   tools: Record<string, unknown>
 }
@@ -47,7 +48,7 @@ export async function runStreamWithFallback(
     const result = streamText({
       model,
       ...streamOptions,
-    })
+    } as Parameters<typeof streamText>[0])
     return { result, decision }
   } catch (primaryError) {
     console.warn('[Lexia Orchestrator] Primary model failed, using fallback:', primaryError)
@@ -73,7 +74,7 @@ export async function runStreamWithFallback(
     const result = streamText({
       model,
       ...streamOptions,
-    })
+    } as Parameters<typeof streamText>[0])
     return { result, decision: fallbackDecision }
   }
 }

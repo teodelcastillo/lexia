@@ -161,7 +161,7 @@ export async function POST(req: Request) {
         ? structureSchema
         : null
 
-    const validation = validateFormData(documentType, formData, sanitizedStructureSchema)
+    const validation = validateFormData(documentType, formData, sanitizedStructureSchema as import('@/lib/ai/draft-schemas').StructureSchema | null)
     if (!validation.success) {
       return new Response(
         JSON.stringify({ error: 'Validation failed', errors: validation.errors }),
@@ -225,7 +225,7 @@ export async function POST(req: Request) {
 
     try {
       const model = useExtendedThinking && primaryConfig?.model.startsWith('anthropic/')
-        ? anthropic('claude-sonnet-4-20250514', {
+        ? (anthropic as (model: string, options?: Record<string, unknown>) => ReturnType<typeof anthropic>)('claude-sonnet-4-20250514', {
             thinking: { type: 'enabled' as const, budgetTokens: 4096 },
           })
         : resolveModel(primaryConfig?.model ?? 'anthropic/claude-sonnet-4-20250514')
@@ -234,8 +234,8 @@ export async function POST(req: Request) {
         ...streamOptions,
       })
 
-      return result.toTextStreamResponse({
-        onFinish: async (options) => {
+      return (result.toTextStreamResponse as (init?: Record<string, unknown>) => Response)({
+        onFinish: async (options: { usage?: { totalTokens?: number } }) => {
           const durationMs = Date.now() - startTime
           const tokensUsed = options.usage?.totalTokens ?? 0
           const creditsCharged = getCreditsForIntent('document_drafting')
@@ -278,8 +278,8 @@ export async function POST(req: Request) {
         ...streamOptions,
       })
 
-      return result.toTextStreamResponse({
-        onFinish: async (options) => {
+      return (result.toTextStreamResponse as (init?: Record<string, unknown>) => Response)({
+        onFinish: async (options: { usage?: { totalTokens?: number } }) => {
           const durationMs = Date.now() - startTime
           const tokensUsed = options.usage?.totalTokens ?? 0
           const creditsCharged = getCreditsForIntent('document_drafting')

@@ -41,7 +41,7 @@ export function LexiaChatLayoutClient({ children }: { children: React.ReactNode 
           setCaseContext(null)
         }
       })
-      .finally(() => setIsLoadingContext(false))
+      .then(() => setIsLoadingContext(false), () => setIsLoadingContext(false))
   }, [caseId, supabase])
 
   return (

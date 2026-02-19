@@ -127,7 +127,7 @@ export async function POST(req: Request) {
         entity_type: 'case',
         entity_id: caseId,
         description: `Lexia Estratega: Análisis estratégico completo (${analysis.metadata.durationMs}ms)`,
-      }).throwOnError().catch(() => null)
+      }).throwOnError().then(() => null, () => null)
 
       return NextResponse.json({ analysisId: inserted!.id, analysis })
     }
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
       entity_type: 'case',
       entity_id: caseId,
       description: `Lexia Estratega: Análisis estratégico completo (${analysis.metadata.durationMs}ms)`,
-    }).throwOnError().catch(() => null)
+    }).throwOnError().then(() => null, () => null)
 
     return NextResponse.json({ analysisId: saved!.id, analysis })
   } catch (err) {
