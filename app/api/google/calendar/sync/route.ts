@@ -13,8 +13,8 @@ import { ensureValidTokens } from '@/lib/google/client'
 import { NextResponse } from 'next/server'
 
 function parseEventDate(
-  start: { dateTime?: string; date?: string } | undefined,
-  end: { dateTime?: string; date?: string } | undefined
+  start: { dateTime?: string | null; date?: string | null } | undefined,
+  end: { dateTime?: string | null; date?: string | null } | undefined
 ): { startAt: string; endAt: string; allDay: boolean } {
   const allDay = !!start?.date && !start?.dateTime
   const startAt = start?.dateTime ?? start?.date ?? new Date().toISOString()
