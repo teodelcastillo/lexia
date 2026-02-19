@@ -84,7 +84,6 @@ const priorityConfig: Record<TaskPriority, { label: string; className: string }>
  */
 const roleLabels: Record<CaseRole, string> = {
   leader: 'Responsable',
-  lawyer: 'Abogado',
   assistant: 'Asistente',
 }
 
