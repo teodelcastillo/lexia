@@ -4,22 +4,38 @@ import Link from 'next/link'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Calendar, Briefcase } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Calendar, Briefcase, MoreHorizontal, ExternalLink } from 'lucide-react'
 import type { TaskPriority } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
-const priorityColors: Record<TaskPriority, string> = {
-  low: 'border-l-muted-foreground/30',
-  medium: 'border-l-chart-2',
-  high: 'border-l-warning',
-  urgent: 'border-l-destructive',
-}
-
-const priorityLabels: Record<TaskPriority, string> = {
-  low: 'Baja',
-  medium: 'Media',
-  high: 'Alta',
-  urgent: 'Urgente',
+const priorityConfig: Record<TaskPriority, { label: string; dot: string; border: string }> = {
+  low: {
+    label: 'Baja',
+    dot: 'bg-slate-400',
+    border: 'border-l-slate-400',
+  },
+  medium: {
+    label: 'Media',
+    dot: 'bg-amber-500',
+    border: 'border-l-amber-500',
+  },
+  high: {
+    label: 'Alta',
+    dot: 'bg-orange-500',
+    border: 'border-l-orange-500',
+  },
+  urgent: {
+    label: 'Urgente',
+    dot: 'bg-red-500',
+    border: 'border-l-red-500',
+  },
 }
 
 export interface KanbanTask {
@@ -30,70 +46,116 @@ export interface KanbanTask {
   priority: TaskPriority
   due_date?: string | null
   created_at: string
-  cases?: { id: string; case_number?: string; title?: string } | null
+  cases?: { id: string; case_number?: string; title?: string } | { id: string; case_number?: string; title?: string }[] | null
   assignee?: { id: string; first_name?: string; last_name?: string } | null
 }
 
 interface KanbanCardProps {
   task: KanbanTask
-  /** When true, renders without sortable (for DragOverlay) */
   isOverlay?: boolean
 }
 
-function formatDueDate(dateString: string | null | undefined): string {
-  if (!dateString) return ''
+function formatDueDate(dateString: string | null | undefined): {
+  text: string
+  isOverdue: boolean
+  isToday: boolean
+} {
+  if (!dateString) return { text: '', isOverdue: false, isToday: false }
   const d = new Date(dateString)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   d.setHours(0, 0, 0, 0)
   const diff = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return `Vencida hace ${Math.abs(diff)}d`
-  if (diff === 0) return 'Hoy'
-  if (diff === 1) return 'Mañana'
-  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  if (diff < 0) return { text: `Vencida hace ${Math.abs(diff)}d`, isOverdue: true, isToday: false }
+  if (diff === 0) return { text: 'Hoy', isOverdue: false, isToday: true }
+  if (diff === 1) return { text: 'Mañana', isOverdue: false, isToday: false }
+  return {
+    text: d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }),
+    isOverdue: false,
+    isToday: false,
+  }
+}
+
+function getCaseInfo(task: KanbanTask): string | null {
+  const c = task.cases
+  if (!c) return null
+  if (Array.isArray(c)) return c[0]?.case_number ?? null
+  return (c as { case_number?: string }).case_number ?? null
+}
+
+function getAssigneeInitials(task: KanbanTask): string {
+  const a = task.assignee
+  if (!a) return '?'
+  const first = (a as { first_name?: string }).first_name?.[0] ?? ''
+  const last = (a as { last_name?: string }).last_name?.[0] ?? ''
+  return (first + last).toUpperCase() || '?'
 }
 
 function KanbanCardContent({ task, isOverlay }: KanbanCardProps) {
-  const caseData = task.cases
-  const caseNumber = Array.isArray(caseData) ? caseData[0]?.case_number : caseData?.case_number
+  const caseNumber = getCaseInfo(task)
+  const dueInfo = formatDueDate(task.due_date)
+  const config = priorityConfig[task.priority] ?? priorityConfig.medium
 
-  const card = (
+  return (
     <Card
-      className={`
-        border-l-4
-        ${priorityColors[task.priority] || priorityColors.medium}
-        ${isOverlay ? 'shadow-lg cursor-grabbing' : 'cursor-grab active:cursor-grabbing'}
-      `}
+      className={cn(
+        'border-l-4 transition-all duration-150',
+        config.border,
+        isOverlay
+          ? 'shadow-xl cursor-grabbing scale-105'
+          : 'cursor-grab active:cursor-grabbing hover:shadow-md hover:border-muted-foreground/20'
+      )}
     >
-      <CardContent className="p-3 space-y-2">
-        <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+      <CardContent className="p-3 space-y-2.5">
+        {/* Priority label + title */}
+        <div className="flex items-start gap-2">
+          <span
+            className={cn(
+              'flex-shrink-0 w-2 h-2 rounded-full mt-1.5',
+              config.dot
+            )}
+            title={config.label}
+          />
+          <p className="text-sm font-medium line-clamp-2 flex-1 leading-snug">
+            {task.title}
+          </p>
+        </div>
+
+        {/* Case badge */}
         {caseNumber && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Briefcase className="h-3 w-3 shrink-0" />
-            <span>{caseNumber}</span>
+            <span className="truncate">{caseNumber}</span>
           </div>
         )}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {priorityLabels[task.priority]}
-          </Badge>
-          {task.due_date && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              {formatDueDate(task.due_date)}
+
+        {/* Footer: due date + assignee */}
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          {task.due_date ? (
+            <div
+              className={cn(
+                'flex items-center gap-1 text-xs',
+                dueInfo.isOverdue
+                  ? 'text-red-600 dark:text-red-400 font-medium'
+                  : dueInfo.isToday
+                  ? 'text-amber-600 dark:text-amber-400 font-medium'
+                  : 'text-muted-foreground'
+              )}
+            >
+              <Calendar className="h-3 w-3 shrink-0" />
+              {dueInfo.text}
             </div>
+          ) : (
+            <span />
           )}
+          <Avatar className="h-6 w-6 text-[10px]">
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {getAssigneeInitials(task)}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </CardContent>
     </Card>
-  )
-
-  if (isOverlay) return card
-
-  return (
-    <Link href={`/tareas/${task.id}`}>
-      {card}
-    </Link>
   )
 }
 
@@ -118,41 +180,50 @@ export function KanbanCard({ task, isOverlay }: KanbanCardProps) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Link href={`/tareas/${task.id}`} onClick={(e) => isDragging && e.preventDefault()}>
-        <Card
-          className={`
-            cursor-grab active:cursor-grabbing
-            border-l-4
-            ${priorityColors[task.priority] || priorityColors.medium}
-            ${isDragging ? 'opacity-50 shadow-lg ring-2 ring-primary' : ''}
-          `}
+      <div className="group relative">
+        <Link
+          href={`/tareas/${task.id}`}
+          onClick={(e) => isDragging && e.preventDefault()}
+          className="block"
         >
-          <CardContent className="p-3 space-y-2">
-            <p className="text-sm font-medium line-clamp-2">{task.title}</p>
-            {(() => {
-              const caseData = task.cases
-              const caseNumber = Array.isArray(caseData) ? caseData[0]?.case_number : caseData?.case_number
-              return caseNumber ? (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Briefcase className="h-3 w-3 shrink-0" />
-                  <span>{caseNumber}</span>
-                </div>
-              ) : null
-            })()}
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                {priorityLabels[task.priority]}
-              </Badge>
-              {task.due_date && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  {formatDueDate(task.due_date)}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
+          <div
+            className={cn(
+              'transition-opacity',
+              isDragging && 'opacity-50'
+            )}
+          >
+            <KanbanCardContent task={task} />
+          </div>
+        </Link>
+        {/* Quick actions on hover - Trello style */}
+        <div
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="h-6 w-6 rounded flex items-center justify-center bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground shadow-sm border"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/tareas/${task.id}`}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Ver detalle
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
     </div>
   )
 }
