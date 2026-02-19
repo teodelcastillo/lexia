@@ -129,7 +129,13 @@ async function getCaseActivityLog(caseId: string): Promise<ActivityEntry[]> {
     return []
   }
 
-  return activities as ActivityEntry[]
+  const raw = activities ?? []
+  const normalized = raw.map((row: (typeof raw)[number]) => {
+    const p = row.profiles
+    const profile = Array.isArray(p) ? p[0] ?? null : p ?? null
+    return { ...row, profiles: profile }
+  })
+  return normalized as unknown as ActivityEntry[]
 }
 
 /**

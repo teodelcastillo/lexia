@@ -48,6 +48,7 @@ const taskPriorityConfig: Record<TaskPriority, { label: string; color: string; b
 const taskStatusConfig: Record<TaskStatus, { label: string; icon: typeof Circle }> = {
   pending: { label: 'Pendiente', icon: Circle },
   in_progress: { label: 'En Progreso', icon: Timer },
+  under_review: { label: 'En Revisión', icon: Circle },
   completed: { label: 'Completada', icon: CheckCircle2 },
   cancelled: { label: 'Cancelada', icon: Circle },
 }
@@ -393,7 +394,8 @@ export async function LawyerDashboard({ userId }: LawyerDashboardProps) {
         ) : (
           <div className="space-y-2">
             {myTasks.map((task) => {
-              const caseData = task.cases as {
+              const c = task.cases
+              const caseData = (Array.isArray(c) ? c[0] ?? null : c ?? null) as {
                 id: string
                 case_number: string
                 title: string
@@ -484,7 +486,8 @@ export async function LawyerDashboard({ userId }: LawyerDashboardProps) {
         ) : (
           <div className="space-y-3">
             {myCases.slice(0, 4).map((caseItem) => {
-              const company = caseItem.companies as {
+              const co = caseItem.companies
+              const company = (Array.isArray(co) ? co[0] ?? null : co ?? null) as {
                 id: string
                 company_name: string | null
                 name: string | null
@@ -545,7 +548,8 @@ export async function LawyerDashboard({ userId }: LawyerDashboardProps) {
         ) : (
           <div className="space-y-3">
             {myDeadlines.map((deadline) => {
-              const caseData = deadline.cases as {
+              const c = deadline.cases
+              const caseData = (Array.isArray(c) ? c[0] ?? null : c ?? null) as {
                 id: string
                 case_number: string
                 title: string

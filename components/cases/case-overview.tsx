@@ -67,7 +67,7 @@ export function CaseOverview({ caseData, canEdit }: CaseOverviewProps) {
       {/* Description Card - Full Width */}
       {useInteractiveDescription ? (
         <CaseDescriptionCard
-          caseId={caseData.id}
+          caseId={caseData.id ?? ''}
           description={caseData.description ?? null}
           canEdit={canEdit}
         />
@@ -110,17 +110,17 @@ export function CaseOverview({ caseData, canEdit }: CaseOverviewProps) {
         <CardContent className="space-y-4">
           <InfoField 
             label="Juzgado / Tribunal" 
-            value={caseData.court}
+            value={caseData.court ?? null}
             icon={Building2}
           />
           <InfoField 
             label="Juez" 
-            value={caseData.judge}
+            value={caseData.judge ?? null}
             icon={Gavel}
           />
           <InfoField 
             label="Numero de Expediente" 
-            value={caseData.file_number}
+            value={caseData.file_number ?? null}
             icon={FileText}
           />
         </CardContent>
@@ -137,12 +137,12 @@ export function CaseOverview({ caseData, canEdit }: CaseOverviewProps) {
         <CardContent className="space-y-4">
           <InfoField 
             label="Nombre / Razon Social" 
-            value={caseData.opponent}
+            value={caseData.opponent ?? null}
             icon={User}
           />
           <InfoField 
             label="Abogado de Contraparte" 
-            value={caseData.opponent_lawyer}
+            value={caseData.opponent_lawyer ?? null}
             icon={Scale}
           />
         </CardContent>

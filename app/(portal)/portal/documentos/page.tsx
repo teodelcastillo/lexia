@@ -105,18 +105,22 @@ export default async function PortalDocumentsPage() {
         .order('created_at', { ascending: false })
     : { data: [] }
 
-  // Group documents by case
+  // Group documents by case (Supabase may return case as array)
+  type DocWithCase = (typeof documents)[number]
+  type CaseGroup = { caseTitle: string; documents: DocWithCase[] }
   const documentsByCase = documents?.reduce((acc, doc) => {
-    const caseNumber = doc.case?.case_number || 'Sin caso'
+    const caseRel = doc.case
+    const caseData = Array.isArray(caseRel) ? caseRel[0] : caseRel
+    const caseNumber = caseData?.case_number || 'Sin caso'
     if (!acc[caseNumber]) {
       acc[caseNumber] = {
-        caseTitle: doc.case?.title || '',
+        caseTitle: (caseData as { title?: string })?.title || '',
         documents: [],
       }
     }
     acc[caseNumber].documents.push(doc)
     return acc
-  }, {} as Record<string, { caseTitle: string; documents: typeof documents }>)
+  }, {} as Record<string, CaseGroup>)
 
   return (
     <div className="space-y-8">
@@ -151,7 +155,7 @@ export default async function PortalDocumentsPage() {
       {/* Documents by Case */}
       {documentsByCase && Object.keys(documentsByCase).length > 0 ? (
         <div className="space-y-6">
-          {Object.entries(documentsByCase).map(([caseNumber, { caseTitle, documents: docs }]) => (
+          {Object.entries(documentsByCase as Record<string, CaseGroup>).map(([caseNumber, { caseTitle, documents: docs }]) => (
             <Card key={caseNumber}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -163,7 +167,7 @@ export default async function PortalDocumentsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {docs?.map((doc) => {
+                  {docs?.map((doc: DocWithCase) => {
                     const fileType = getFileTypeDisplay(doc.name)
                     
                     return (

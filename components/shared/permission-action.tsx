@@ -269,11 +269,11 @@ export function PermissionBadge({
     roleLabel = 'Responsable'
     roleColor = 'bg-blue-100 text-blue-800'
     RoleIcon = Eye
-  } else if (caseRole === 'case_leader' || systemRole === 'case_leader') {
+  } else if (systemRole === 'case_leader') {
     roleLabel = 'Abogado'
     roleColor = 'bg-green-100 text-green-800'
     RoleIcon = Eye
-  } else if (caseRole === 'lawyer_executive' || systemRole === 'lawyer_executive') {
+  } else if (systemRole === 'lawyer_executive') {
     roleLabel = 'Asistente'
     roleColor = 'bg-amber-100 text-amber-800'
     RoleIcon = EyeOff

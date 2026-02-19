@@ -129,7 +129,8 @@ export async function CaseDocuments({ caseId, canEdit }: CaseDocumentsProps) {
           <CardContent>
             <div className="divide-y divide-border">
               {documents.map((doc) => {
-                const uploader = doc.profiles as { id: string; first_name: string; last_name: string } | null
+                const p = doc.profiles
+                const uploader = (Array.isArray(p) ? p[0] ?? null : p ?? null) as { id: string; first_name: string; last_name: string } | null
                 const visibility = doc.is_visible_to_client ? visibilityConfig.client_visible : visibilityConfig.internal
                 const FileIcon = getFileIcon(doc.mime_type ?? '')
 

@@ -247,7 +247,7 @@ export default async function PortalDashboard() {
     : { data: [] }
 
   // Get person's first name for greeting
-  const firstName = person?.name?.split(' ')[0] || person?.first_name || 'Cliente'
+  const firstName = person?.name?.split(' ')[0] || 'Cliente'
   const activeCases = cases?.filter(c => c.status === 'active' || c.status === 'pending').length || 0
 
   return (
@@ -307,9 +307,10 @@ export default async function PortalDashboard() {
                 {cases.map((caseItem) => {
                   const statusDisplay = getStatusDisplay(caseItem.status)
                   const StatusIcon = statusDisplay.icon
-                  const leadLawyer = caseItem.case_assignments?.find(
+                  const leadAssignment = caseItem.case_assignments?.find(
                     (a: { case_role: string }) => a.case_role === 'leader'
                   )
+                  const leadProfile = leadAssignment && (Array.isArray(leadAssignment.profiles) ? leadAssignment.profiles[0] : leadAssignment.profiles) as { first_name: string; last_name: string } | null | undefined
 
                   return (
                     <Card key={caseItem.id} className="hover:shadow-md transition-all hover:border-primary/30">
@@ -335,9 +336,9 @@ export default async function PortalDashboard() {
                                 <p className="text-sm text-muted-foreground mt-0.5">
                                   {statusDisplay.description}
                                 </p>
-                                {leadLawyer?.profile && (
+                                {leadProfile && (
                                   <p className="text-xs text-muted-foreground mt-2">
-                                    Abogado: {leadLawyer.profile.first_name} {leadLawyer.profile.last_name}
+                                    Abogado: {leadProfile.first_name} {leadProfile.last_name}
                                   </p>
                                 )}
                               </div>
@@ -393,7 +394,7 @@ export default async function PortalDashboard() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{doc.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {doc.case?.case_number} • {new Date(doc.created_at).toLocaleDateString('es-AR')}
+                              {(Array.isArray(doc.case) ? doc.case[0] : doc.case)?.case_number} • {new Date(doc.created_at).toLocaleDateString('es-AR')}
                             </p>
                           </div>
                         </div>
@@ -460,7 +461,7 @@ export default async function PortalDashboard() {
                               {deadline.title}
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {deadline.case?.case_number}
+                              {(Array.isArray(deadline.case) ? deadline.case[0] : deadline.case)?.case_number}
                             </p>
                           </div>
                         </div>
@@ -502,7 +503,7 @@ export default async function PortalDashboard() {
                     >
                       <p className="text-sm">{update.description}</p>
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <span>{update.case?.case_number}</span>
+                        <span>{(Array.isArray(update.case) ? update.case[0] : update.case)?.case_number}</span>
                         <span>•</span>
                         <span>
                           {new Date(update.created_at).toLocaleDateString('es-AR')}

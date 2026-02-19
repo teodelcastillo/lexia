@@ -135,7 +135,7 @@ export function CaseNotes({
       if (error) throw error
 
       // Add to local state
-      setNotes(prev => [data as CaseNote, ...prev])
+      setNotes(prev => [data as unknown as CaseNote, ...prev])
       setNewNote('')
       toast.success('Nota agregada')
     } catch (error) {

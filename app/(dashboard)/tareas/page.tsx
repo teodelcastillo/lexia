@@ -138,15 +138,25 @@ async function getTasks(
     }
   }
 
-  const { data: tasks, count, error } = await query
+  const { data: tasksRaw, count, error } = await query
 
   if (error) {
     console.error('Error fetching tasks:', error)
     return { tasks: [], total: 0, totalPages: 0 }
   }
 
+  const raw = tasksRaw ?? []
+  type Row = (typeof raw)[number]
+  const tasks = raw.map((row: Row) => {
+    const casesRel = row.cases
+    const assigneeRel = row.assignee
+    const caseData = Array.isArray(casesRel) ? casesRel[0] ?? null : casesRel ?? null
+    const assigneeData = Array.isArray(assigneeRel) ? assigneeRel[0] ?? null : assigneeRel ?? null
+    return { ...row, cases: caseData, assignee: assigneeData }
+  })
+
   return {
-    tasks: tasks || [],
+    tasks,
     total: count || 0,
     totalPages: Math.ceil((count || 0) / limit),
   }

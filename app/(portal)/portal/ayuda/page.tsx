@@ -120,9 +120,10 @@ export default async function PortalHelpPage() {
         .single()
     : { data: null }
 
-  const leadLawyer = caseWithLawyer?.case_assignments?.find(
+  const leadAssignment = caseWithLawyer?.case_assignments?.find(
     (a: { case_role: string }) => a.case_role === 'leader'
   )
+  const leadProfile = leadAssignment && (Array.isArray(leadAssignment.profiles) ? leadAssignment.profiles[0] : leadAssignment.profiles) as { first_name: string; last_name: string; email: string } | null | undefined
 
   return (
     <div className="space-y-8">
@@ -140,7 +141,7 @@ export default async function PortalHelpPage() {
         {/* Contact Information */}
         <div className="lg:col-span-1 space-y-6">
           {/* Your Lawyer */}
-          {leadLawyer?.profile && (
+          {leadProfile && (
             <Card className="border-primary/20">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -151,12 +152,12 @@ export default async function PortalHelpPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-lg">
-                    {leadLawyer.profile.first_name.charAt(0)}
-                    {leadLawyer.profile.last_name.charAt(0)}
+                    {leadProfile.first_name.charAt(0)}
+                    {leadProfile.last_name.charAt(0)}
                   </div>
                   <div>
                     <p className="font-medium text-lg">
-                      {leadLawyer.profile.first_name} {leadLawyer.profile.last_name}
+                      {leadProfile.first_name} {leadProfile.last_name}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Abogado a cargo de su caso
@@ -166,11 +167,11 @@ export default async function PortalHelpPage() {
                 
                 <div className="space-y-3 pt-2">
                   <a 
-                    href={`mailto:${leadLawyer.profile.email}`}
+                    href={`mailto:${leadProfile.email}`}
                     className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                   >
                     <Mail className="h-5 w-5 text-primary" />
-                    <span className="text-sm">{leadLawyer.profile.email}</span>
+                    <span className="text-sm">{leadProfile.email}</span>
                   </a>
                 </div>
               </CardContent>
@@ -296,7 +297,7 @@ export default async function PortalHelpPage() {
                   </p>
                 </div>
                 <Button variant="outline" asChild className="flex-shrink-0 bg-transparent">
-                  <a href={leadLawyer?.profile?.email ? `mailto:${leadLawyer.profile.email}` : 'mailto:contacto@Lexia.com'}>
+                  <a href={leadProfile?.email ? `mailto:${leadProfile.email}` : 'mailto:contacto@Lexia.com'}>
                     <Mail className="h-4 w-4 mr-2" />
                     Enviar Email
                   </a>

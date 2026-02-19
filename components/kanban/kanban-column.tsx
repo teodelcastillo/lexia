@@ -105,7 +105,7 @@ export function KanbanColumn({
 
         {/* Quick add - Trello style */}
         <KanbanQuickAdd
-          status={status}
+          status={status as 'pending' | 'in_progress' | 'under_review' | 'completed' | 'cancelled'}
           cases={cases}
           currentUserId={currentUserId}
         />

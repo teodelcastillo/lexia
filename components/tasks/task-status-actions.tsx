@@ -53,6 +53,10 @@ const statusTransitions: Record<TaskStatus, Array<{
     { newStatus: 'completed', label: 'Completar', icon: Check, variant: 'default' },
     { newStatus: 'pending', label: 'Pausar', icon: RotateCcw, variant: 'outline' },
   ],
+  under_review: [
+    { newStatus: 'completed', label: 'Completar', icon: Check, variant: 'default' },
+    { newStatus: 'in_progress', label: 'Volver a progreso', icon: Play, variant: 'outline' },
+  ],
   completed: [
     { newStatus: 'pending', label: 'Reabrir', icon: RotateCcw, variant: 'outline' },
   ],
@@ -86,6 +90,7 @@ export function TaskStatusActions({ taskId, currentStatus }: TaskStatusActionsPr
       const statusLabels: Record<TaskStatus, string> = {
         pending: 'pendiente',
         in_progress: 'en progreso',
+        under_review: 'en revisión',
         completed: 'completada',
         cancelled: 'cancelada',
       }

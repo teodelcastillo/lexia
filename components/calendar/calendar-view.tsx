@@ -233,7 +233,7 @@ export function CalendarView({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSync}
+              onClick={() => void handleSync()}
               disabled={syncing}
             >
               {syncing ? (

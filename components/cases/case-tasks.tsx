@@ -23,6 +23,7 @@ interface CaseTasksProps {
 const statusConfig: Record<TaskStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
   pending: { label: 'Pendiente', variant: 'secondary' },
   in_progress: { label: 'En Progreso', variant: 'default' },
+  under_review: { label: 'En Revisión', variant: 'secondary' },
   completed: { label: 'Completada', variant: 'outline' },
   cancelled: { label: 'Cancelada', variant: 'outline' },
 }
@@ -145,7 +146,8 @@ export async function CaseTasks({ caseId, canEdit }: CaseTasksProps) {
               </CardHeader>
               <CardContent className="space-y-2">
                 {pendingTasks.map((task) => {
-                  const assignee = task.profiles as { id: string; first_name: string; last_name: string } | null
+                  const p = task.profiles
+                  const assignee = (Array.isArray(p) ? p[0] ?? null : p ?? null) as { id: string; first_name: string; last_name: string } | null
                   const status = statusConfig[task.status as TaskStatus]
                   const { text: dueDateText, isOverdue } = formatDueDate(task.due_date)
 
@@ -197,7 +199,8 @@ export async function CaseTasks({ caseId, canEdit }: CaseTasksProps) {
               </CardHeader>
               <CardContent className="space-y-2">
                 {completedTasks.map((task) => {
-                  const assignee = task.profiles as { id: string; first_name: string; last_name: string } | null
+                  const p = task.profiles
+                  const assignee = (Array.isArray(p) ? p[0] ?? null : p ?? null) as { id: string; first_name: string; last_name: string } | null
 
                   return (
                     <Link

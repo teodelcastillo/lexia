@@ -18,6 +18,7 @@ import type { TaskPriority, TaskStatus } from '@/lib/types'
 const statusConfig: Record<TaskStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
   pending: { label: 'Pendiente', variant: 'secondary' },
   in_progress: { label: 'En Progreso', variant: 'default' },
+  under_review: { label: 'En Revisión', variant: 'secondary' },
   completed: { label: 'Completada', variant: 'outline' },
   cancelled: { label: 'Cancelada', variant: 'outline' },
 }

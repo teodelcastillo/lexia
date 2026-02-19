@@ -170,7 +170,8 @@ export async function CasesTable(props: CasesTableProps) {
           <TableBody>
             {cases.map((caseItem) => {
               // Company data comes from the Supabase join
-              const companyData = caseItem.companies as { id: string; name: string } | null
+              const c = caseItem.companies
+              const companyData = (Array.isArray(c) ? c[0] ?? null : c ?? null) as { id: string; name: string } | null
               
               const status = statusConfig[caseItem.status as CaseStatus]
 

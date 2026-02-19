@@ -390,6 +390,18 @@ export interface CasePermissionContext {
   role: CaseRole | null
 }
 
+/** Activity log action type. */
+export type ActivityAction = 'created' | 'updated' | 'deleted'
+
+/** Activity log entity type for display. */
+export type ActivityEntityType = 'case' | 'client' | 'task' | 'document' | 'deadline' | 'note'
+
+/** Client (person with client role). Alias for Person when used as client. */
+export type Client = DBPerson
+
+/** Client form type: individual or company. */
+export type ClientType = 'individual' | 'company'
+
 // ============================================
 // Legacy type aliases for backwards compatibility
 // ============================================

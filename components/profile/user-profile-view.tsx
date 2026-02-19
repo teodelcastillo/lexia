@@ -106,18 +106,18 @@ export function ProfileView({ profile, user }: ProfileViewProps) {
             </div>
 
             {/* Address */}
-            {profile.address && (
+            {(profile as { address?: string }).address && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   Dirección
                 </label>
-                <p className="text-foreground font-medium">{profile.address}</p>
+                <p className="text-foreground font-medium">{(profile as { address?: string }).address}</p>
               </div>
             )}
 
             {/* Company Info (for clients) */}
-            {profile.company_id && (
+            {(profile as { company_id?: string }).company_id && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Building2 className="h-4 w-4" />

@@ -460,7 +460,8 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {criticalDeadlines.map((deadline) => {
-                    const caseData = deadline.cases as { id: string; case_number: string; title: string } | null
+                    const c = deadline.cases
+                    const caseData = (Array.isArray(c) ? c[0] ?? null : c ?? null) as { id: string; case_number: string; title: string } | null
                     const daysUntil = getDaysUntil(deadline.due_date)
                     const isUrgent = daysUntil <= 2
 
@@ -570,7 +571,8 @@ export async function AdminDashboard({ userId }: AdminDashboardProps) {
               ) : (
                 <div className="space-y-3">
                   {recentActivity.map((activity) => {
-                    const profile = activity.profiles as { id: string; first_name: string; last_name: string } | null
+                    const p = activity.profiles
+                    const profile = (Array.isArray(p) ? p[0] ?? null : p ?? null) as { id: string; first_name: string; last_name: string } | null
                     const actionLabels: Record<string, string> = {
                       created: 'creó',
                       updated: 'actualizó',

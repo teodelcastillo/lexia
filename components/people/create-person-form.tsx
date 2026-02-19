@@ -36,7 +36,6 @@ const personTypeOptions: { value: PersonType; label: string }[] = [
   { value: 'prosecutor', label: 'Fiscal' },
   { value: 'expert', label: 'Perito' },
   { value: 'witness', label: 'Testigo' },
-  { value: 'notary', label: 'Escribano' },
 ]
 
 const companyRoleOptions = [

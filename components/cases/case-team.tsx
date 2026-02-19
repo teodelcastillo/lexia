@@ -60,7 +60,6 @@ interface CaseTeamProps {
  */
 const roleConfig: Record<CaseRole, { label: string; icon: typeof Crown; color: string }> = {
   leader: { label: 'Responsable', icon: Crown, color: 'text-amber-600' },
-  lawyer: { label: 'Abogado', icon: UserCog, color: 'text-primary' },
   assistant: { label: 'Asistente', icon: User, color: 'text-muted-foreground' },
 }
 
@@ -432,7 +431,6 @@ export function CaseTeam({ caseId, assignments, canManageTeam }: CaseTeamProps) 
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="leader">{roleConfig.leader.label}</SelectItem>
-                    <SelectItem value="lawyer">{roleConfig.lawyer.label}</SelectItem>
                     <SelectItem value="assistant">{roleConfig.assistant.label}</SelectItem>
                   </SelectContent>
                 </Select>
