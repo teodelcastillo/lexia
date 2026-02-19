@@ -44,10 +44,10 @@ export function ClientForm({ client }: ClientFormProps) {
     (client?.client_type === 'company' ? 'company' : 'individual')
   )
   
-  // Form state
+  // Form state (people table uses cuit/dni, form uses tax_id for CUIT/CUIL/DNI)
   const [formData, setFormData] = useState({
     name: client?.name || '',
-    tax_id: client?.tax_id || '',
+    tax_id: client?.cuit ?? client?.dni ?? '',
     email: client?.email || '',
     phone: client?.phone || '',
     address: client?.address || '',

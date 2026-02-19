@@ -62,12 +62,12 @@ function hasPermission(
   permissions: UserPermissions,
   requiredPermission: PermissionType
 ): boolean {
-  // Admin always has all permissions
-  if (permissions.systemRole === 'admin_general') return true
+  // Admin always has all permissions (systemRole may be typed narrowly from context)
+  if ((permissions.systemRole as string) === 'admin_general') return true
 
   switch (requiredPermission) {
     case 'isAdmin':
-      return permissions.systemRole === 'admin_general'
+      return (permissions.systemRole as string) === 'admin_general'
     case 'isCaseLeader':
       return permissions.caseRole === 'leader'
     case 'canView':

@@ -90,7 +90,7 @@ export function ClientInfoCard({ client }: ClientInfoCardProps) {
           <InfoRow 
             icon={FileDigit}
             label={isCompany ? 'CUIT' : 'CUIL/DNI'}
-            value={client.tax_id}
+            value={client.cuit ?? client.dni ?? undefined}
           />
           <InfoRow 
             icon={Mail}
