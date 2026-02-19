@@ -143,7 +143,13 @@ async function getClientWithRelations(clientId: string) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    documents = docs || []
+    // Normalize: Supabase may return cases relation as object or array
+    const raw = docs ?? []
+    documents = raw.map((row: (typeof raw)[number]) => {
+      const casesRel = row.cases
+      const caseData = Array.isArray(casesRel) ? casesRel[0] ?? null : casesRel ?? null
+      return { ...row, cases: caseData }
+    })
   }
 
   // Fetch internal notes about this client
