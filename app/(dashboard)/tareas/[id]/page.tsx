@@ -28,6 +28,7 @@ import {
   Check,
   AlertTriangle,
   MessageSquare,
+  Eye,
 } from 'lucide-react'
 import { TaskStatusActions } from '@/components/tasks/task-status-actions'
 import type { TaskStatus, TaskPriority } from '@/lib/types'
@@ -49,6 +50,7 @@ const statusConfig: Record<TaskStatus, {
 }> = {
   pending: { label: 'Pendiente', variant: 'secondary', icon: Clock },
   in_progress: { label: 'En Progreso', variant: 'default', icon: Play },
+  under_review: { label: 'En Revisión', variant: 'secondary', icon: Eye },
   completed: { label: 'Completada', variant: 'outline', icon: Check },
   cancelled: { label: 'Cancelada', variant: 'destructive', icon: AlertTriangle },
 }
