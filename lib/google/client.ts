@@ -48,9 +48,9 @@ export function getAuthUrl(
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent', // Force consent to get refresh_token
-    scope: scopes,
+    scope: [...scopes], // mutable copy for API type (SCOPES is readonly)
     state,
-    include_granted_scopes: 'true', // Incremental auth for future services
+    include_granted_scopes: true, // Incremental auth for future services
   })
 }
 
