@@ -34,11 +34,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { Profile } from '@/lib/types'
 
-const systemRoleConfig: Record<string, { label: string; variant: string }> = {
-  admin: { label: 'Administrador', variant: 'default' },
-  lawyer: { label: 'Abogado', variant: 'secondary' },
-  staff: { label: 'Personal', variant: 'outline' },
-  client: { label: 'Cliente', variant: 'ghost' },
+type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary'
+
+const systemRoleConfig: Record<string, { label: string; variant: BadgeVariant }> = {
+  admin_general: { label: 'Administrador', variant: 'default' },
+  case_leader: { label: 'Líder de caso', variant: 'secondary' },
+  lawyer_executive: { label: 'Abogado', variant: 'secondary' },
+  client: { label: 'Cliente', variant: 'outline' },
 }
 
 export default function AdminUsersTable({ users }: { users: Profile[] }) {
