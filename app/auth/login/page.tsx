@@ -8,8 +8,8 @@
 
 import React from "react"
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -28,9 +28,18 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  useEffect(() => {
+    if (searchParams.get('reset') === 'success') {
+      setSuccess('Contraseña actualizada. Ya puede iniciar sesión con su nueva contraseña.')
+      router.replace('/auth/login', { scroll: false })
+    }
+  }, [searchParams, router])
 
   /**
    * Handles the login form submission
@@ -158,6 +167,12 @@ export default function LoginPage() {
                 />
               </div>
 
+              {/* Success Message */}
+              {success && (
+                <div className="rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                  {success}
+                </div>
+              )}
               {/* Error Message */}
               {error && (
                 <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
