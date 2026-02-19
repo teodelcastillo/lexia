@@ -354,13 +354,10 @@ export default async function PersonDetailPage({ params }: PersonDetailPageProps
           {participations && participations.length > 0 ? (
             <div className="space-y-2">
               {participations.map((participation) => {
-                const caseData = participation.cases as {
-                  id: string
-                  case_number: string
-                  title: string
-                  status: string
-                  case_type: string
-                } | null
+                const casesRel = participation.cases
+                const caseData = Array.isArray(casesRel)
+                  ? (casesRel[0] as { id: string; case_number: string; title: string; status: string; case_type: string } | undefined)
+                  : (casesRel as { id: string; case_number: string; title: string; status: string; case_type: string } | null)
                 
                 if (!caseData) return null
                 
