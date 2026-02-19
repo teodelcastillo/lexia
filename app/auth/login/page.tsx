@@ -1,14 +1,13 @@
 /**
  * Login Page
- * 
+ *
  * Authentication page for internal users (lawyers, assistants, admins).
  * Provides email/password login with professional styling.
+ * Wrapped in Suspense so useSearchParams does not break static prerender.
  */
 'use client'
 
-import React from "react"
-
-import { useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -24,22 +23,13 @@ import {
 } from '@/components/ui/card'
 import { Scale, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm({ successMessage }: { successMessage: string | null }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
-
-  useEffect(() => {
-    if (searchParams.get('reset') === 'success') {
-      setSuccess('Contraseña actualizada. Ya puede iniciar sesión con su nueva contraseña.')
-      router.replace('/auth/login', { scroll: false })
-    }
-  }, [searchParams, router])
 
   /**
    * Handles the login form submission
@@ -168,9 +158,9 @@ export default function LoginPage() {
               </div>
 
               {/* Success Message */}
-              {success && (
+              {successMessage && (
                 <div className="rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
-                  {success}
+                  {successMessage}
                 </div>
               )}
               {/* Error Message */}
@@ -242,5 +232,28 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+function LoginPageContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const successMessage =
+    searchParams.get('reset') === 'success'
+      ? 'Contraseña actualizada. Ya puede iniciar sesión con su nueva contraseña.'
+      : null
+
+  useEffect(() => {
+    if (successMessage) router.replace('/auth/login', { scroll: false })
+  }, [successMessage, router])
+
+  return <LoginForm successMessage={successMessage} />
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginForm successMessage={null} />}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
