@@ -40,7 +40,9 @@ export function ClientForm({ client }: ClientFormProps) {
   const isEditing = !!client
   
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [clientType, setClientType] = useState<ClientType>(client?.client_type || 'individual')
+  const [clientType, setClientType] = useState<ClientType>(
+    (client?.client_type === 'company' ? 'company' : 'individual')
+  )
   
   // Form state
   const [formData, setFormData] = useState({
