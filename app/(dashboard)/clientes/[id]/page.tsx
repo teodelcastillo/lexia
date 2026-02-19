@@ -89,7 +89,7 @@ async function getClientWithRelations(clientId: string) {
   }
 
   // Fetch linked cases with assignments
-  const { data: cases } = await supabase
+  const { data: casesRaw } = await supabase
     .from('cases')
     .select(`
       id,
@@ -109,17 +109,29 @@ async function getClientWithRelations(clientId: string) {
     `)
     .order('opened_at', { ascending: false })
 
+  // Normalize: Supabase may return nested profiles as object or array
+  type CaseRow = NonNullable<typeof casesRaw>[number]
+  const cases = (casesRaw ?? []).map((c: CaseRow) => ({
+    ...c,
+    case_assignments: (c.case_assignments ?? []).map((a: { user_id: unknown; case_role: unknown; profiles: unknown }) => ({
+      user_id: a.user_id as string,
+      case_role: a.case_role as string,
+      profiles: Array.isArray(a.profiles) ? a.profiles[0] ?? null : (a.profiles ?? null) as { first_name: string; last_name: string } | null,
+    })),
+  }))
+
   // Fetch documents shared with client (from all their cases)
   const caseIds = cases?.map(c => c.id) || []
   let documents: Array<{
     id: string
     name: string
-    file_type: string | null
-    file_size: number | null
+    file_type: string
+    file_size: number
     is_visible_to_client: boolean
     created_at: string
     case_id: string
     cases: { case_number: string; title: string } | null
+    visibility: string
   }> = []
   
   if (caseIds.length > 0) {
@@ -143,17 +155,23 @@ async function getClientWithRelations(clientId: string) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    // Normalize: Supabase may return cases relation as object or array
+    // Normalize: Supabase may return cases relation as object or array; add visibility for DocumentItem
     const raw = docs ?? []
     documents = raw.map((row: (typeof raw)[number]) => {
       const casesRel = row.cases
       const caseData = Array.isArray(casesRel) ? casesRel[0] ?? null : casesRel ?? null
-      return { ...row, cases: caseData }
+      return {
+        ...row,
+        file_type: row.file_type ?? '',
+        file_size: row.file_size ?? 0,
+        cases: caseData,
+        visibility: row.is_visible_to_client ? 'visible' : 'hidden',
+      }
     })
   }
 
   // Fetch internal notes about this client
-  const { data: notes } = await supabase
+  const { data: notesRaw } = await supabase
     .from('case_notes')
     .select(`
       id,
@@ -170,11 +188,19 @@ async function getClientWithRelations(clientId: string) {
     .order('created_at', { ascending: false })
     .limit(20)
 
+  // Normalize: Supabase may return profiles as object or array
+  type NoteRow = NonNullable<typeof notesRaw>[number]
+  const notes = (notesRaw ?? []).map((row: NoteRow) => {
+    const p = row.profiles
+    const profile = Array.isArray(p) ? p[0] ?? null : p ?? null
+    return { ...row, profiles: profile }
+  })
+
   return {
     client,
-    cases: cases || [],
+    cases,
     documents,
-    notes: notes || [],
+    notes,
   }
 }
 
