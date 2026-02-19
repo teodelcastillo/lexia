@@ -59,20 +59,20 @@ export async function PATCH(
         : null,
     }
 
-    const params: {
+    const eventParams: {
       title?: string
       description?: string
       startDate?: Date
       endDate?: Date
       location?: string
     } = {}
-    if (body.summary != null) params.title = body.summary
-    if (body.description != null) params.description = body.description
-    if (body.location != null) params.location = body.location
-    if (body.start_at) params.startDate = new Date(body.start_at)
-    if (body.end_at) params.endDate = new Date(body.end_at)
+    if (body.summary != null) eventParams.title = body.summary
+    if (body.description != null) eventParams.description = body.description
+    if (body.location != null) eventParams.location = body.location
+    if (body.start_at) eventParams.startDate = new Date(body.start_at)
+    if (body.end_at) eventParams.endDate = new Date(body.end_at)
 
-    const ok = await updateCalendarEvent(tokens, googleEventId, params)
+    const ok = await updateCalendarEvent(tokens, googleEventId, eventParams)
     if (!ok) {
       return NextResponse.json(
         { error: 'No se pudo actualizar el evento en Google Calendar' },
