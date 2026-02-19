@@ -55,7 +55,11 @@ export async function POST(request: Request) {
         : null,
     }
     const validTokens = await ensureValidTokens(tokens)
-    tokens = validTokens
+    tokens = {
+      access_token: validTokens.access_token,
+      refresh_token: validTokens.refresh_token ?? null,
+      expiry_date: validTokens.expiry_date ?? null,
+    }
     if (validTokens.wasRefreshed) {
       await supabase
         .from('google_connections')
