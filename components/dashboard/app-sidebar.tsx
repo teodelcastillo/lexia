@@ -18,6 +18,7 @@ import { usePathname } from 'next/navigation'
 import {
   Scale,
   LayoutDashboard,
+  LayoutGrid,
   Briefcase,
   Users,
   Building2,
@@ -145,6 +146,11 @@ const navigationSections: NavSection[] = [
         title: 'Tareas',
         href: '/tareas',
         icon: CheckSquare,
+      },
+      {
+        title: 'Tablero',
+        href: '/tablero',
+        icon: LayoutGrid,
       },
       {
         title: 'Vencimientos',
