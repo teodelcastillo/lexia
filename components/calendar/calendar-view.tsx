@@ -10,16 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
   Calendar as CalendarIcon,
   Plus,
   ChevronLeft,
@@ -104,9 +94,6 @@ export function CalendarView({
 }: CalendarViewProps) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
-  const [editingEvent, setEditingEvent] = useState<CalendarItem | null>(null)
-  const [editForm, setEditForm] = useState({ summary: '', description: '', location: '', start_at: '', end_at: '' })
-  const [saving, setSaving] = useState(false)
 
   const now = new Date()
   const isCurrentMonth = month === now.getMonth() && year === now.getFullYear()
@@ -142,80 +129,6 @@ export function CalendarView({
       toast.error('Error al sincronizar')
     } finally {
       setSyncing(false)
-    }
-  }
-
-  function toDatetimeLocal(iso: string): string {
-    const d = new Date(iso)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    const h = String(d.getHours()).padStart(2, '0')
-    const min = String(d.getMinutes()).padStart(2, '0')
-    return `${y}-${m}-${day}T${h}:${min}`
-  }
-
-  function openEditModal(item: CalendarItem) {
-    if (item.type !== 'google') return
-    setEditingEvent(item)
-    setEditForm({
-      summary: item.summary ?? '',
-      description: item.description ?? '',
-      location: item.location ?? '',
-      start_at: toDatetimeLocal(item.start_at),
-      end_at: toDatetimeLocal(item.end_at),
-    })
-  }
-
-  async function handleSaveEdit() {
-    if (!editingEvent || editingEvent.type !== 'google') return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/google/calendar/events/${editingEvent.google_event_id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          summary: editForm.summary,
-          description: editForm.description || null,
-          location: editForm.location || null,
-          start_at: editForm.start_at ? new Date(editForm.start_at).toISOString() : undefined,
-          end_at: editForm.end_at ? new Date(editForm.end_at).toISOString() : undefined,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Evento actualizado')
-        setEditingEvent(null)
-        router.refresh()
-      } else {
-        const data = await res.json()
-        toast.error(data.error ?? 'Error al guardar')
-      }
-    } catch {
-      toast.error('Error al guardar')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleDeleteEvent() {
-    if (!editingEvent || editingEvent.type !== 'google') return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/google/calendar/events/${editingEvent.google_event_id}`, {
-        method: 'DELETE',
-      })
-      if (res.ok) {
-        toast.success('Evento eliminado')
-        setEditingEvent(null)
-        router.refresh()
-      } else {
-        const data = await res.json()
-        toast.error(data.error ?? 'Error al eliminar')
-      }
-    } catch {
-      toast.error('Error al eliminar')
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -316,18 +229,33 @@ export function CalendarView({
                       {day}
                     </span>
                     <div className="mt-1 space-y-0.5">
-                      {dayItems.slice(0, 3).map((item) => (
-                        <div
-                          key={`${item.type}-${item.id}`}
-                          className={`text-[10px] px-1 py-0.5 rounded truncate cursor-pointer hover:opacity-90 ${
-                            getEventColor(item)
-                          }`}
-                          title={item.type === 'google' ? item.summary ?? 'Evento Google' : item.title}
-                          onClick={() => item.type === 'google' && openEditModal(item)}
-                        >
-                          {item.type === 'google' ? (item.summary || 'Sin título') : item.title}
-                        </div>
-                      ))}
+                      {dayItems.slice(0, 3).map((item) => {
+                        const title = item.type === 'google' ? (item.summary || 'Sin título') : item.title
+                        const itemClasses = `text-[10px] px-1 py-0.5 rounded truncate hover:opacity-90 ${getEventColor(item)}`
+
+                        if (item.type === 'google') {
+                          return (
+                            <Link
+                              key={`${item.type}-${item.id}`}
+                              href={`/calendario/eventos/${item.id}`}
+                              className={itemClasses}
+                              title={item.summary ?? 'Evento Google'}
+                            >
+                              {title}
+                            </Link>
+                          )
+                        }
+
+                        return (
+                          <div
+                            key={`${item.type}-${item.id}`}
+                            className={itemClasses}
+                            title={title}
+                          >
+                            {title}
+                          </div>
+                        )
+                      })}
                       {dayItems.length > 3 && (
                         <div className="text-[10px] text-muted-foreground px-1">
                           +{dayItems.length - 3} más
@@ -357,13 +285,10 @@ export function CalendarView({
                   const isUrgent =
                     !isOverdue && date.getTime() - now.getTime() < 3 * 24 * 60 * 60 * 1000
                   const title = item.type === 'google' ? (item.summary || 'Sin título') : item.title
-                  return (
+                  const content = (
                     <div
                       key={`${item.type}-${item.id}`}
-                      className={`flex gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors ${
-                        item.type === 'google' ? 'cursor-pointer' : ''
-                      }`}
-                      onClick={() => item.type === 'google' && openEditModal(item)}
+                      className="flex gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                     >
                       <div
                         className={`w-1 rounded-full flex-shrink-0 ${
@@ -397,6 +322,16 @@ export function CalendarView({
                       </div>
                     </div>
                   )
+
+                  if (item.type === 'google') {
+                    return (
+                      <Link key={`${item.type}-${item.id}`} href={`/calendario/eventos/${item.id}`} className="block">
+                        {content}
+                      </Link>
+                    )
+                  }
+
+                  return content
                 })
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
@@ -409,75 +344,6 @@ export function CalendarView({
         </Card>
       </div>
 
-      <Dialog open={!!editingEvent} onOpenChange={(open) => !open && setEditingEvent(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar evento de Google</DialogTitle>
-          </DialogHeader>
-          {editingEvent && editingEvent.type === 'google' && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="summary">Título</Label>
-                <Input
-                  id="summary"
-                  value={editForm.summary}
-                  onChange={(e) => setEditForm((p) => ({ ...p, summary: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea
-                  id="description"
-                  value={editForm.description}
-                  onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Ubicación</Label>
-                <Input
-                  id="location"
-                  value={editForm.location}
-                  onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start_at">Inicio</Label>
-                  <Input
-                    id="start_at"
-                    type="datetime-local"
-                    value={editForm.start_at}
-                    onChange={(e) => setEditForm((p) => ({ ...p, start_at: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end_at">Fin</Label>
-                  <Input
-                    id="end_at"
-                    type="datetime-local"
-                    value={editForm.end_at}
-                    onChange={(e) => setEditForm((p) => ({ ...p, end_at: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteEvent}
-              disabled={saving}
-            >
-              Eliminar
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Guardar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

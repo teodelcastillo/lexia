@@ -23,6 +23,7 @@ export const metadata = {
 interface NewTaskPageProps {
   searchParams: Promise<{
     caso?: string
+    evento?: string
   }>
 }
 
@@ -120,6 +121,7 @@ export default async function NewTaskPage({ searchParams }: NewTaskPageProps) {
         teamMembers={teamMembers || []}
         preselectedCase={preselectedCase}
         currentUserId={user.id}
+        linkedGoogleEventId={params.evento || null}
         noCasesMessage={
           cases.length === 0
             ? 'No hay casos asignados. Asigne un caso primero desde la ficha del caso.'

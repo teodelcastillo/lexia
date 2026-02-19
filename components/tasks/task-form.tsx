@@ -107,7 +107,10 @@ interface TaskFormProps {
     case_id: string | null
     assigned_to: string | null
     deadline_id?: string | null
+    google_calendar_event_id?: string | null
   }
+  /** Optional Google event ID to link the new task */
+  linkedGoogleEventId?: string | null
 }
 
 export function TaskForm({ 
@@ -117,6 +120,7 @@ export function TaskForm({
   currentUserId,
   noCasesMessage,
   existingTask,
+  linkedGoogleEventId,
 }: TaskFormProps) {
   const router = useRouter()
   const isEditing = !!existingTask
@@ -192,6 +196,7 @@ export function TaskForm({
         case_id: resolvedCaseId!,
         assigned_to: assignedTo || null,
         deadline_id: deadlineId && deadlineId !== 'none' ? deadlineId : null,
+        google_calendar_event_id: linkedGoogleEventId || existingTask?.google_calendar_event_id || null,
         ...(isEditing ? {} : { 
           status: 'pending' as const,
           created_by: currentUserId,
@@ -606,6 +611,12 @@ export function TaskForm({
                       </>
                     )
                   })()}
+                </div>
+              )}
+
+              {linkedGoogleEventId && !isEditing && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-primary">
+                  Esta tarea quedará vinculada al evento del calendario.
                 </div>
               )}
             </CardContent>

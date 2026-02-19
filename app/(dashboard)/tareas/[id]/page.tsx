@@ -31,6 +31,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { TaskStatusActions } from '@/components/tasks/task-status-actions'
+import { TaskComments } from '@/components/tasks/task-comments'
 import type { TaskStatus, TaskPriority } from '@/lib/types'
 
 export const metadata = {
@@ -179,6 +180,23 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
 
   const dueDateInfo = getDueDateInfo(task.due_date)
 
+  const { data: commentsData } = await supabase
+    .from('task_comments')
+    .select(`
+      id,
+      task_id,
+      content,
+      created_at,
+      updated_at,
+      profiles:created_by (
+        id,
+        first_name,
+        last_name
+      )
+    `)
+    .eq('task_id', task.id)
+    .order('created_at', { ascending: false })
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -314,6 +332,30 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessageSquare className="h-5 w-5" />
+                Comentarios
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TaskComments
+                taskId={task.id}
+                currentUserId={user.id}
+                canComment={true}
+                initialComments={(commentsData ?? []) as Array<{
+                  id: string
+                  task_id: string
+                  content: string
+                  created_at: string
+                  updated_at: string
+                  profiles: { id: string; first_name: string; last_name: string } | null
+                }>}
+              />
             </CardContent>
           </Card>
         </div>
