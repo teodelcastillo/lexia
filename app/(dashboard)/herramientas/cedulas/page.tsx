@@ -290,6 +290,21 @@ export default function CedulasPage() {
           description: `agendó el evento "${title}" desde cédula`,
           newValues: { title },
         })
+        try {
+          await fetch('/api/notifications/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'deadline_created',
+              deadlineId: inserted.id,
+              deadlineTitle: title,
+              caseId: selectedCaseId,
+              assignedTo: null,
+            }),
+          })
+        } catch {
+          // Non-blocking
+        }
       }
 
       toast.success(

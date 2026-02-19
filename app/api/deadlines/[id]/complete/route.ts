@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/services/activity-log'
+import { notifyDeadlineCompleted } from '@/lib/services/notifications'
 
 export async function POST(
   _request: Request,
@@ -56,6 +57,13 @@ export async function POST(
       description: `completó el evento "${title}"`,
       newValues: { status: 'completed' },
     })
+
+    await notifyDeadlineCompleted(
+      id,
+      title,
+      deadline?.case_id ?? null,
+      user.id
+    )
 
     return NextResponse.json({ success: true })
   } catch (err) {

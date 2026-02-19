@@ -14,11 +14,13 @@ type NotificationType =
   | 'person_created'
   | 'company_created'
   | 'task_assigned'
+  | 'task_created'
   | 'task_completed'
   | 'task_overdue'
   | 'deadline_approaching'
   | 'deadline_overdue'
   | 'deadline_created'
+  | 'deadline_completed'
   | 'case_assigned'
   | 'mention'
   | 'task_approaching'
@@ -168,17 +170,21 @@ export async function getUsersToNotify(
   }
   
   // Get deadline-related users if deadline is provided
-  // Note: deadlines table doesn't have assigned_to, so we get assignees from the related case
+  // Includes assigned_to, created_by, and case assignees
   if (params.deadlineId) {
     const { data: deadline } = await supabase
       .from('deadlines')
-      .select('case_id, created_by, organization_id')
+      .select('case_id, created_by, assigned_to, organization_id')
       .eq('id', params.deadlineId)
       .single()
     
     // Verify deadline belongs to same organization
     if (deadline && (!organizationId || deadline.organization_id === organizationId)) {
-      // Add creator as assignee if not excluded
+      // Add assigned_to (primary responsible) if not excluded
+      if (deadline.assigned_to && deadline.assigned_to !== params.excludeUserId) {
+        assigneeIds.push(deadline.assigned_to)
+      }
+      // Add creator if not excluded
       if (deadline.created_by && deadline.created_by !== params.excludeUserId) {
         assigneeIds.push(deadline.created_by)
       }
@@ -290,6 +296,225 @@ export async function notifyTaskAssigned(
       message: `Se asignó la tarea "${taskTitle}"`,
       caseId,
       taskId,
+      triggeredBy: assignedBy,
+    })
+  }
+}
+
+/**
+ * Notifies about task completion (activity)
+ */
+export async function notifyTaskCompleted(
+  taskId: string,
+  taskTitle: string,
+  caseId: string | null,
+  completedBy: string
+) {
+  const supabase = await createClient()
+  const { data: taskData } = await supabase
+    .from('tasks')
+    .select('organization_id')
+    .eq('id', taskId)
+    .single()
+
+  const users = await getUsersToNotify({
+    caseId: caseId ?? undefined,
+    taskId,
+    excludeUserId: completedBy,
+    organizationId: taskData?.organization_id || null,
+  })
+  const allUsers = [...new Set([...users.admins, ...users.caseLeaders, ...users.assignees])]
+
+  if (allUsers.length > 0) {
+    await createNotifications({
+      userIds: allUsers,
+      category: 'activity',
+      type: 'task_completed',
+      title: 'Tarea completada',
+      message: `Se completó la tarea "${taskTitle}"`,
+      caseId: caseId ?? undefined,
+      taskId,
+      triggeredBy: completedBy,
+    })
+  }
+}
+
+/**
+ * Notifies about task creation (activity)
+ */
+export async function notifyTaskCreated(
+  taskId: string,
+  taskTitle: string,
+  caseId: string | null,
+  createdBy: string
+) {
+  const supabase = await createClient()
+  const { data: taskData } = await supabase
+    .from('tasks')
+    .select('organization_id')
+    .eq('id', taskId)
+    .single()
+
+  const users = await getUsersToNotify({
+    caseId: caseId ?? undefined,
+    taskId,
+    excludeUserId: createdBy,
+    organizationId: taskData?.organization_id || null,
+  })
+  const allUsers = [...new Set([...users.admins, ...users.caseLeaders])]
+
+  if (allUsers.length > 0) {
+    await createNotifications({
+      userIds: allUsers,
+      category: 'activity',
+      type: 'task_created',
+      title: 'Nueva tarea creada',
+      message: `Se creó la tarea "${taskTitle}"`,
+      caseId: caseId ?? undefined,
+      taskId,
+      triggeredBy: createdBy,
+    })
+  }
+}
+
+/**
+ * Notifies about deadline/event creation (activity)
+ */
+export async function notifyDeadlineCreated(
+  deadlineId: string,
+  deadlineTitle: string,
+  caseId: string | null,
+  createdBy: string,
+  assignedTo?: string | null
+) {
+  const supabase = await createClient()
+  const { data: deadlineData } = await supabase
+    .from('deadlines')
+    .select('organization_id')
+    .eq('id', deadlineId)
+    .single()
+
+  const users = await getUsersToNotify({
+    caseId: caseId ?? undefined,
+    deadlineId,
+    excludeUserId: createdBy,
+    organizationId: deadlineData?.organization_id || null,
+  })
+  const activityUsers = [...new Set([...users.admins, ...users.caseLeaders])]
+
+  if (activityUsers.length > 0) {
+    await createNotifications({
+      userIds: activityUsers,
+      category: 'activity',
+      type: 'deadline_created',
+      title: 'Nuevo evento agendado',
+      message: `Se agendó el evento "${deadlineTitle}"`,
+      caseId: caseId ?? undefined,
+      deadlineId,
+      triggeredBy: createdBy,
+    })
+  }
+
+  // Work notification to assignee when assigned to someone else
+  if (assignedTo && assignedTo !== createdBy) {
+    await createNotifications({
+      userIds: [assignedTo],
+      category: 'work',
+      type: 'deadline_created',
+      title: 'Evento asignado',
+      message: `Se te asignó el evento "${deadlineTitle}"`,
+      caseId: caseId ?? undefined,
+      deadlineId,
+      triggeredBy: createdBy,
+    })
+  }
+}
+
+/**
+ * Notifies about deadline completion (activity)
+ */
+export async function notifyDeadlineCompleted(
+  deadlineId: string,
+  deadlineTitle: string,
+  caseId: string | null,
+  completedBy: string
+) {
+  const supabase = await createClient()
+  const { data: deadlineData } = await supabase
+    .from('deadlines')
+    .select('organization_id')
+    .eq('id', deadlineId)
+    .single()
+
+  const users = await getUsersToNotify({
+    caseId: caseId ?? undefined,
+    deadlineId,
+    excludeUserId: completedBy,
+    organizationId: deadlineData?.organization_id || null,
+  })
+  const allUsers = [...new Set([...users.admins, ...users.caseLeaders, ...users.assignees])]
+
+  if (allUsers.length > 0) {
+    await createNotifications({
+      userIds: allUsers,
+      category: 'activity',
+      type: 'deadline_completed',
+      title: 'Evento completado',
+      message: `Se completó el evento "${deadlineTitle}"`,
+      caseId: caseId ?? undefined,
+      deadlineId,
+      triggeredBy: completedBy,
+    })
+  }
+}
+
+/**
+ * Notifies about deadline assignment (work for assignee, activity for others)
+ */
+export async function notifyDeadlineAssigned(
+  deadlineId: string,
+  deadlineTitle: string,
+  caseId: string | null,
+  assignedTo: string,
+  assignedBy: string
+) {
+  const supabase = await createClient()
+  const { data: deadlineData } = await supabase
+    .from('deadlines')
+    .select('organization_id')
+    .eq('id', deadlineId)
+    .single()
+
+  const users = await getUsersToNotify({
+    caseId: caseId ?? undefined,
+    deadlineId,
+    excludeUserId: assignedBy,
+    organizationId: deadlineData?.organization_id || null,
+  })
+
+  if (assignedTo !== assignedBy) {
+    await createNotifications({
+      userIds: [assignedTo],
+      category: 'work',
+      type: 'deadline_created',
+      title: 'Evento asignado',
+      message: `Se te asignó el evento "${deadlineTitle}"`,
+      caseId: caseId ?? undefined,
+      deadlineId,
+      triggeredBy: assignedBy,
+    })
+  }
+
+  const activityUsers = [...users.admins, ...users.caseLeaders].filter(id => id !== assignedTo)
+  if (activityUsers.length > 0) {
+    await createNotifications({
+      userIds: activityUsers,
+      category: 'activity',
+      type: 'deadline_created',
+      title: 'Evento asignado',
+      message: `Se asignó el evento "${deadlineTitle}"`,
+      caseId: caseId ?? undefined,
+      deadlineId,
       triggeredBy: assignedBy,
     })
   }

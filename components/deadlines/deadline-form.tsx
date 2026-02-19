@@ -191,6 +191,26 @@ export function DeadlineForm({
           newValues: { title: title.trim() },
         })
 
+        const prevAssigned = existingDeadline.assigned_to
+        const isAssignmentChange = (assignedTo || null) !== (prevAssigned || null)
+        if (isAssignmentChange && assignedTo) {
+          try {
+            await fetch('/api/notifications/trigger', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'deadline_assigned',
+                deadlineId: existingDeadline.id,
+                deadlineTitle: title.trim(),
+                caseId: caseId === 'none' ? null : caseId,
+                assignedTo,
+              }),
+            })
+          } catch {
+            // Non-blocking
+          }
+        }
+
         if (syncToCalendar) {
           try {
             const syncRes = await fetch(`/api/deadlines/${existingDeadline.id}/sync-google`, {
@@ -228,6 +248,21 @@ export function DeadlineForm({
             description: `agendó el evento "${title.trim()}"`,
             newValues: { title: title.trim() },
           })
+          try {
+            await fetch('/api/notifications/trigger', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'deadline_created',
+                deadlineId: inserted.id,
+                deadlineTitle: title.trim(),
+                caseId: caseId === 'none' ? null : caseId,
+                assignedTo: assignedTo || null,
+              }),
+            })
+          } catch {
+            // Non-blocking
+          }
         }
 
         // Sync to Google Calendar if requested

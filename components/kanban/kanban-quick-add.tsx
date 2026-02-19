@@ -76,6 +76,20 @@ export function KanbanQuickAdd({
           description: `creó la tarea "${title.trim()}"`,
           newValues: { title: title.trim() },
         })
+        try {
+          await fetch('/api/notifications/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task_created',
+              taskId: inserted.id,
+              taskTitle: title.trim(),
+              caseId: resolvedCaseId,
+            }),
+          })
+        } catch {
+          // Non-blocking
+        }
       }
 
       toast.success('Tarea creada')

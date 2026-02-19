@@ -232,6 +232,24 @@ export function TaskForm({
           newValues: { title: title.trim(), assigned_to: assignedTo || null },
         })
 
+        if (isAssignment && assignedTo) {
+          try {
+            await fetch('/api/notifications/trigger', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'task_assigned',
+                taskId: existingTask.id,
+                taskTitle: title.trim(),
+                caseId: resolvedCaseId ?? '',
+                assignedTo,
+              }),
+            })
+          } catch {
+            // Non-blocking
+          }
+        }
+
         toast.success('Tarea actualizada correctamente')
       } else {
         const { data: inserted, error } = await supabase
@@ -253,6 +271,22 @@ export function TaskForm({
             description: `creó la tarea "${title.trim()}"`,
             newValues: { title: title.trim() },
           })
+          try {
+            const notifyType = assignedTo && assignedTo !== currentUserId ? 'task_assigned' : 'task_created'
+            await fetch('/api/notifications/trigger', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: notifyType,
+                taskId: inserted.id,
+                taskTitle: title.trim(),
+                caseId: resolvedCaseId ?? '',
+                ...(notifyType === 'task_assigned' ? { assignedTo } : {}),
+              }),
+            })
+          } catch {
+            // Non-blocking
+          }
         }
 
         toast.success('Tarea creada correctamente')

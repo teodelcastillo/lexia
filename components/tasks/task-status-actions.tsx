@@ -120,6 +120,23 @@ export function TaskStatusActions({ taskId, currentStatus, taskTitle, caseId }: 
         newValues: { status: newStatus },
       })
 
+      if (newStatus === 'completed') {
+        try {
+          await fetch('/api/notifications/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task_completed',
+              taskId,
+              taskTitle: title,
+              caseId: caseId ?? '',
+            }),
+          })
+        } catch {
+          // Non-blocking
+        }
+      }
+
       toast.success(`Tarea marcada como ${statusLabels[newStatus]}`)
       router.refresh()
 
