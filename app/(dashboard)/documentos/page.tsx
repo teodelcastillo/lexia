@@ -505,7 +505,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
                     <CardTitle className="text-base">{company.name}</CardTitle>
                     <CardDescription>
                       {Object.keys(company.cases).length} casos · {' '}
-                      {Object.values(company.cases).reduce((sum, c) => sum + c.documents.length, 0)} documentos
+                      {Object.values(company.cases).reduce((sum, c) => sum + (c.documents?.length ?? 0), 0)} documentos
                     </CardDescription>
                   </div>
                 </div>
