@@ -106,7 +106,7 @@ export default async function PortalDocumentsPage() {
     : { data: [] }
 
   // Group documents by case (Supabase may return case as array)
-  type DocWithCase = (typeof documents)[number]
+  type DocWithCase = (NonNullable<typeof documents>)[number]
   type CaseGroup = { caseTitle: string; documents: DocWithCase[] }
   const documentsByCase = documents?.reduce((acc, doc) => {
     const caseRel = doc.case
