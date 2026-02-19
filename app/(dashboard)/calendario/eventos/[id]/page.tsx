@@ -300,7 +300,10 @@ export default async function CalendarEventDetailPage({ params }: EventDetailPag
                           content: string
                           created_at: string
                           updated_at: string
-                          profiles: { id: string; first_name: string; last_name: string } | null
+                          profiles:
+                            | { id: string; first_name: string; last_name: string }
+                            | Array<{ id: string; first_name: string; last_name: string }>
+                            | null
                         }>
                       }
                     />

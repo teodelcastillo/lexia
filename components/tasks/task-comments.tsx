@@ -35,11 +35,31 @@ interface TaskComment {
   } | null
 }
 
+interface TaskCommentInput {
+  id: string
+  task_id: string
+  content: string
+  created_at: string
+  updated_at: string
+  profiles:
+    | {
+        id: string
+        first_name: string
+        last_name: string
+      }
+    | Array<{
+        id: string
+        first_name: string
+        last_name: string
+      }>
+    | null
+}
+
 interface TaskCommentsProps {
   taskId: string
   currentUserId: string
   canComment: boolean
-  initialComments: TaskComment[]
+  initialComments: TaskCommentInput[]
 }
 
 function getInitials(firstName: string, lastName: string): string {
@@ -72,7 +92,24 @@ export function TaskComments({
   canComment,
   initialComments,
 }: TaskCommentsProps) {
-  const [comments, setComments] = useState<TaskComment[]>(initialComments)
+  function normalizeComment(input: TaskCommentInput): TaskComment {
+    const profile = Array.isArray(input.profiles)
+      ? input.profiles[0] ?? null
+      : input.profiles ?? null
+
+    return {
+      id: input.id,
+      task_id: input.task_id,
+      content: input.content,
+      created_at: input.created_at,
+      updated_at: input.updated_at,
+      profiles: profile,
+    }
+  }
+
+  const [comments, setComments] = useState<TaskComment[]>(
+    initialComments.map(normalizeComment)
+  )
   const [newComment, setNewComment] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -106,7 +143,7 @@ export function TaskComments({
 
       if (error) throw error
 
-      setComments((prev) => [data as unknown as TaskComment, ...prev])
+      setComments((prev) => [normalizeComment(data as TaskCommentInput), ...prev])
       setNewComment('')
       toast.success('Comentario agregado')
     } catch (error) {

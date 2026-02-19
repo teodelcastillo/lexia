@@ -353,7 +353,10 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
                   content: string
                   created_at: string
                   updated_at: string
-                  profiles: { id: string; first_name: string; last_name: string } | null
+                  profiles:
+                    | { id: string; first_name: string; last_name: string }
+                    | Array<{ id: string; first_name: string; last_name: string }>
+                    | null
                 }>}
               />
             </CardContent>
