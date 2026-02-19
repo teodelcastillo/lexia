@@ -75,7 +75,7 @@ export async function POST(
         .eq('service', 'calendar')
     }
 
-    const params = {
+    const eventParams = {
       title: deadline.title,
       description: deadline.description ?? undefined,
       startDate,
@@ -83,7 +83,7 @@ export async function POST(
     }
 
     if (deadline.google_calendar_event_id) {
-      const ok = await updateCalendarEvent(tokens, deadline.google_calendar_event_id, params)
+      const ok = await updateCalendarEvent(tokens, deadline.google_calendar_event_id, eventParams)
       if (!ok) {
         return NextResponse.json(
           { error: 'No se pudo actualizar el evento en Google Calendar' },
@@ -93,7 +93,7 @@ export async function POST(
       return NextResponse.json({ success: true, eventId: deadline.google_calendar_event_id })
     }
 
-    const eventId = await createCalendarEvent(tokens, params)
+    const eventId = await createCalendarEvent(tokens, eventParams)
 
     const { error: updateError } = await supabase
       .from('deadlines')
