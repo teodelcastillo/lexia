@@ -52,14 +52,22 @@ async function getTasksForKanban(userId: string, organizationId: string | null) 
     query = query.eq('organization_id', organizationId)
   }
 
-  const { data: tasks, error } = await query
+  const { data: tasksRaw, error } = await query
 
   if (error) {
     console.error('Error fetching tasks for Kanban:', error)
     return []
   }
 
-  return tasks || []
+  const raw = tasksRaw ?? []
+  type Row = (typeof raw)[number]
+  return raw.map((row: Row) => {
+    const casesRel = row.cases
+    const assigneeRel = row.assignee
+    const caseData = Array.isArray(casesRel) ? casesRel[0] ?? null : casesRel ?? null
+    const assigneeData = Array.isArray(assigneeRel) ? assigneeRel[0] ?? null : assigneeRel ?? null
+    return { ...row, cases: caseData, assignee: assigneeData }
+  })
 }
 
 async function getCasesForBoard(userId: string, organizationId: string | null) {
