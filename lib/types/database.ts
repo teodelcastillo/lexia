@@ -375,7 +375,7 @@ export type Database = {
       deadlines: {
         Row: {
           assigned_to: string | null
-          case_id: string
+          case_id: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -393,7 +393,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
-          case_id: string
+          case_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string

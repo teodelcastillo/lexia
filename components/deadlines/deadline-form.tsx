@@ -126,7 +126,9 @@ export function DeadlineForm({
     existingDeadline?.due_date ? new Date(existingDeadline.due_date) : undefined
   )
   const [caseId, setCaseId] = useState(
-    existingDeadline?.case_id || preselectedCase?.id || 'none'
+    isEditing && existingDeadline
+      ? (existingDeadline.case_id ?? 'none')
+      : (preselectedCase?.id ?? cases?.[0]?.id ?? 'none')
   )
   const [assignedTo, setAssignedTo] = useState(
     existingDeadline?.assigned_to || currentUserId
@@ -145,12 +147,6 @@ export function DeadlineForm({
 
     if (!dueDate) {
       toast.error('La fecha es obligatoria')
-      return
-    }
-
-    // Validate case_id is required for creation (deadlines.case_id is NOT NULL)
-    if (!isEditing && (caseId === 'none' || !caseId)) {
-      toast.error('Debe seleccionar un caso para crear el evento')
       return
     }
 
@@ -630,7 +626,9 @@ export function DeadlineForm({
                   <SelectValue placeholder="Seleccionar caso" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sin caso vinculado</SelectItem>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Ninguno (evento independiente)</span>
+                  </SelectItem>
                   {cases.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       <span className="flex flex-col">

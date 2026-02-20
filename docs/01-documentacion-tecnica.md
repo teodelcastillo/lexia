@@ -557,7 +557,7 @@ components/dashboard/upcoming-deadlines.tsx - Widget de próximos eventos
 ```sql
 TABLE deadlines (
   id                        UUID PRIMARY KEY,
-  case_id                   UUID NOT NULL REFERENCES cases(id),
+  case_id                   UUID REFERENCES cases(id) NULL,  -- Opcional: eventos pueden ser independientes
   title                     TEXT NOT NULL,
   description               TEXT,
   deadline_type             TEXT,  -- Opcional: NULL = evento genérico
