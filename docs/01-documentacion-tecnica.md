@@ -519,7 +519,7 @@ components/dashboard/pending-tasks.tsx   - Widget de tareas pendientes
 ```sql
 TABLE tasks (
   id                        UUID PRIMARY KEY,
-  case_id                   UUID REFERENCES cases(id),
+  case_id                   UUID REFERENCES cases(id) NULL,  -- Opcional: tareas pueden ser independientes
   title                     TEXT NOT NULL,
   description               TEXT,
   status                    task_status DEFAULT 'pending',

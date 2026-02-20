@@ -838,7 +838,7 @@ export type Database = {
         Row: {
           actual_hours: number | null
           assigned_to: string | null
-          case_id: string
+          case_id: string | null
           completed_at: string | null
           created_at: string
           created_by: string
@@ -856,7 +856,7 @@ export type Database = {
         Insert: {
           actual_hours?: number | null
           assigned_to?: string | null
-          case_id: string
+          case_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by: string

@@ -134,8 +134,10 @@ export function TaskForm({
   const [dueDate, setDueDate] = useState<Date | undefined>(
     existingTask?.due_date ? new Date(existingTask.due_date) : undefined
   )
-  const [caseId, setCaseId] = useState(
-    existingTask?.case_id || preselectedCase?.id || (cases?.[0]?.id ?? '')
+  const [caseId, setCaseId] = useState<string>(
+    isEditing && existingTask
+      ? (existingTask.case_id ?? 'none')
+      : (preselectedCase?.id ?? cases?.[0]?.id ?? 'none')
   )
   const [assignedTo, setAssignedTo] = useState(
     existingTask?.assigned_to || currentUserId
@@ -145,7 +147,7 @@ export function TaskForm({
   )
   const [deadlinesForCase, setDeadlinesForCase] = useState<Array<{ id: string; title: string; due_date: string }>>([])
 
-  const resolvedCaseId = caseId || preselectedCase?.id || cases?.[0]?.id
+  const resolvedCaseId = caseId && caseId !== 'none' ? caseId : (preselectedCase?.id ?? cases?.[0]?.id ?? null)
 
   useEffect(() => {
     if (!resolvedCaseId || resolvedCaseId === 'none') {
@@ -178,11 +180,7 @@ export function TaskForm({
       return
     }
 
-    const resolvedCaseId = caseId || preselectedCase?.id || cases?.[0]?.id
-    if (!isEditing && !resolvedCaseId) {
-      toast.error('Debe seleccionar un caso para crear la tarea')
-      return
-    }
+    const resolvedCaseId = caseId && caseId !== 'none' ? caseId : (preselectedCase?.id ?? cases?.[0]?.id ?? null)
 
     setIsSubmitting(true)
 
@@ -194,7 +192,7 @@ export function TaskForm({
         description: description.trim() || null,
         priority,
         due_date: dueDate?.toISOString() || null,
-        case_id: resolvedCaseId!,
+        case_id: resolvedCaseId || null,
         assigned_to: assignedTo || null,
         deadline_id: deadlineId && deadlineId !== 'none' ? deadlineId : null,
         google_calendar_event_id: linkedGoogleEventId || existingTask?.google_calendar_event_id || null,
@@ -619,11 +617,14 @@ export function TaskForm({
                   {noCasesMessage}
                 </div>
               )}
-              <Select value={caseId} onValueChange={setCaseId} disabled={cases.length === 0 && !preselectedCase}>
+              <Select value={caseId} onValueChange={setCaseId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar caso (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Ninguno (tarea independiente)</span>
+                  </SelectItem>
                   {cases.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       <span className="flex flex-col">
@@ -667,7 +668,7 @@ export function TaskForm({
               )}
 
               {/* Selected case preview */}
-              {caseId && (
+              {caseId && caseId !== 'none' && (
                 <div className="rounded-lg bg-muted p-3">
                   {(() => {
                     const selectedCase = cases.find(c => c.id === caseId) || preselectedCase

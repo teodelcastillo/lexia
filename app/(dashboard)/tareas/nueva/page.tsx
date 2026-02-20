@@ -124,7 +124,7 @@ export default async function NewTaskPage({ searchParams }: NewTaskPageProps) {
         linkedGoogleEventId={params.evento || null}
         noCasesMessage={
           cases.length === 0
-            ? 'No hay casos asignados. Asigne un caso primero desde la ficha del caso.'
+            ? 'No hay casos asignados. Puede crear una tarea independiente seleccionando "Ninguno".'
             : undefined
         }
       />
