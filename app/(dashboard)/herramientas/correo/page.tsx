@@ -211,6 +211,17 @@ function replacePlaceholders(
   return out
 }
 
+/** Strip HTML tags for plain-text fallback (mailto, clipboard plain) */
+function stripHtml(html: string): string {
+  if (!html || !html.includes('<')) return html
+  const div = typeof document !== 'undefined' ? document.createElement('div') : null
+  if (div) {
+    div.innerHTML = html
+    return (div.textContent ?? div.innerText ?? '').trim()
+  }
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 export default function QuickEmailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [recipient, setRecipient] = useState('')
@@ -228,6 +239,7 @@ export default function QuickEmailPage() {
   const [loading, setLoading] = useState(true)
   const [loadingCaseDetail, setLoadingCaseDetail] = useState(false)
   const [loadingClientReport, setLoadingClientReport] = useState(false)
+  const [generatingInforme, setGeneratingInforme] = useState(false)
 
   const displayName = selectedContact?.name?.trim() || selectedContact?.email || ''
 
@@ -373,15 +385,58 @@ export default function QuickEmailPage() {
     }
   }
 
+  const generateInformeIA = useCallback(async () => {
+    if (!selectedCase?.id) return
+    setGeneratingInforme(true)
+    try {
+      const res = await fetch('/api/herramientas/correo/informe-estado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: selectedCase.id }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al generar el informe')
+      }
+      const data = await res.json()
+      if (data.subject) setSubject(data.subject)
+      if (data.bodyHtml) setBody(data.bodyHtml)
+    } catch (e) {
+      console.error(e)
+      alert(e instanceof Error ? e.message : 'Error al generar el informe')
+    } finally {
+      setGeneratingInforme(false)
+    }
+  }, [selectedCase?.id])
+
   const handleCopy = () => {
-    const fullContent = `Para: ${recipient}\nAsunto: ${subject}\n\n${body}`
-    navigator.clipboard.writeText(fullContent)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
+    const plainBody = body.includes('<') && body.includes('>') ? stripHtml(body) : body
+    const fullContent = `Para: ${recipient}\nAsunto: ${subject}\n\n${plainBody}`
+    if (body.includes('<') && body.includes('>') && navigator.clipboard?.write) {
+      const htmlBlob = new Blob([body], { type: 'text/html' })
+      const textBlob = new Blob([fullContent], { type: 'text/plain' })
+      const clipboardItem = new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
+      navigator.clipboard.write([clipboardItem]).then(
+        () => {
+          setIsCopied(true)
+          setTimeout(() => setIsCopied(false), 2000)
+        },
+        () => {
+          navigator.clipboard.writeText(fullContent)
+          setIsCopied(true)
+          setTimeout(() => setIsCopied(false), 2000)
+        }
+      )
+    } else {
+      navigator.clipboard.writeText(fullContent)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000)
+    }
   }
 
   const handleOpenInClient = () => {
-    const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    const bodyForMailto = body.includes('<') && body.includes('>') ? stripHtml(body) : body
+    const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyForMailto)}`
     window.open(mailtoUrl, '_blank')
   }
 
@@ -514,31 +569,54 @@ export default function QuickEmailPage() {
             {selectedTemplate?.needsCase && (
               <div className="space-y-2">
                 <Label>Caso (para rellenar estado procesal)</Label>
-                <Select
-                  value={selectedCase?.id ?? ''}
-                  onValueChange={handleSelectCase}
-                  disabled={loadingCaseDetail}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un caso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cases.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <span className="flex items-center gap-2">
-                          <Briefcase className="h-4 w-4 text-muted-foreground" />
-                          {c.case_number} – {c.title}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2 flex-wrap">
+                  <Select
+                    value={selectedCase?.id ?? ''}
+                    onValueChange={handleSelectCase}
+                    disabled={loadingCaseDetail || generatingInforme}
+                  >
+                    <SelectTrigger className="flex-1 min-w-[200px]">
+                      <SelectValue placeholder="Seleccione un caso" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cases.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-muted-foreground" />
+                            {c.case_number} – {c.title}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={generateInformeIA}
+                    disabled={!selectedCase?.id || generatingInforme}
+                  >
+                    {generatingInforme ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generar informe con IA
+                      </>
+                    )}
+                  </Button>
+                </div>
                 {loadingCaseDetail && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Cargando plazos...
                   </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  El informe se redacta a partir de la actividad reciente del caso, próximos eventos y tareas. Incluye formato (secciones y listas).
+                </p>
               </div>
             )}
 
@@ -598,7 +676,7 @@ export default function QuickEmailPage() {
             <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
               <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <p className="text-muted-foreground">
-                Los campos entre [CORCHETES] se rellenan al elegir un contacto, caso o cliente. Puede editarlos antes de enviar.
+                Los campos entre [CORCHETES] se rellenan al elegir un contacto, caso o cliente. El informe generado con IA incluye formato (secciones, listas); al copiar se guarda en el portapapeles con formato para pegar en su cliente de correo.
               </p>
             </div>
 
