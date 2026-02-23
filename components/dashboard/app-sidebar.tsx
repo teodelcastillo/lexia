@@ -37,7 +37,6 @@ import {
   UserCog,
   ExternalLink,
   Target,
-  Bell,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -184,12 +183,6 @@ const navigationSections: NavSection[] = [
   {
     label: 'Herramientas',
     items: [
-      {
-        title: 'Procesador de Cédulas',
-        href: '/herramientas/cedulas',
-        icon: Bell,
-        badge: 'IA',
-      },
       {
         title: 'Correo Rápido',
         href: '/herramientas/correo',

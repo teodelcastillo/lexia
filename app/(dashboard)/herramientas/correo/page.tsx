@@ -1,12 +1,13 @@
 /**
  * Quick Email Tool Page
- * 
+ *
  * Provides quick access to email templates and composition
- * for common legal communications.
+ * for common legal communications. Auto-fills from contacts
+ * and supports case/client-aware templates (procedural status, client report).
  */
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,16 +22,43 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
   Mail,
-  Send,
   Copy,
   FileText,
-  Clock,
-  Users,
   AlertCircle,
   ExternalLink,
   Sparkles,
+  User,
+  ChevronsUpDown,
+  Briefcase,
+  Building2,
+  Loader2,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+type ContactItem = { id: string; name: string | null; email: string; company_name: string | null; person_type: string | null }
+type CaseItem = {
+  id: string
+  case_number: string
+  title: string
+  status: string
+  company_id: string | null
+  companies?: { id: string; company_name: string; name: string | null } | null
+}
+type CompanyItem = { id: string; company_name: string; name: string | null; email: string | null }
 
 /** Email template type */
 interface EmailTemplate {
@@ -39,6 +67,18 @@ interface EmailTemplate {
   subject: string
   body: string
   category: 'client' | 'court' | 'opposing' | 'internal'
+  /** Template needs a case to auto-fill (e.g. procedural status) */
+  needsCase?: boolean
+  /** Template needs a company (client) to auto-fill (e.g. general report) */
+  needsCompany?: boolean
+}
+
+const statusLabels: Record<string, string> = {
+  active: 'Activo',
+  pending: 'Pendiente',
+  on_hold: 'En Espera',
+  closed: 'Cerrado',
+  archived: 'Archivado',
 }
 
 /** Pre-defined email templates */
@@ -58,6 +98,45 @@ Quedamos a su disposición para cualquier consulta.
 Saludos cordiales,
 [FIRMA]`,
     category: 'client',
+  },
+  {
+    id: 'procedural-status',
+    name: 'Actualización de estado procesal',
+    subject: 'Estado procesal - Expediente [NÚMERO DE CASO]',
+    body: `Estimado/a [NOMBRE DEL CLIENTE],
+
+Le informamos el estado actual del expediente [NÚMERO DE CASO] - [TÍTULO CASO].
+
+Estado: [ESTADO DEL CASO]
+
+Próximos plazos:
+[PRÓXIMOS PLAZOS]
+
+[DETALLES ADICIONALES]
+
+Quedamos a su disposición.
+
+Saludos cordiales,
+[FIRMA]`,
+    category: 'client',
+    needsCase: true,
+  },
+  {
+    id: 'client-status-report',
+    name: 'Informe de estado general (cliente)',
+    subject: 'Informe de estado de sus casos - [NOMBRE CLIENTE/EMPRESA]',
+    body: `Estimado/a [NOMBRE DEL CLIENTE],
+
+Adjuntamos un resumen del estado de los asuntos que tenemos a cargo:
+
+[INFORME DE CASOS]
+
+Quedamos a su disposición para cualquier consulta.
+
+Saludos cordiales,
+[FIRMA]`,
+    category: 'client',
+    needsCompany: true,
   },
   {
     id: 'court-filing',
@@ -121,24 +200,179 @@ const categoryConfig: Record<string, { label: string; className: string }> = {
   internal: { label: 'Interno', className: 'bg-muted text-muted-foreground' },
 }
 
+function replacePlaceholders(
+  text: string,
+  map: Record<string, string>
+): string {
+  let out = text
+  for (const [key, value] of Object.entries(map)) {
+    out = out.replace(new RegExp(`\\[${key}\\]`, 'gi'), value)
+  }
+  return out
+}
+
 export default function QuickEmailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [recipient, setRecipient] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [isCopied, setIsCopied] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
+  const [selectedContact, setSelectedContact] = useState<ContactItem | null>(null)
+  const [selectedCase, setSelectedCase] = useState<CaseItem | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyItem | null>(null)
 
-  /** Handles template selection */
+  const [contacts, setContacts] = useState<ContactItem[]>([])
+  const [cases, setCases] = useState<CaseItem[]>([])
+  const [companies, setCompanies] = useState<CompanyItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingCaseDetail, setLoadingCaseDetail] = useState(false)
+  const [loadingClientReport, setLoadingClientReport] = useState(false)
+
+  const displayName = selectedContact?.name?.trim() || selectedContact?.email || ''
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/herramientas/correo/data')
+      if (!res.ok) return
+      const data = await res.json()
+      setContacts(data.contacts ?? [])
+      setCases(data.cases ?? [])
+      setCompanies(data.companies ?? [])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const fillFromContact = useCallback((contact: ContactItem) => {
+    setSelectedContact(contact)
+    setRecipient(contact.email)
+    setContactOpen(false)
+    const name = contact.name?.trim() || contact.email
+    const map: Record<string, string> = {
+      'NOMBRE DEL CLIENTE': name,
+      'NOMBRE': name,
+    }
+    setSubject((s) => replacePlaceholders(s, map))
+    setBody((b) => replacePlaceholders(b, map))
+  }, [])
+
+  const fetchCaseDetail = useCallback(async (caseId: string) => {
+    setLoadingCaseDetail(true)
+    try {
+      const res = await fetch(`/api/herramientas/correo/data?mode=case-detail&caseId=${encodeURIComponent(caseId)}`)
+      const data = await res.json()
+      const c = data.case
+      const deadlines = data.deadlines ?? []
+      if (!c) return
+      const caseLabel = statusLabels[c.status] ?? c.status
+      const plazos =
+        deadlines.length > 0
+          ? deadlines
+              .map(
+                (d: { title: string; due_date: string }) =>
+                  `- ${d.title}: ${new Date(d.due_date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+              )
+              .join('\n')
+          : '- Sin plazos próximos cargados.'
+      const map: Record<string, string> = {
+        'NÚMERO DE CASO': c.case_number,
+        'TÍTULO CASO': c.title ?? '',
+        'ESTADO DEL CASO': caseLabel,
+        'PRÓXIMOS PLAZOS': plazos,
+        'DETALLES ADICIONALES': '[Completar si corresponde]',
+      }
+      if (displayName) {
+        map['NOMBRE DEL CLIENTE'] = displayName
+        map['NOMBRE'] = displayName
+      }
+      setSubject((s) => replacePlaceholders(s, map))
+      setBody((b) => replacePlaceholders(b, map))
+    } finally {
+      setLoadingCaseDetail(false)
+    }
+  }, [displayName])
+
+  const fetchClientReport = useCallback(async (companyId: string) => {
+    setLoadingClientReport(true)
+    try {
+      const res = await fetch(`/api/herramientas/correo/data?mode=client-cases&companyId=${encodeURIComponent(companyId)}`)
+      const data = await res.json()
+      const caseList = data.cases ?? []
+      const deadlinesByCase = data.deadlinesByCase ?? {}
+      const company = companies.find((co) => co.id === companyId) ?? selectedCompany
+      const clientName = company?.company_name ?? company?.name ?? 'Cliente'
+      const lines: string[] = []
+      for (const c of caseList) {
+        const plazos = (deadlinesByCase[c.id] ?? []).slice(0, 3)
+        const plazosStr =
+          plazos.length > 0
+            ? plazos
+                .map(
+                  (p: { title: string; due_date: string }) =>
+                    `  - ${p.title}: ${new Date(p.due_date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                )
+                .join('\n')
+            : '  (sin próximos plazos)'
+        lines.push(
+          `• Expediente ${c.case_number} - ${c.title}\n  Estado: ${statusLabels[c.status] ?? c.status}\n  Próximos plazos:\n${plazosStr}`
+        )
+      }
+      const informe = lines.length > 0 ? lines.join('\n\n') : 'No hay casos activos registrados.'
+      const map: Record<string, string> = {
+        'NOMBRE DEL CLIENTE': clientName,
+        'NOMBRE CLIENTE/EMPRESA': clientName,
+        'INFORME DE CASOS': informe,
+      }
+      setSubject((s) => replacePlaceholders(s, map))
+      setBody((b) => replacePlaceholders(b, map))
+    } finally {
+      setLoadingClientReport(false)
+    }
+  }, [companies, selectedCompany])
+
   const handleSelectTemplate = (templateId: string) => {
-    const template = emailTemplates.find(t => t.id === templateId)
-    if (template) {
-      setSelectedTemplate(template)
-      setSubject(template.subject)
-      setBody(template.body)
+    const template = emailTemplates.find((t) => t.id === templateId)
+    if (!template) return
+    setSelectedTemplate(template)
+    setSubject(template.subject)
+    setBody(template.body)
+    if (!template.needsCase && !template.needsCompany) {
+      if (selectedContact) {
+        const name = selectedContact.name?.trim() || selectedContact.email
+        setSubject(replacePlaceholders(template.subject, { 'NOMBRE DEL CLIENTE': name, 'NOMBRE': name }))
+        setBody(replacePlaceholders(template.body, { 'NOMBRE DEL CLIENTE': name, 'NOMBRE': name }))
+      }
+    }
+    if (template.needsCase && selectedCase) {
+      fetchCaseDetail(selectedCase.id)
+    }
+    if (template.needsCompany && selectedCompany) {
+      fetchClientReport(selectedCompany.id)
     }
   }
 
-  /** Copies email content to clipboard */
+  const handleSelectCase = (caseId: string) => {
+    const c = cases.find((x) => x.id === caseId) ?? null
+    setSelectedCase(c)
+    if (selectedTemplate?.needsCase && c) {
+      fetchCaseDetail(c.id)
+    }
+  }
+
+  const handleSelectCompany = (companyId: string) => {
+    const co = companies.find((x) => x.id === companyId) ?? null
+    setSelectedCompany(co)
+    if (selectedTemplate?.needsCompany && co) {
+      fetchClientReport(co.id)
+    }
+  }
+
   const handleCopy = () => {
     const fullContent = `Para: ${recipient}\nAsunto: ${subject}\n\n${body}`
     navigator.clipboard.writeText(fullContent)
@@ -146,7 +380,6 @@ export default function QuickEmailPage() {
     setTimeout(() => setIsCopied(false), 2000)
   }
 
-  /** Opens email in default client */
   const handleOpenInClient = () => {
     const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     window.open(mailtoUrl, '_blank')
@@ -154,18 +387,16 @@ export default function QuickEmailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Correo Rápido
         </h1>
         <p className="text-sm text-muted-foreground">
-          Herramienta de composición rápida de correos con plantillas predefinidas
+          Plantillas y composición con datos de sus contactos y casos
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Templates List */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -173,7 +404,7 @@ export default function QuickEmailPage() {
               Plantillas
             </CardTitle>
             <CardDescription>
-              Seleccione una plantilla para comenzar
+              Elija una plantilla; puede vincular caso o cliente para rellenar automáticamente
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -181,18 +412,14 @@ export default function QuickEmailPage() {
               {emailTemplates.map((template) => {
                 const config = categoryConfig[template.category]
                 const isSelected = selectedTemplate?.id === template.id
-
                 return (
                   <button
                     key={template.id}
                     onClick={() => handleSelectTemplate(template.id)}
-                    className={`
-                      w-full text-left p-3 rounded-lg border transition-colors
-                      ${isSelected 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:bg-muted/50'
-                      }
-                    `}
+                    className={cn(
+                      'w-full text-left p-3 rounded-lg border transition-colors',
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                    )}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-medium text-sm">{template.name}</span>
@@ -210,7 +437,6 @@ export default function QuickEmailPage() {
           </CardContent>
         </Card>
 
-        {/* Email Composer */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -219,19 +445,135 @@ export default function QuickEmailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Recipient */}
+            {/* Recipient with contact picker */}
             <div className="space-y-2">
-              <Label htmlFor="recipient">Destinatario</Label>
-              <Input
-                id="recipient"
-                type="email"
-                placeholder="correo@ejemplo.com"
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-              />
+              <Label>Destinatario</Label>
+              <div className="flex gap-2">
+                <Popover open={contactOpen} onOpenChange={setContactOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={contactOpen}
+                      className="w-[200px] justify-between shrink-0"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      {loading ? 'Cargando...' : 'Elegir contacto'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[320px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar por nombre o correo..." />
+                      <CommandList>
+                        <CommandEmpty>Sin resultados</CommandEmpty>
+                        <CommandGroup>
+                          {contacts.map((contact) => (
+                            <CommandItem
+                              key={contact.id}
+                              value={`${contact.name ?? ''} ${contact.email} ${contact.company_name ?? ''}`}
+                              onSelect={() => fillFromContact(contact)}
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-medium">
+                                  {contact.name || contact.email}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {contact.email}
+                                  {contact.company_name ? ` · ${contact.company_name}` : ''}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  id="recipient"
+                  type="email"
+                  placeholder="correo@ejemplo.com"
+                  value={recipient}
+                  onChange={(e) => {
+                    setRecipient(e.target.value)
+                    if (!e.target.value) setSelectedContact(null)
+                  }}
+                  className="flex-1"
+                />
+              </div>
+              {selectedContact && (
+                <p className="text-xs text-muted-foreground">
+                  Contacto: {selectedContact.name || selectedContact.email}
+                  {selectedContact.company_name ? ` (${selectedContact.company_name})` : ''}
+                </p>
+              )}
             </div>
 
-            {/* Subject */}
+            {/* Case selector for procedural-status */}
+            {selectedTemplate?.needsCase && (
+              <div className="space-y-2">
+                <Label>Caso (para rellenar estado procesal)</Label>
+                <Select
+                  value={selectedCase?.id ?? ''}
+                  onValueChange={handleSelectCase}
+                  disabled={loadingCaseDetail}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un caso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cases.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4 text-muted-foreground" />
+                          {c.case_number} – {c.title}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {loadingCaseDetail && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Cargando plazos...
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Company selector for client report */}
+            {selectedTemplate?.needsCompany && (
+              <div className="space-y-2">
+                <Label>Cliente / Empresa (para informe general)</Label>
+                <Select
+                  value={selectedCompany?.id ?? ''}
+                  onValueChange={handleSelectCompany}
+                  disabled={loadingClientReport}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((co) => (
+                      <SelectItem key={co.id} value={co.id}>
+                        <span className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          {co.company_name || co.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {loadingClientReport && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Generando informe...
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="subject">Asunto</Label>
               <Input
@@ -242,7 +584,6 @@ export default function QuickEmailPage() {
               />
             </div>
 
-            {/* Body */}
             <div className="space-y-2">
               <Label htmlFor="body">Mensaje</Label>
               <Textarea
@@ -254,15 +595,13 @@ export default function QuickEmailPage() {
               />
             </div>
 
-            {/* Help text */}
             <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
               <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <p className="text-muted-foreground">
-                Reemplace los campos entre [CORCHETES] con la información correspondiente antes de enviar.
+                Los campos entre [CORCHETES] se rellenan al elegir un contacto, caso o cliente. Puede editarlos antes de enviar.
               </p>
             </div>
 
-            {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-2 pt-4">
               <Button onClick={handleOpenInClient} className="flex-1">
                 <ExternalLink className="mr-2 h-4 w-4" />
@@ -277,7 +616,6 @@ export default function QuickEmailPage() {
         </Card>
       </div>
 
-      {/* Quick Tips */}
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
@@ -285,10 +623,10 @@ export default function QuickEmailPage() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">Próximamente: Asistente IA</h3>
+              <h3 className="font-medium mb-1">Datos personalizados</h3>
               <p className="text-sm text-muted-foreground">
-                Pronto podrá generar correos personalizados con ayuda de inteligencia artificial, 
-                adaptando automáticamente el tono y contenido según el destinatario y contexto del caso.
+                Use &quot;Elegir contacto&quot; para completar destinatario y saludo con sus personas registradas.
+                Las plantillas &quot;Actualización de estado procesal&quot; e &quot;Informe de estado general&quot; se rellenan con los plazos y casos del estudio.
               </p>
             </div>
           </div>
