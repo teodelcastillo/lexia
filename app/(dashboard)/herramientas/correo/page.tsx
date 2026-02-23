@@ -394,19 +394,31 @@ export default function QuickEmailPage() {
     if (!selectedCompany?.id) return
     setGeneratingInforme(true)
     try {
-      const res = await fetch('/api/herramientas/correo/informe-estado', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: selectedCompany.id }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Error al generar el informe')
+      const dataRes = await fetch(`/api/herramientas/correo/data?mode=client-cases&companyId=${encodeURIComponent(selectedCompany.id)}`)
+      if (!dataRes.ok) throw new Error('Error al cargar casos del cliente')
+      const { cases: caseList } = await dataRes.json()
+      const casesForReport = (caseList ?? []) as { id: string; case_number: string; title: string }[]
+      if (casesForReport.length === 0) {
+        setBody((b) => b.replace(/\[INFORME DE CASOS\]/g, 'No hay casos activos registrados para este cliente.'))
+        return
       }
-      const data = await res.json()
-      if (data.informe) {
-        setBody((b) => b.replace(/\[INFORME DE CASOS\]/g, data.informe))
+      const parts: string[] = []
+      for (const c of casesForReport) {
+        const res = await fetch('/api/herramientas/correo/informe-estado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId: c.id }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || `Error al generar fragmento del caso ${c.case_number}`)
+        }
+        const { fragment } = await res.json()
+        const title = `Expediente ${c.case_number} - ${c.title ?? 'Sin carátula'}`
+        parts.push(`${title}\n\n${(fragment ?? '').trim()}`)
       }
+      const informe = parts.join('\n\n')
+      setBody((b) => b.replace(/\[INFORME DE CASOS\]/g, informe))
     } catch (e) {
       console.error(e)
       alert(e instanceof Error ? e.message : 'Error al generar el informe')
@@ -676,7 +688,7 @@ export default function QuickEmailPage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  La IA completará [INFORME DE CASOS] con un párrafo breve por cada caso (estado y próximos pasos).
+                  La IA completará [INFORME DE CASOS] con un listado titulado por causa (número de expediente y carátula); cada caso se genera con una llamada a la IA para mayor precisión.
                 </p>
               </div>
             )}
