@@ -31,6 +31,16 @@ function formatDate(iso: string): string {
   })
 }
 
+type ActivityRow = {
+  description?: string | null
+  created_at: string
+  action_type: string
+  entity_type: string
+  profiles?: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null
+}
+type DeadlineRow = { title: string; due_date: string; deadline_type?: string | null }
+type TaskRow = { title: string; status: string; due_date: string | null; priority?: string | null }
+
 function buildCaseContext(
   caseRow: { case_number: string; title: string; status: string },
   activities: unknown[],
@@ -41,18 +51,18 @@ function buildCaseContext(
   const caseTitle = caseRow.title ?? ''
   const caseStatus = STATUS_LABELS[caseRow.status] ?? caseRow.status ?? ''
 
-  const activityLines = (activities ?? []).map((a: { description?: string | null; created_at: string; action_type: string; entity_type: string; profiles?: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }) => {
+  const activityLines = (activities as ActivityRow[]).map((a) => {
     const p = Array.isArray(a.profiles) ? a.profiles[0] ?? null : a.profiles
     const who = p ? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Sistema' : 'Sistema'
     const desc = a.description?.trim() || `${a.action_type} (${a.entity_type})`
     return `- ${formatDate(a.created_at)} — ${who}: ${desc}`
   })
 
-  const deadlineLines = (deadlines ?? []).map((d: { title: string; due_date: string; deadline_type?: string | null }) =>
+  const deadlineLines = (deadlines as DeadlineRow[]).map((d) =>
     `- ${d.title}: ${formatDate(d.due_date)}${d.deadline_type ? ` [${d.deadline_type}]` : ''}`
   )
 
-  const taskLines = (tasks ?? []).map((t: { title: string; status: string; due_date: string | null; priority?: string | null }) =>
+  const taskLines = (tasks as TaskRow[]).map((t) =>
     `- ${t.title} (${t.status})${t.due_date ? ` — vence ${formatDate(t.due_date)}` : ''}${t.priority ? ` [${t.priority}]` : ''}`
   )
 
