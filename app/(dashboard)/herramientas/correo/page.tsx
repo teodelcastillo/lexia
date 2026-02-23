@@ -400,7 +400,7 @@ export default function QuickEmailPage() {
       }
       const data = await res.json()
       if (data.subject) setSubject(data.subject)
-      if (data.bodyHtml) setBody(data.bodyHtml)
+      if (data.bodyHtml) setBody(stripHtml(data.bodyHtml))
     } catch (e) {
       console.error(e)
       alert(e instanceof Error ? e.message : 'Error al generar el informe')
