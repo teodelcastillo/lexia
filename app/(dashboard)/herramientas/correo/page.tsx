@@ -315,31 +315,11 @@ export default function QuickEmailPage() {
     try {
       const res = await fetch(`/api/herramientas/correo/data?mode=client-cases&companyId=${encodeURIComponent(companyId)}`)
       const data = await res.json()
-      const caseList = data.cases ?? []
-      const deadlinesByCase = data.deadlinesByCase ?? {}
       const company = companies.find((co) => co.id === companyId) ?? selectedCompany
       const clientName = company?.company_name ?? company?.name ?? 'Cliente'
-      const lines: string[] = []
-      for (const c of caseList) {
-        const plazos = (deadlinesByCase[c.id] ?? []).slice(0, 3)
-        const plazosStr =
-          plazos.length > 0
-            ? plazos
-                .map(
-                  (p: { title: string; due_date: string }) =>
-                    `  - ${p.title}: ${new Date(p.due_date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                )
-                .join('\n')
-            : '  (sin próximos plazos)'
-        lines.push(
-          `• Expediente ${c.case_number} - ${c.title}\n  Estado: ${statusLabels[c.status] ?? c.status}\n  Próximos plazos:\n${plazosStr}`
-        )
-      }
-      const informe = lines.length > 0 ? lines.join('\n\n') : 'No hay casos activos registrados.'
       const map: Record<string, string> = {
         'NOMBRE DEL CLIENTE': clientName,
         'NOMBRE CLIENTE/EMPRESA': clientName,
-        'INFORME DE CASOS': informe,
       }
       setSubject((s) => replacePlaceholders(s, map))
       setBody((b) => replacePlaceholders(b, map))
@@ -399,8 +379,9 @@ export default function QuickEmailPage() {
         throw new Error(err.error || 'Error al generar el informe')
       }
       const data = await res.json()
-      if (data.subject) setSubject(data.subject)
-      if (data.bodyHtml) setBody(stripHtml(data.bodyHtml))
+      if (data.fragment) {
+        setBody((b) => b.replace(/\[Completar si corresponde\]/g, data.fragment))
+      }
     } catch (e) {
       console.error(e)
       alert(e instanceof Error ? e.message : 'Error al generar el informe')
@@ -408,6 +389,31 @@ export default function QuickEmailPage() {
       setGeneratingInforme(false)
     }
   }, [selectedCase?.id])
+
+  const generateInformeIAClient = useCallback(async () => {
+    if (!selectedCompany?.id) return
+    setGeneratingInforme(true)
+    try {
+      const res = await fetch('/api/herramientas/correo/informe-estado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: selectedCompany.id }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al generar el informe')
+      }
+      const data = await res.json()
+      if (data.informe) {
+        setBody((b) => b.replace(/\[INFORME DE CASOS\]/g, data.informe))
+      }
+    } catch (e) {
+      console.error(e)
+      alert(e instanceof Error ? e.message : 'Error al generar el informe')
+    } finally {
+      setGeneratingInforme(false)
+    }
+  }, [selectedCompany?.id])
 
   const handleCopy = () => {
     const plainBody = body.includes('<') && body.includes('>') ? stripHtml(body) : body
@@ -615,7 +621,7 @@ export default function QuickEmailPage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  El informe se redacta a partir de la actividad reciente del caso, próximos eventos y tareas. Incluye formato (secciones y listas).
+                  La IA completa solo [Completar si corresponde] con una breve descripción del estado del caso y próximos pasos.
                 </p>
               </div>
             )}
@@ -624,31 +630,54 @@ export default function QuickEmailPage() {
             {selectedTemplate?.needsCompany && (
               <div className="space-y-2">
                 <Label>Cliente / Empresa (para informe general)</Label>
-                <Select
-                  value={selectedCompany?.id ?? ''}
-                  onValueChange={handleSelectCompany}
-                  disabled={loadingClientReport}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((co) => (
-                      <SelectItem key={co.id} value={co.id}>
-                        <span className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          {co.company_name || co.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2 flex-wrap">
+                  <Select
+                    value={selectedCompany?.id ?? ''}
+                    onValueChange={handleSelectCompany}
+                    disabled={loadingClientReport || generatingInforme}
+                  >
+                    <SelectTrigger className="flex-1 min-w-[200px]">
+                      <SelectValue placeholder="Seleccione un cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((co) => (
+                        <SelectItem key={co.id} value={co.id}>
+                          <span className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            {co.company_name || co.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={generateInformeIAClient}
+                    disabled={!selectedCompany?.id || generatingInforme}
+                  >
+                    {generatingInforme ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generar informe con IA
+                      </>
+                    )}
+                  </Button>
+                </div>
                 {loadingClientReport && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Generando informe...
+                    Cargando...
                   </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  La IA completará [INFORME DE CASOS] con un párrafo breve por cada caso (estado y próximos pasos).
+                </p>
               </div>
             )}
 
@@ -703,8 +732,7 @@ export default function QuickEmailPage() {
             <div>
               <h3 className="font-medium mb-1">Datos personalizados</h3>
               <p className="text-sm text-muted-foreground">
-                Use &quot;Elegir contacto&quot; para completar destinatario y saludo con sus personas registradas.
-                Las plantillas &quot;Actualización de estado procesal&quot; e &quot;Informe de estado general&quot; se rellenan con los plazos y casos del estudio.
+                Use &quot;Elegir contacto&quot; para completar destinatario y saludo. Con &quot;Generar informe con IA&quot; se completa solo el apartado [Completar si corresponde] o [INFORME DE CASOS] con una breve descripción por caso.
               </p>
             </div>
           </div>

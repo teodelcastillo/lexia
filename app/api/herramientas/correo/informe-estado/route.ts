@@ -1,7 +1,8 @@
 /**
- * API: Generate case status report (informe de estado) via AI
- * Uses activity log, upcoming deadlines, and tasks for the case.
- * Returns formatted HTML body and subject. No AI disclaimer in output.
+ * API: Generate case status fragment(s) via AI
+ * - caseId: returns only the text for [Completar si corresponde] (brief estado + próximos pasos).
+ * - companyId: returns text for [INFORME DE CASOS] (one brief paragraph per case).
+ * Plain text, no HTML. No AI disclaimer.
  */
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
@@ -9,7 +10,7 @@ import { resolveModel } from '@/lib/ai/resolver'
 import { getModelConfig } from '@/lib/ai/providers'
 import { NextResponse } from 'next/server'
 
-export const maxDuration = 30
+export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -30,124 +31,193 @@ function formatDate(iso: string): string {
   })
 }
 
+function buildCaseContext(
+  caseRow: { case_number: string; title: string; status: string },
+  activities: unknown[],
+  deadlines: unknown[],
+  tasks: unknown[]
+): string {
+  const caseNumber = caseRow.case_number ?? ''
+  const caseTitle = caseRow.title ?? ''
+  const caseStatus = STATUS_LABELS[caseRow.status] ?? caseRow.status ?? ''
+
+  const activityLines = (activities ?? []).map((a: { description?: string | null; created_at: string; action_type: string; entity_type: string; profiles?: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }) => {
+    const p = Array.isArray(a.profiles) ? a.profiles[0] ?? null : a.profiles
+    const who = p ? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Sistema' : 'Sistema'
+    const desc = a.description?.trim() || `${a.action_type} (${a.entity_type})`
+    return `- ${formatDate(a.created_at)} — ${who}: ${desc}`
+  })
+
+  const deadlineLines = (deadlines ?? []).map((d: { title: string; due_date: string; deadline_type?: string | null }) =>
+    `- ${d.title}: ${formatDate(d.due_date)}${d.deadline_type ? ` [${d.deadline_type}]` : ''}`
+  )
+
+  const taskLines = (tasks ?? []).map((t: { title: string; status: string; due_date: string | null; priority?: string | null }) =>
+    `- ${t.title} (${t.status})${t.due_date ? ` — vence ${formatDate(t.due_date)}` : ''}${t.priority ? ` [${t.priority}]` : ''}`
+  )
+
+  return `
+EXPEDIENTE: ${caseNumber}
+TÍTULO: ${caseTitle}
+ESTADO: ${caseStatus}
+
+ACTIVIDAD RECIENTE:
+${activityLines.length > 0 ? activityLines.join('\n') : '(Sin actividad reciente)'}
+
+PRÓXIMOS EVENTOS/PLAZOS:
+${deadlineLines.length > 0 ? deadlineLines.join('\n') : '(Sin plazos próximos)'}
+
+TAREAS PENDIENTES:
+${taskLines.length > 0 ? taskLines.join('\n') : '(Sin tareas pendientes)'}
+`.trim()
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const caseId = body?.caseId as string | undefined
-    if (!caseId) {
-      return NextResponse.json({ error: 'caseId requerido' }, { status: 400 })
+    const companyId = body?.companyId as string | undefined
+
+    if (!caseId && !companyId) {
+      return NextResponse.json({ error: 'caseId o companyId requerido' }, { status: 400 })
     }
 
     const supabase = await createClient()
-
-    const [
-      { data: caseRow, error: caseErr },
-      { data: activities },
-      { data: deadlines },
-      { data: tasks },
-    ] = await Promise.all([
-      supabase
-        .from('cases')
-        .select('id, case_number, title, status')
-        .eq('id', caseId)
-        .single(),
-      supabase
-        .from('activity_log')
-        .select(`
-          id,
-          action_type,
-          entity_type,
-          description,
-          created_at,
-          profiles:user_id ( first_name, last_name )
-        `)
-        .eq('case_id', caseId)
-        .order('created_at', { ascending: false })
-        .limit(25),
-      supabase
-        .from('deadlines')
-        .select('id, title, due_date, deadline_type, status')
-        .eq('case_id', caseId)
-        .eq('is_completed', false)
-        .gte('due_date', new Date().toISOString().slice(0, 10))
-        .order('due_date', { ascending: true })
-        .limit(15),
-      supabase
-        .from('tasks')
-        .select('id, title, status, due_date, priority')
-        .eq('case_id', caseId)
-        .in('status', ['pending', 'in_progress'])
-        .order('due_date', { ascending: true, nullsFirst: false })
-        .limit(15),
-    ])
-
-    if (caseErr || !caseRow) {
-      return NextResponse.json({ error: 'Caso no encontrado' }, { status: 404 })
-    }
-
-    const caseNumber = caseRow.case_number ?? ''
-    const caseTitle = caseRow.title ?? ''
-    const caseStatus = STATUS_LABELS[caseRow.status] ?? caseRow.status ?? ''
-
-    const activityLines = (activities ?? []).map((a: { description: string | null; created_at: string; action_type: string; entity_type: string; profiles: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }) => {
-      const p = Array.isArray(a.profiles) ? a.profiles[0] ?? null : a.profiles
-      const who = p ? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Sistema' : 'Sistema'
-      const desc = a.description?.trim() || `${a.action_type} (${a.entity_type})`
-      return `- ${formatDate(a.created_at)} — ${who}: ${desc}`
-    })
-
-    const deadlineLines = (deadlines ?? []).map((d: { title: string; due_date: string; deadline_type: string | null }) =>
-      `- ${d.title}: ${formatDate(d.due_date)}${d.deadline_type ? ` [${d.deadline_type}]` : ''}`
-    )
-
-    const taskLines = (tasks ?? []).map((t: { title: string; status: string; due_date: string | null; priority: string | null }) =>
-      `- ${t.title} (${t.status})${t.due_date ? ` — vence ${formatDate(t.due_date)}` : ''}${t.priority ? ` [${t.priority}]` : ''}`
-    )
-
-    const contextBlock = `
-EXPEDIENTE: ${caseNumber}
-TÍTULO: ${caseTitle}
-ESTADO ACTUAL: ${caseStatus}
-
---- ACTIVIDAD RECIENTE (últimos registros) ---
-${activityLines.length > 0 ? activityLines.join('\n') : '(Sin actividad reciente registrada)'}
-
---- PRÓXIMOS EVENTOS / PLAZOS ---
-${deadlineLines.length > 0 ? deadlineLines.join('\n') : '(No hay plazos próximos cargados)'}
-
---- TAREAS PENDIENTES O EN CURSO ---
-${taskLines.length > 0 ? taskLines.join('\n') : '(No hay tareas pendientes)'}
-`.trim()
-
-    const systemPrompt = `Eres un asistente que redacta informes de estado de expedientes para abogados. 
-Tu tarea es redactar un informe breve y profesional ÚNICAMENTE con la información proporcionada: actividad reciente del caso, próximos eventos y tareas.
-No inventes datos. No menciones fuentes ni que el texto está generado por IA.
-Responde en HTML válido para correo electrónico. Usa solo estas etiquetas: <p>, <strong>, <ul>, <li>, <h3>, <br>. Sin <html> ni <body>.
-Estructura sugerida: un párrafo introductorio del estado del expediente; luego secciones claras (por ejemplo "Actividad reciente", "Próximos plazos", "Tareas en curso") con listas. Fechas en formato legible.`
-
-    const userPrompt = `Redacta un informe de estado del expediente basándote exclusivamente en estos datos:
-
-${contextBlock}
-
-Responde solo con el HTML del informe (sin explicaciones ni markdown).`
-
     const config = getModelConfig('claude-sonnet') ?? getModelConfig('gpt4o')
     const model = resolveModel(config?.model ?? 'anthropic/claude-sonnet-4-20250514')
 
+    // --- Single case: fragment for [Completar si corresponde] ---
+    if (caseId) {
+      const [
+        { data: caseRow, error: caseErr },
+        { data: activities },
+        { data: deadlines },
+        { data: tasks },
+      ] = await Promise.all([
+        supabase.from('cases').select('id, case_number, title, status').eq('id', caseId).single(),
+        supabase
+          .from('activity_log')
+          .select(`id, action_type, entity_type, description, created_at, profiles:user_id ( first_name, last_name )`)
+          .eq('case_id', caseId)
+          .order('created_at', { ascending: false })
+          .limit(25),
+        supabase
+          .from('deadlines')
+          .select('id, title, due_date, deadline_type, status')
+          .eq('case_id', caseId)
+          .eq('is_completed', false)
+          .gte('due_date', new Date().toISOString().slice(0, 10))
+          .order('due_date', { ascending: true })
+          .limit(15),
+        supabase
+          .from('tasks')
+          .select('id, title, status, due_date, priority')
+          .eq('case_id', caseId)
+          .in('status', ['pending', 'in_progress'])
+          .order('due_date', { ascending: true, nullsFirst: false })
+          .limit(15),
+      ])
+
+      if (caseErr || !caseRow) {
+        return NextResponse.json({ error: 'Caso no encontrado' }, { status: 404 })
+      }
+
+      const contextBlock = buildCaseContext(
+        caseRow,
+        activities ?? [],
+        deadlines ?? [],
+        tasks ?? []
+      )
+
+      const systemPrompt = `Eres un asistente que redacta textos breves de estado de expedientes para abogados.
+Tu tarea es redactar ÚNICAMENTE el contenido que reemplaza el placeholder "[Completar si corresponde]" en un correo al cliente: una breve descripción del estado del caso y los próximos pasos, basada solo en los datos proporcionados.
+No inventes datos. No uses etiquetas HTML. Responde en texto plano, uno o dos párrafos breves. No menciones que el texto está generado por IA.`
+
+      const userPrompt = `Genera solo el fragmento que debe reemplazar "[Completar si corresponde]" (breve estado del caso y próximos pasos):
+
+${contextBlock}
+
+Responde únicamente con ese texto, sin explicaciones ni títulos.`
+
+      const { text } = await generateText({
+        model,
+        system: systemPrompt,
+        prompt: userPrompt,
+        maxTokens: 512,
+        temperature: 0.3,
+      } as Parameters<typeof generateText>[0] & { maxTokens?: number })
+
+      const fragment = (text ?? '').trim()
+      return NextResponse.json({ fragment })
+    }
+
+    // --- Company: informe for [INFORME DE CASOS] (one paragraph per case) ---
+    const { data: cases, error: casesErr } = await supabase
+      .from('cases')
+      .select('id, case_number, title, status')
+      .eq('company_id', companyId)
+      .in('status', ['active', 'pending', 'on_hold'])
+      .order('updated_at', { ascending: false })
+
+    if (casesErr || !cases?.length) {
+      return NextResponse.json({ informe: 'No hay casos activos registrados para este cliente.' })
+    }
+
+    const casesContext: string[] = []
+    for (const c of cases) {
+      const [
+        { data: activities },
+        { data: deadlines },
+        { data: tasks },
+      ] = await Promise.all([
+        supabase
+          .from('activity_log')
+          .select(`id, action_type, entity_type, description, created_at, profiles:user_id ( first_name, last_name )`)
+          .eq('case_id', c.id)
+          .order('created_at', { ascending: false })
+          .limit(15),
+        supabase
+          .from('deadlines')
+          .select('id, title, due_date, deadline_type')
+          .eq('case_id', c.id)
+          .eq('is_completed', false)
+          .gte('due_date', new Date().toISOString().slice(0, 10))
+          .order('due_date', { ascending: true })
+          .limit(10),
+        supabase
+          .from('tasks')
+          .select('id, title, status, due_date, priority')
+          .eq('case_id', c.id)
+          .in('status', ['pending', 'in_progress'])
+          .order('due_date', { ascending: true, nullsFirst: false })
+          .limit(10),
+      ])
+      const block = buildCaseContext(c, activities ?? [], deadlines ?? [], tasks ?? [])
+      casesContext.push(`--- CASO ${casesContext.length + 1} ---\n${block}`)
+    }
+
+    const fullContext = casesContext.join('\n\n')
+
+    const systemPromptCompany = `Eres un asistente que redacta informes de estado de varios expedientes para abogados.
+Tu tarea es redactar ÚNICAMENTE el contenido que reemplaza "[INFORME DE CASOS]" en un correo al cliente: para cada caso, un párrafo breve con el estado y los próximos pasos, basado solo en los datos proporcionados.
+No inventes datos. No uses etiquetas HTML. Responde en texto plano. Separa cada caso con una línea en blanco. No incluyas títulos como "Caso 1" ni "Expediente X" en cada párrafo si no es necesario; el cliente ya conoce el contexto. No menciones que el texto está generado por IA.`
+
+    const userPromptCompany = `Genera el informe que reemplaza "[INFORME DE CASOS]": un párrafo breve por cada caso (estado y próximos pasos). Solo texto, sin listas con guiones ni títulos de sección.
+
+${fullContext}
+
+Responde únicamente con el texto del informe, un párrafo por caso, separados por línea en blanco.`
+
     const { text } = await generateText({
       model,
-      system: systemPrompt,
-      prompt: userPrompt,
-      // maxTokens is supported at runtime but not in the TS type,
-      // so we widen the type as in other AI helpers (generate-title).
+      system: systemPromptCompany,
+      prompt: userPromptCompany,
       maxTokens: 2048,
       temperature: 0.3,
     } as Parameters<typeof generateText>[0] & { maxTokens?: number })
 
-    const bodyHtml = (text ?? '').trim()
-    const subject = `Estado procesal - Expediente ${caseNumber}`
-
-    return NextResponse.json({ subject, bodyHtml })
+    const informe = (text ?? '').trim()
+    return NextResponse.json({ informe })
   } catch (e) {
     console.error('[correo/informe-estado]', e)
     return NextResponse.json(
