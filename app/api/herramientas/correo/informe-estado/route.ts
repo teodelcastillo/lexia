@@ -138,9 +138,11 @@ Responde solo con el HTML del informe (sin explicaciones ni markdown).`
       model,
       system: systemPrompt,
       prompt: userPrompt,
+      // maxTokens is supported at runtime but not in the TS type,
+      // so we widen the type as in other AI helpers (generate-title).
       maxTokens: 2048,
       temperature: 0.3,
-    })
+    } as Parameters<typeof generateText>[0] & { maxTokens?: number })
 
     const bodyHtml = (text ?? '').trim()
     const subject = `Estado procesal - Expediente ${caseNumber}`
