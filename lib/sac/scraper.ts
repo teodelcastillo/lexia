@@ -8,8 +8,11 @@
  *
  * All CSS/XPath selectors come from the configurable SAC_SELECTORS object
  * in lib/sac/types.ts so they can be updated without touching this logic.
+ *
+ * On Vercel/serverless: uses @sparticuz/chromium (Chromium for serverless).
+ * Locally: uses Playwright's Chromium (run `npx playwright install`).
  */
-import { chromium, type Browser, type Page, type BrowserContext } from 'playwright'
+import type { Browser, Page, BrowserContext } from 'playwright-core'
 import {
   SAC_BASE_URL,
   SAC_SELECTORS,
@@ -81,10 +84,24 @@ let _browser: Browser | null = null
 
 async function getBrowser(): Promise<Browser> {
   if (_browser?.isConnected()) return _browser
-  _browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  })
+
+  if (process.env.VERCEL) {
+    // Vercel/serverless: use @sparticuz/chromium (Chromium bundled for serverless)
+    const chromium = await import('@sparticuz/chromium')
+    const { chromium: pwChromium } = await import('playwright-core')
+    _browser = await pwChromium.launch({
+      executablePath: await chromium.executablePath(),
+      args: chromium.args,
+      headless: chromium.headless,
+    })
+  } else {
+    // Local: use Playwright's Chromium (requires `npx playwright install`)
+    const { chromium } = await import('playwright')
+    _browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    })
+  }
   return _browser
 }
 

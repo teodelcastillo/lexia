@@ -282,7 +282,7 @@ FOR SELECT USING (
 CREATE POLICY "sac_credentials_insert" ON public.lawyer_sac_credentials
 FOR INSERT WITH CHECK (
   profile_id = auth.uid()
-  AND (auth.jwt() ->> 'system_role') IN ('case_leader', 'lawyer_executive')
+  AND current_user_system_role() IN ('case_leader', 'lawyer_executive')
 );
 
 CREATE POLICY "sac_credentials_update" ON public.lawyer_sac_credentials
@@ -318,7 +318,7 @@ FOR INSERT WITH CHECK (
   organization_id = current_user_organization_id()
   AND (
     is_admin()
-    OR (auth.jwt() ->> 'system_role') IN ('case_leader', 'lawyer_executive')
+    OR current_user_system_role() IN ('case_leader', 'lawyer_executive')
   )
 );
 
@@ -353,7 +353,7 @@ FOR INSERT WITH CHECK (
   organization_id = current_user_organization_id()
   AND (
     is_admin()
-    OR (auth.jwt() ->> 'system_role') IN ('case_leader', 'lawyer_executive')
+    OR current_user_system_role() IN ('case_leader', 'lawyer_executive')
   )
 );
 
