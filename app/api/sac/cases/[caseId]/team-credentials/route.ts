@@ -52,10 +52,11 @@ export async function GET(
       system_role: string
     }
 
-    function getProfile(a: (typeof assignments)[number]): ProfileInfo | null {
+    function getProfile(a: { profiles: unknown }): ProfileInfo | null {
       const p = a.profiles
       if (!p) return null
-      return (Array.isArray(p) ? p[0] : p) as ProfileInfo | null
+      const obj = Array.isArray(p) ? p[0] : p
+      return (obj ?? null) as ProfileInfo | null
     }
 
     const lawyerIds = assignments
