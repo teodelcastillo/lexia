@@ -87,7 +87,7 @@ async function getBrowser(): Promise<Browser> {
 
   if (process.env.VERCEL) {
     // Vercel/serverless: use @sparticuz/chromium (Chromium bundled for serverless)
-    const chromium = await import('@sparticuz/chromium')
+    const { default: chromium } = await import('@sparticuz/chromium')
     const { chromium: pwChromium } = await import('playwright-core')
     _browser = await pwChromium.launch({
       executablePath: await chromium.executablePath(),
