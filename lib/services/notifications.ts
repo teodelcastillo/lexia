@@ -25,6 +25,7 @@ type NotificationType =
   | 'mention'
   | 'task_approaching'
   | 'calendar_event_approaching'
+  | 'sac_new_movements'
 
 type NotificationCategory = 'activity' | 'work'
 
@@ -683,5 +684,50 @@ export async function notifyDocumentUploaded(
       documentId,
       triggeredBy: uploadedBy,
     })
+  }
+}
+
+/**
+ * Notifies the entire case team about new SAC movements.
+ */
+export async function notifySacNewMovements(
+  caseId: string,
+  caseNumber: string,
+  caseTitle: string,
+  movementsCount: number,
+  triggeredBy?: string,
+  options?: { supabase?: SupabaseClient }
+) {
+  const supabase = options?.supabase ?? (await createClient())
+  const { data: caseData } = await supabase
+    .from('cases')
+    .select('organization_id')
+    .eq('id', caseId)
+    .single()
+
+  const users = await getUsersToNotify(
+    {
+      caseId,
+      excludeUserId: triggeredBy,
+      organizationId: caseData?.organization_id || null,
+    },
+    options
+  )
+
+  const allUsers = [...new Set([...users.admins, ...users.caseLeaders, ...users.assignees])]
+
+  if (allUsers.length > 0) {
+    await createNotifications(
+      {
+        userIds: allUsers,
+        category: 'work',
+        type: 'sac_new_movements',
+        title: 'Nuevos movimientos SAC',
+        message: `Se detectaron ${movementsCount} nuevo(s) movimiento(s) en el expediente del caso ${caseNumber} — ${caseTitle}`,
+        caseId,
+        triggeredBy,
+      },
+      options
+    )
   }
 }

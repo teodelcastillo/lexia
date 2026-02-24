@@ -1,10 +1,11 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { ArrowLeft, Mail, Phone, MapPin, Building2, Shield, Cloud } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, MapPin, Building2, Shield, Cloud, Scale } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { GoogleIntegrations } from '@/components/settings/google-integrations'
+import { SacCredentialsForm } from '@/components/sac/sac-credentials-form'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -180,6 +181,26 @@ export function ProfileView({ profile, user }: ProfileViewProps) {
             </Suspense>
           </CardContent>
         </Card>
+
+        {/* SAC Credentials Card — only for lawyers */}
+        {['case_leader', 'lawyer_executive'].includes(profile.system_role) && (
+          <Card className="border-border/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Scale className="h-5 w-5" />
+                Extranet SAC
+              </CardTitle>
+              <CardDescription>
+                Credenciales para el Sistema de Administración de Causas del Poder Judicial de Córdoba
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Suspense fallback={<div className="p-2 text-muted-foreground text-sm">Cargando...</div>}>
+                <SacCredentialsForm />
+              </Suspense>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Preferences Card */}
         <Card className="border-border/60">

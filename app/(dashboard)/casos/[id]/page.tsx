@@ -44,6 +44,7 @@ import { CaseTeam } from '@/components/cases/case-team'
 import { CaseActivityLog } from '@/components/cases/case-activity-log'
 import { CaseNotes } from '@/components/cases/case-notes'
 import { CaseLexiaButton } from '@/components/cases/case-lexia-button'
+import { SacMovementsPanel } from '@/components/sac/sac-movements-panel'
 import type { CaseStatus, TaskPriority, CaseRole } from '@/lib/types'
 
 export const metadata = {
@@ -487,6 +488,10 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             <Activity className="h-4 w-4" />
             <span className="hidden sm:inline">Actividad</span>
           </TabsTrigger>
+          <TabsTrigger value="sac" className="flex-1 min-w-fit gap-1.5">
+            <Scale className="h-4 w-4" />
+            <span className="hidden sm:inline">SAC</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -547,6 +552,23 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
             <CaseActivityLog caseId={id} />
           </Suspense>
+        </TabsContent>
+
+        {/* SAC Tab */}
+        <TabsContent value="sac">
+          <SacMovementsPanel
+            caseId={id}
+            sacExpedienteNumber={caseData.sac_expediente_number}
+            sacAnio={caseData.sac_anio}
+            sacFuero={caseData.sac_fuero}
+            sacResponsibleLawyerId={caseData.sac_responsible_lawyer_id}
+            sacEstadoActual={caseData.sac_estado_actual}
+            sacLastSync={caseData.sac_last_sync}
+            sacCaratula={caseData.sac_caratula}
+            sacJuzgado={caseData.sac_juzgado}
+            sacSecretaria={caseData.sac_secretaria}
+            canEdit={canEdit}
+          />
         </TabsContent>
       </Tabs>
     </div>

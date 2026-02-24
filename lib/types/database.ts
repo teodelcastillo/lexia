@@ -236,6 +236,15 @@ export type Database = {
           notes: string | null
           opposing_counsel: string | null
           opposing_party: string | null
+          sac_anio: string | null
+          sac_caratula: string | null
+          sac_estado_actual: string | null
+          sac_expediente_number: string | null
+          sac_fuero: string | null
+          sac_juzgado: string | null
+          sac_last_sync: string | null
+          sac_responsible_lawyer_id: string | null
+          sac_secretaria: string | null
           status: Database["public"]["Enums"]["case_status"]
           statute_of_limitations: string | null
           title: string
@@ -259,6 +268,15 @@ export type Database = {
           notes?: string | null
           opposing_counsel?: string | null
           opposing_party?: string | null
+          sac_anio?: string | null
+          sac_caratula?: string | null
+          sac_estado_actual?: string | null
+          sac_expediente_number?: string | null
+          sac_fuero?: string | null
+          sac_juzgado?: string | null
+          sac_last_sync?: string | null
+          sac_responsible_lawyer_id?: string | null
+          sac_secretaria?: string | null
           status?: Database["public"]["Enums"]["case_status"]
           statute_of_limitations?: string | null
           title: string
@@ -282,6 +300,15 @@ export type Database = {
           notes?: string | null
           opposing_counsel?: string | null
           opposing_party?: string | null
+          sac_anio?: string | null
+          sac_caratula?: string | null
+          sac_estado_actual?: string | null
+          sac_expediente_number?: string | null
+          sac_fuero?: string | null
+          sac_juzgado?: string | null
+          sac_last_sync?: string | null
+          sac_responsible_lawyer_id?: string | null
+          sac_secretaria?: string | null
           status?: Database["public"]["Enums"]["case_status"]
           statute_of_limitations?: string | null
           title?: string
@@ -293,6 +320,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_sac_responsible_lawyer_id_fkey"
+            columns: ["sac_responsible_lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1590,6 +1624,176 @@ export type Database = {
           },
         ]
       }
+      lawyer_sac_credentials: {
+        Row: {
+          id: string
+          profile_id: string
+          organization_id: string
+          extranet_username: string
+          encrypted_password: string
+          is_active: boolean
+          last_successful_login: string | null
+          last_failed_login: string | null
+          consecutive_failures: number
+          encrypted_session: string | null
+          session_expires_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          organization_id: string
+          extranet_username: string
+          encrypted_password: string
+          is_active?: boolean
+          last_successful_login?: string | null
+          last_failed_login?: string | null
+          consecutive_failures?: number
+          encrypted_session?: string | null
+          session_expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          organization_id?: string
+          extranet_username?: string
+          encrypted_password?: string
+          is_active?: boolean
+          last_successful_login?: string | null
+          last_failed_login?: string | null
+          consecutive_failures?: number
+          encrypted_session?: string | null
+          session_expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lawyer_sac_credentials_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sac_movements: {
+        Row: {
+          id: string
+          case_id: string
+          organization_id: string
+          fecha: string
+          tipo: string
+          descripcion: string
+          folio: string | null
+          secretaria_mov: string | null
+          synced_by_lawyer_id: string | null
+          is_new: boolean
+          suggested_deadline_id: string | null
+          raw_data: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          organization_id: string
+          fecha: string
+          tipo: string
+          descripcion: string
+          folio?: string | null
+          secretaria_mov?: string | null
+          synced_by_lawyer_id?: string | null
+          is_new?: boolean
+          suggested_deadline_id?: string | null
+          raw_data?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string
+          organization_id?: string
+          fecha?: string
+          tipo?: string
+          descripcion?: string
+          folio?: string | null
+          secretaria_mov?: string | null
+          synced_by_lawyer_id?: string | null
+          is_new?: boolean
+          suggested_deadline_id?: string | null
+          raw_data?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sac_movements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sac_movements_synced_by_lawyer_id_fkey"
+            columns: ["synced_by_lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sac_sync_log: {
+        Row: {
+          id: string
+          case_id: string | null
+          organization_id: string | null
+          lawyer_id: string | null
+          status: string
+          movements_found: number
+          error_message: string | null
+          duration_ms: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          case_id?: string | null
+          organization_id?: string | null
+          lawyer_id?: string | null
+          status: string
+          movements_found?: number
+          error_message?: string | null
+          duration_ms?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string | null
+          organization_id?: string | null
+          lawyer_id?: string | null
+          status?: string
+          movements_found?: number
+          error_message?: string | null
+          duration_ms?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sac_sync_log_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sac_sync_log_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       case_participants_detail: {
@@ -1831,6 +2035,11 @@ export type InvoiceStatus = Enums<"invoice_status">
 export type AccountMovementType = Enums<"account_movement_type">
 export type ParticipationType = Enums<"participation_type">
 export type CompensationStatus = Enums<"compensation_status">
+
+// SAC module types
+export type LawyerSacCredentials = Tables<"lawyer_sac_credentials">
+export type SacMovement = Tables<"sac_movements">
+export type SacSyncLog = Tables<"sac_sync_log">
 
 // View types
 export type CaseParticipantDetail = Views<"case_participants_detail">
