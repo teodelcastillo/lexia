@@ -18,7 +18,9 @@ import {
   Shield,
   Cloud,
   Mail,
+  DollarSign,
 } from 'lucide-react'
+import Link from 'next/link'
 import { GoogleIntegrations } from '@/components/settings/google-integrations'
 
 export const metadata = {
@@ -123,6 +125,34 @@ export default async function SettingsPage() {
               </div>
               <Button variant="outline" size="sm">
                 Configurar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Billing Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <DollarSign className="h-5 w-5" />
+              Facturación y Finanzas
+            </CardTitle>
+            <CardDescription>
+              Configuración de facturación, valor del JUS, participaciones y moneda
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Configuración de Facturación</p>
+                <p className="text-sm text-muted-foreground">
+                  Moneda, IVA, prefijo de facturas, valor del JUS y porcentajes de participación
+                </p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/configuracion/facturacion">
+                  Configurar
+                </Link>
               </Button>
             </div>
           </CardContent>

@@ -35,6 +35,14 @@ import type {
   CaseAssignment as DBCaseAssignment,
   CaseNote as DBCaseNote,
   CaseParticipant as DBCaseParticipant,
+  FeeAgreement as DBFeeAgreement,
+  BillingItem as DBBillingItem,
+  Invoice as DBInvoice,
+  ClientAccount as DBClientAccount,
+  AccountMovement as DBAccountMovement,
+  Payment as DBPayment,
+  CaseParticipationRow as DBCaseParticipation,
+  LawyerCompensation as DBLawyerCompensation,
   CaseStatus,
   TaskStatus,
   TaskPriority,
@@ -45,6 +53,14 @@ import type {
   PersonType,
   ParticipantRole,
   CompanyRole,
+  FeeAgreementType,
+  FeeAgreementStatus,
+  BillingItemType,
+  BillingItemStatus,
+  InvoiceStatus,
+  AccountMovementType,
+  ParticipationType,
+  CompensationStatus,
 } from './database'
 
 // ============================================
@@ -392,6 +408,78 @@ export const documentCategoryConfig: Record<DocumentCategory, { label: string; c
 }
 
 // ============================================
+// Billing Module Configurations
+// ============================================
+
+export const feeAgreementTypeConfig: Record<FeeAgreementType, { label: string; description: string }> = {
+  monthly_retainer: { label: 'Abono Mensual', description: 'Monto fijo mensual por servicios continuos' },
+  retainer_plus_task: { label: 'Abono + Tareas', description: 'Base mensual más tarifa por trabajo adicional' },
+  custom_quote: { label: 'Presupuesto', description: 'Monto fijo por un trabajo o causa específica' },
+  per_consultation: { label: 'Por Consulta', description: 'Cobro por cada consulta realizada' },
+  hourly: { label: 'Por Hora', description: 'Tarifa por hora trabajada' },
+  judicial_regulation: { label: 'Regulación Judicial', description: 'Porcentaje sobre honorarios regulados por el juzgado' },
+  hybrid: { label: 'Híbrido', description: 'Combinación de varias modalidades' },
+}
+
+export const feeAgreementStatusConfig: Record<FeeAgreementStatus, StatusConfig> = {
+  active: { label: 'Activo', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
+  suspended: { label: 'Suspendido', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
+  closed: { label: 'Cerrado', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' },
+}
+
+export const billingItemTypeConfig: Record<BillingItemType, { label: string; color: string; bgColor: string }> = {
+  monthly_fee: { label: 'Abono Mensual', color: 'text-blue-700', bgColor: 'bg-blue-50' },
+  task_fee: { label: 'Tarea / Trabajo', color: 'text-purple-700', bgColor: 'bg-purple-50' },
+  consultation: { label: 'Consulta', color: 'text-cyan-700', bgColor: 'bg-cyan-50' },
+  hours: { label: 'Horas', color: 'text-indigo-700', bgColor: 'bg-indigo-50' },
+  judicial_regulation: { label: 'Regulación Judicial', color: 'text-orange-700', bgColor: 'bg-orange-50' },
+  expense_reimbursement: { label: 'Reembolso Gastos', color: 'text-amber-700', bgColor: 'bg-amber-50' },
+  other: { label: 'Otro', color: 'text-gray-700', bgColor: 'bg-gray-50' },
+}
+
+export const billingItemStatusConfig: Record<BillingItemStatus, StatusConfig> = {
+  draft: { label: 'Borrador', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' },
+  approved: { label: 'Aprobado', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
+  invoiced: { label: 'Facturado', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+  void: { label: 'Anulado', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+}
+
+export const invoiceStatusConfig: Record<InvoiceStatus, StatusConfig> = {
+  draft: { label: 'Borrador', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' },
+  issued: { label: 'Emitida', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+  paid: { label: 'Pagada', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
+  partially_paid: { label: 'Pago Parcial', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
+  overdue: { label: 'Vencida', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+  cancelled: { label: 'Cancelada', color: 'text-slate-500', bgColor: 'bg-slate-50', borderColor: 'border-slate-200' },
+}
+
+export const accountMovementTypeConfig: Record<AccountMovementType, { label: string; sign: 1 | -1; color: string }> = {
+  invoice: { label: 'Factura', sign: 1, color: 'text-blue-700' },
+  payment: { label: 'Pago', sign: -1, color: 'text-emerald-700' },
+  credit_note: { label: 'Nota de Crédito', sign: -1, color: 'text-purple-700' },
+  adjustment: { label: 'Ajuste', sign: 1, color: 'text-amber-700' },
+}
+
+export const participationTypeConfig: Record<ParticipationType, { label: string; description: string; defaultPercentage: number }> = {
+  studio_assigned: { label: 'Asignado por Estudio', description: 'El estudio asignó la causa al abogado', defaultPercentage: 30 },
+  lawyer_recruited: { label: 'Captado por Abogado', description: 'El abogado trajo al cliente', defaultPercentage: 20 },
+}
+
+export const compensationStatusConfig: Record<CompensationStatus, StatusConfig> = {
+  draft: { label: 'Borrador', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' },
+  approved: { label: 'Aprobada', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+  paid: { label: 'Pagada', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
+}
+
+export const paymentMethodConfig: Record<string, { label: string }> = {
+  transferencia: { label: 'Transferencia Bancaria' },
+  efectivo: { label: 'Efectivo' },
+  cheque: { label: 'Cheque' },
+  tarjeta: { label: 'Tarjeta' },
+  otro: { label: 'Otro' },
+}
+
+// ============================================
 // Auth & permissions types
 // ============================================
 /** Profile row from DB; alias for use in auth/layout. */
@@ -429,6 +517,51 @@ export type Client = DBPerson
 
 /** Client form type: individual or company. */
 export type ClientType = 'individual' | 'company'
+
+// ============================================
+// Billing Extended Types with Relations
+// ============================================
+
+export interface FeeAgreementWithRelations extends DBFeeAgreement {
+  people?: DBPerson | null
+  companies?: DBCompany | null
+  cases?: DBCase | null
+  created_by_profile?: DBProfile
+}
+
+export interface BillingItemWithRelations extends DBBillingItem {
+  people?: DBPerson
+  companies?: DBCompany | null
+  cases?: DBCase | null
+  fee_agreements?: DBFeeAgreement | null
+  invoices?: DBInvoice | null
+  created_by_profile?: DBProfile
+  approved_by_profile?: DBProfile | null
+}
+
+export interface InvoiceWithItems extends DBInvoice {
+  people?: DBPerson | null
+  companies?: DBCompany | null
+  billing_items?: DBBillingItem[]
+  created_by_profile?: DBProfile
+}
+
+export interface PaymentWithRelations extends DBPayment {
+  people?: DBPerson | null
+  companies?: DBCompany | null
+  invoices?: DBInvoice | null
+  created_by_profile?: DBProfile
+}
+
+export interface CaseParticipationWithRelations extends DBCaseParticipation {
+  cases?: DBCase
+  profiles?: DBProfile
+}
+
+export interface CompensationWithDetails extends DBLawyerCompensation {
+  profiles?: DBProfile
+  case_participations?: DBCaseParticipation[]
+}
 
 // ============================================
 // Legacy type aliases for backwards compatibility

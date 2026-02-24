@@ -37,6 +37,10 @@ import {
   UserCog,
   ExternalLink,
   Target,
+  DollarSign,
+  Wallet,
+  TrendingUp,
+  Calculator,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -155,6 +159,32 @@ const navigationSections: NavSection[] = [
         title: 'Eventos',
         href: '/eventos',
         icon: Clock,
+      },
+    ],
+  },
+  {
+    label: 'Financiero',
+    items: [
+      {
+        title: 'Facturación',
+        href: '/facturacion',
+        icon: DollarSign,
+      },
+      {
+        title: 'Cuentas Corrientes',
+        href: '/cuentas',
+        icon: Wallet,
+      },
+      {
+        title: 'Cobranzas',
+        href: '/cobranzas',
+        icon: TrendingUp,
+      },
+      {
+        title: 'Liquidaciones',
+        href: '/liquidaciones',
+        icon: Calculator,
+        requiredRoles: ['admin_general'],
       },
     ],
   },

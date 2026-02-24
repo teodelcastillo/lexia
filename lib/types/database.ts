@@ -913,6 +913,683 @@ export type Database = {
           },
         ]
       }
+      organization_billing_settings: {
+        Row: {
+          id: string
+          organization_id: string
+          default_currency: string
+          invoice_prefix: string
+          default_tax_rate: number
+          default_payment_terms_days: number
+          default_participation_studio_assigned: number
+          default_participation_lawyer_recruited: number
+          current_jus_value: number | null
+          jus_currency: string | null
+          settings: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          default_currency?: string
+          invoice_prefix?: string
+          default_tax_rate?: number
+          default_payment_terms_days?: number
+          default_participation_studio_assigned?: number
+          default_participation_lawyer_recruited?: number
+          current_jus_value?: number | null
+          jus_currency?: string | null
+          settings?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          default_currency?: string
+          invoice_prefix?: string
+          default_tax_rate?: number
+          default_payment_terms_days?: number
+          default_participation_studio_assigned?: number
+          default_participation_lawyer_recruited?: number
+          current_jus_value?: number | null
+          jus_currency?: string | null
+          settings?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_billing_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_agreements: {
+        Row: {
+          id: string
+          client_id: string | null
+          company_id: string | null
+          case_id: string | null
+          type: Database["public"]["Enums"]["fee_agreement_type"]
+          status: Database["public"]["Enums"]["fee_agreement_status"]
+          currency: string
+          valid_from: string
+          valid_until: string | null
+          terms: Json
+          notes: string | null
+          created_by: string
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          case_id?: string | null
+          type: Database["public"]["Enums"]["fee_agreement_type"]
+          status?: Database["public"]["Enums"]["fee_agreement_status"]
+          currency?: string
+          valid_from?: string
+          valid_until?: string | null
+          terms?: Json
+          notes?: string | null
+          created_by: string
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          case_id?: string | null
+          type?: Database["public"]["Enums"]["fee_agreement_type"]
+          status?: Database["public"]["Enums"]["fee_agreement_status"]
+          currency?: string
+          valid_from?: string
+          valid_until?: string | null
+          terms?: Json
+          notes?: string | null
+          created_by?: string
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_agreements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_agreements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_agreements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_agreements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_items: {
+        Row: {
+          id: string
+          client_id: string
+          company_id: string | null
+          case_id: string | null
+          fee_agreement_id: string | null
+          invoice_id: string | null
+          type: Database["public"]["Enums"]["billing_item_type"]
+          description: string
+          amount: number
+          quantity: number
+          line_total: number
+          currency: string
+          period: string | null
+          status: Database["public"]["Enums"]["billing_item_status"]
+          created_by: string
+          approved_by: string | null
+          approved_at: string | null
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          company_id?: string | null
+          case_id?: string | null
+          fee_agreement_id?: string | null
+          invoice_id?: string | null
+          type: Database["public"]["Enums"]["billing_item_type"]
+          description: string
+          amount: number
+          quantity?: number
+          currency?: string
+          period?: string | null
+          status?: Database["public"]["Enums"]["billing_item_status"]
+          created_by: string
+          approved_by?: string | null
+          approved_at?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          company_id?: string | null
+          case_id?: string | null
+          fee_agreement_id?: string | null
+          invoice_id?: string | null
+          type?: Database["public"]["Enums"]["billing_item_type"]
+          description?: string
+          amount?: number
+          quantity?: number
+          currency?: string
+          period?: string | null
+          status?: Database["public"]["Enums"]["billing_item_status"]
+          created_by?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_items_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_items_fee_agreement_id_fkey"
+            columns: ["fee_agreement_id"]
+            isOneToOne: false
+            referencedRelation: "fee_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_items_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          id: string
+          client_id: string | null
+          company_id: string | null
+          invoice_number: string
+          status: Database["public"]["Enums"]["invoice_status"]
+          issue_date: string
+          due_date: string | null
+          subtotal: number
+          tax_rate: number
+          tax_amount: number
+          total: number
+          currency: string
+          period: string | null
+          notes: string | null
+          created_by: string
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          invoice_number: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          issue_date?: string
+          due_date?: string | null
+          subtotal?: number
+          tax_rate?: number
+          tax_amount?: number
+          total?: number
+          currency?: string
+          period?: string | null
+          notes?: string | null
+          created_by: string
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          invoice_number?: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          issue_date?: string
+          due_date?: string | null
+          subtotal?: number
+          tax_rate?: number
+          tax_amount?: number
+          total?: number
+          currency?: string
+          period?: string | null
+          notes?: string | null
+          created_by?: string
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_accounts: {
+        Row: {
+          id: string
+          client_id: string | null
+          company_id: string | null
+          credit_limit: number | null
+          grace_days: number
+          currency: string
+          notes: string | null
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          credit_limit?: number | null
+          grace_days?: number
+          currency?: string
+          notes?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          credit_limit?: number | null
+          grace_days?: number
+          currency?: string
+          notes?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_accounts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_movements: {
+        Row: {
+          id: string
+          client_id: string | null
+          company_id: string | null
+          type: Database["public"]["Enums"]["account_movement_type"]
+          amount: number
+          currency: string
+          movement_date: string
+          reference_id: string | null
+          reference_type: string | null
+          invoice_id: string | null
+          notes: string | null
+          created_by: string
+          organization_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          type: Database["public"]["Enums"]["account_movement_type"]
+          amount: number
+          currency?: string
+          movement_date?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          invoice_id?: string | null
+          notes?: string | null
+          created_by: string
+          organization_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          type?: Database["public"]["Enums"]["account_movement_type"]
+          amount?: number
+          currency?: string
+          movement_date?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          invoice_id?: string | null
+          notes?: string | null
+          created_by?: string
+          organization_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_movements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_movements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_movements_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          id: string
+          client_id: string | null
+          company_id: string | null
+          amount: number
+          currency: string
+          payment_date: string
+          payment_method: string
+          reference_number: string | null
+          invoice_id: string | null
+          notes: string | null
+          created_by: string
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          amount: number
+          currency?: string
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string | null
+          invoice_id?: string | null
+          notes?: string | null
+          created_by: string
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string | null
+          company_id?: string | null
+          amount?: number
+          currency?: string
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string | null
+          invoice_id?: string | null
+          notes?: string | null
+          created_by?: string
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_participations: {
+        Row: {
+          id: string
+          case_id: string
+          lawyer_id: string
+          participation_type: Database["public"]["Enums"]["participation_type"]
+          percentage: number
+          base_amount: number | null
+          calculated_amount: number | null
+          status: string
+          notes: string | null
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          lawyer_id: string
+          participation_type: Database["public"]["Enums"]["participation_type"]
+          percentage: number
+          base_amount?: number | null
+          calculated_amount?: number | null
+          status?: string
+          notes?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string
+          lawyer_id?: string
+          participation_type?: Database["public"]["Enums"]["participation_type"]
+          percentage?: number
+          base_amount?: number | null
+          calculated_amount?: number | null
+          status?: string
+          notes?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_participations_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_participations_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lawyer_compensations: {
+        Row: {
+          id: string
+          lawyer_id: string
+          period: string
+          base_salary_jus: number | null
+          jus_value_at_period: number | null
+          base_amount_ars: number | null
+          participations_total: number
+          deductions: number
+          total_gross: number
+          status: Database["public"]["Enums"]["compensation_status"]
+          payment_date: string | null
+          notes: string | null
+          organization_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lawyer_id: string
+          period: string
+          base_salary_jus?: number | null
+          jus_value_at_period?: number | null
+          base_amount_ars?: number | null
+          participations_total?: number
+          deductions?: number
+          total_gross?: number
+          status?: Database["public"]["Enums"]["compensation_status"]
+          payment_date?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lawyer_id?: string
+          period?: string
+          base_salary_jus?: number | null
+          jus_value_at_period?: number | null
+          base_amount_ars?: number | null
+          participations_total?: number
+          deductions?: number
+          total_gross?: number
+          status?: Database["public"]["Enums"]["compensation_status"]
+          payment_date?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lawyer_compensations_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       case_participants_detail: {
@@ -964,6 +1641,48 @@ export type Database = {
         }
         Relationships: []
       }
+      client_account_summary: {
+        Row: {
+          client_id: string | null
+          company_id: string | null
+          organization_id: string | null
+          total_invoiced: number
+          total_paid: number
+          balance: number
+          last_invoice_date: string | null
+          last_payment_date: string | null
+          credit_limit: number | null
+          grace_days: number | null
+        }
+        Relationships: []
+      }
+      monthly_billing_summary: {
+        Row: {
+          organization_id: string | null
+          client_id: string | null
+          company_id: string | null
+          period: string | null
+          items_draft: number
+          items_approved: number
+          items_invoiced: number
+          total_draft: number
+          total_approved: number
+          total_invoiced: number
+        }
+        Relationships: []
+      }
+      case_profitability: {
+        Row: {
+          case_id: string | null
+          case_title: string | null
+          organization_id: string | null
+          total_billed: number
+          total_collected: number
+          total_participation_cost: number
+          net_margin: number
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_person_name: { Args: { person_id: string }; Returns: string }
@@ -972,6 +1691,8 @@ export type Database = {
       is_case_leader: { Args: { check_case_id: string }; Returns: boolean }
       is_client_for_case: { Args: { check_case_id: string }; Returns: boolean }
       is_internal_user: { Args: Record<string, never>; Returns: boolean }
+      next_invoice_number: { Args: { p_org_id: string }; Returns: string }
+      calculate_client_balance: { Args: { p_client_id?: string; p_company_id?: string }; Returns: number }
     }
     Enums: {
       case_status: "active" | "pending" | "on_hold" | "closed" | "archived"
@@ -1018,6 +1739,34 @@ export type Database = {
         | "completed"
         | "cancelled"
       user_role: "admin_general" | "case_leader" | "lawyer_executive" | "client"
+      fee_agreement_type:
+        | "monthly_retainer"
+        | "retainer_plus_task"
+        | "custom_quote"
+        | "per_consultation"
+        | "hourly"
+        | "judicial_regulation"
+        | "hybrid"
+      fee_agreement_status: "active" | "suspended" | "closed"
+      billing_item_type:
+        | "monthly_fee"
+        | "task_fee"
+        | "consultation"
+        | "hours"
+        | "judicial_regulation"
+        | "expense_reimbursement"
+        | "other"
+      billing_item_status: "draft" | "approved" | "invoiced" | "void"
+      invoice_status:
+        | "draft"
+        | "issued"
+        | "paid"
+        | "partially_paid"
+        | "overdue"
+        | "cancelled"
+      account_movement_type: "invoice" | "payment" | "credit_note" | "adjustment"
+      participation_type: "studio_assigned" | "lawyer_recruited"
+      compensation_status: "draft" | "approved" | "paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1045,6 +1794,17 @@ export type CaseNote = Tables<"case_notes">
 export type CaseParticipant = Tables<"case_participants">
 export type ActivityLog = Tables<"activity_log">
 
+// Billing module types
+export type OrganizationBillingSettings = Tables<"organization_billing_settings">
+export type FeeAgreement = Tables<"fee_agreements">
+export type BillingItem = Tables<"billing_items">
+export type Invoice = Tables<"invoices">
+export type ClientAccount = Tables<"client_accounts">
+export type AccountMovement = Tables<"account_movements">
+export type Payment = Tables<"payments">
+export type CaseParticipationRow = Tables<"case_participations">
+export type LawyerCompensation = Tables<"lawyer_compensations">
+
 // Enum types
 export type CaseStatus = Enums<"case_status">
 export type CompanyRole = Enums<"company_role">
@@ -1062,6 +1822,19 @@ export type TaskPriority = Enums<"task_priority">
 export type TaskStatus = Enums<"task_status">
 export type UserRole = Enums<"user_role">
 
+// Billing enum types
+export type FeeAgreementType = Enums<"fee_agreement_type">
+export type FeeAgreementStatus = Enums<"fee_agreement_status">
+export type BillingItemType = Enums<"billing_item_type">
+export type BillingItemStatus = Enums<"billing_item_status">
+export type InvoiceStatus = Enums<"invoice_status">
+export type AccountMovementType = Enums<"account_movement_type">
+export type ParticipationType = Enums<"participation_type">
+export type CompensationStatus = Enums<"compensation_status">
+
 // View types
 export type CaseParticipantDetail = Views<"case_participants_detail">
 export type CompanyMember = Views<"company_members">
+export type ClientAccountSummary = Views<"client_account_summary">
+export type MonthlyBillingSummary = Views<"monthly_billing_summary">
+export type CaseProfitability = Views<"case_profitability">
