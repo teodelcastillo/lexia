@@ -5,11 +5,12 @@ import type { SacMovement as DBSacMovement } from '@/lib/types/database'
 // =============================================================================
 
 /**
- * Base URL for the SAC extranet. Replace with the actual URL once confirmed.
- * Can also be overridden via SAC_BASE_URL environment variable.
+ * Base URL for the SAC extranet (Poder Judicial de Córdoba).
+ * Login page: /justiciacordoba/extranet.aspx
+ * Can be overridden via SAC_BASE_URL environment variable.
  */
 export const SAC_BASE_URL =
-  process.env.SAC_BASE_URL || 'https://extranet.justiciacordoba.gob.ar'
+  process.env.SAC_BASE_URL || 'https://www.justiciacordoba.gob.ar/justiciacordoba/extranet.aspx'
 
 // =============================================================================
 // Fuero options for Córdoba courts
@@ -49,31 +50,31 @@ export interface SelectorEntry {
  * can update them when the extranet layout changes.
  */
 export const SAC_SELECTORS = {
-  // --- Login page ---
+  // --- Login page (https://www.justiciacordoba.gob.ar/justiciacordoba/extranet.aspx) ---
   loginForm: {
-    primary: 'form#loginForm',
-    fallbacks: ['form[action*="login"]', 'form.login-form'],
-    description: 'Main login form container',
+    primary: 'form',
+    fallbacks: ['form[action*="extranet"]', 'form[method="post"]'],
+    description: 'Main login form container (ASP.NET form)',
   },
   usernameInput: {
-    primary: 'input#username',
-    fallbacks: ['input[name="username"]', 'input[name="usuario"]', 'input[type="text"]'],
-    description: 'Username/email input on login page',
+    primary: 'input[type="text"]',
+    fallbacks: ['input[name*="usuario"]', 'input[name*="Usuario"]', 'input[placeholder*="Usuario"]', 'input:first-of-type'],
+    description: 'Username input (first text field, label "Usuario")',
   },
   passwordInput: {
-    primary: 'input#password',
-    fallbacks: ['input[name="password"]', 'input[name="clave"]', 'input[type="password"]'],
-    description: 'Password input on login page',
+    primary: 'input[type="password"]',
+    fallbacks: ['input[name*="clave"]', 'input[name*="password"]', 'input:last-of-type[type="text"]'],
+    description: 'Password input (type=password)',
   },
   submitButton: {
-    primary: 'button[type="submit"]',
-    fallbacks: ['input[type="submit"]', 'button.btn-login', '#btnIngresar'],
-    description: 'Login form submit button',
+    primary: 'input[type="submit"]',
+    fallbacks: ['button[type="submit"]', 'input[value*="Ingresar"]', 'button:has-text("Ingresar")', 'button:has-text("INGRESAR")'],
+    description: 'Login submit button "Ingresar"',
   },
   loginSuccessIndicator: {
-    primary: '.user-welcome',
-    fallbacks: ['.navbar-user', '#menuPrincipal', 'a[href*="logout"]', '.dashboard-container'],
-    description: 'Element present only when logged in (welcome text or logout link)',
+    primary: 'a[href*="logout"]',
+    fallbacks: ['a[href*="salir"]', '#menuPrincipal', '.navbar', 'a:has-text("Salir")', 'a:has-text("Cerrar")'],
+    description: 'Element present when logged in (logout link or main menu)',
   },
 
   // --- Search page ---
