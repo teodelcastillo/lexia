@@ -45,14 +45,26 @@ export async function GET(
       return NextResponse.json({ members: [] })
     }
 
+    type ProfileInfo = {
+      id: string
+      first_name: string
+      last_name: string
+      system_role: string
+    }
+
+    function getProfile(a: (typeof assignments)[number]): ProfileInfo | null {
+      const p = a.profiles
+      if (!p) return null
+      return (Array.isArray(p) ? p[0] : p) as ProfileInfo | null
+    }
+
     const lawyerIds = assignments
       .filter((a) => {
-        const profile = a.profiles as { system_role: string } | null
+        const profile = getProfile(a)
         return profile && ['case_leader', 'lawyer_executive', 'admin_general'].includes(profile.system_role)
       })
       .map((a) => a.user_id)
 
-    // Check SAC credentials for each lawyer
     const { data: credentials } = await supabase
       .from('lawyer_sac_credentials')
       .select('profile_id, is_active')
@@ -64,16 +76,11 @@ export async function GET(
 
     const members = assignments
       .filter((a) => {
-        const profile = a.profiles as { system_role: string } | null
+        const profile = getProfile(a)
         return profile && profile.system_role !== 'client'
       })
       .map((a) => {
-        const profile = a.profiles as {
-          id: string
-          first_name: string
-          last_name: string
-          system_role: string
-        }
+        const profile = getProfile(a)!
         return {
           user_id: a.user_id,
           case_role: a.case_role,
