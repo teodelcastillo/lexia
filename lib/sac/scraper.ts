@@ -92,7 +92,7 @@ async function getBrowser(): Promise<Browser> {
     _browser = await pwChromium.launch({
       executablePath: await chromium.executablePath(),
       args: chromium.args,
-      headless: chromium.headless,
+      headless: chromium.headless === 'chrome-headless-shell' ? true : chromium.headless,
     })
   } else {
     // Local: use Playwright's Chromium (requires `npx playwright install`)
