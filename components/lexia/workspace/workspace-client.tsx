@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Sparkles, Loader2, Check, FileSearch, Swords } from 'lucide-react'
+import { ArrowLeft, Save, Sparkles, Loader2, Check, FileSearch, Bot, ShieldAlert } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +23,15 @@ import { AiEditPopover } from './ai-edit-popover'
 import { WorkspaceContextPanel } from './workspace-context-panel'
 import { InvestigatePanel } from './investigate-panel'
 import { CounterArguePanel } from './counter-argue-panel'
-import type { WorkspaceDocumentDTO, TiptapDoc } from '@/lib/lexia/workspace'
+import { AgentPanel } from './agent-panel'
+import { StressTestPanel } from './stress-test-panel'
+import { applyAgentStep, scrollToPassage } from './agent-applier'
+import type {
+  WorkspaceDocumentDTO,
+  TiptapDoc,
+  AgentStep,
+  AgentStepResult,
+} from '@/lib/lexia/workspace'
 
 interface WorkspaceClientProps {
   document: WorkspaceDocumentDTO
@@ -62,6 +70,8 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
   const [investigateOpen, setInvestigateOpen] = useState(false)
   const [counterOpen, setCounterOpen] = useState(false)
   const [counterFragment, setCounterFragment] = useState<{ text: string; from: number; to: number } | null>(null)
+  const [agentOpen, setAgentOpen] = useState(false)
+  const [stressOpen, setStressOpen] = useState(false)
 
   // Snapshot of the latest editor content (for autosave)
   const latestContentRef = useRef<TiptapDoc>(initialDoc.content)
@@ -152,6 +162,46 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
     editorRef.current?.focus()
   }, [])
 
+  const handleAgentApplyStep = useCallback(
+    (stepResult: AgentStepResult, planStep: AgentStep) => {
+      const editor = editorRef.current?.getEditor?.()
+      if (!editor) return { ok: false, message: 'Editor no disponible' }
+      const outcome = applyAgentStep(editor, stepResult, {
+        targetHeading: planStep.targetHeading,
+      })
+      // Fire a synthetic update so autosave kicks in.
+      if (outcome.ok) {
+        latestContentRef.current = editor.getJSON() as TiptapDoc
+        latestTextRef.current = editor.getText()
+        triggerAutosave()
+      }
+      return outcome
+    },
+    [triggerAutosave]
+  )
+
+  const handleStressNavigate = useCallback((passage: string) => {
+    const editor = editorRef.current?.getEditor?.()
+    if (!editor) return
+    const ok = scrollToPassage(editor, passage)
+    if (!ok) toast.error('No encontré el pasaje en el documento')
+  }, [])
+
+  const handleStressApplyRewrite = useCallback(
+    (passage: string, rewrite: string) => {
+      const editor = editorRef.current?.getEditor?.()
+      if (!editor) return
+      const ok = scrollToPassage(editor, passage)
+      if (!ok) {
+        toast.error('No encontré el pasaje para reemplazar')
+        return
+      }
+      editorRef.current?.replaceSelectionWithText(rewrite)
+      toast.success('Fragmento reforzado')
+    },
+    []
+  )
+
   const handleChallenge = useCallback(() => {
     if (!cmdK || cmdK.mode !== 'selection' || !cmdK.text) return
     setCounterFragment({ text: cmdK.text, from: cmdK.from, to: cmdK.to })
@@ -229,6 +279,24 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
               Investigar
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setAgentOpen(true)}
+            title="Modo agente: redactar secciones enteras con plan previo"
+          >
+            <Bot className="h-4 w-4 mr-1" />
+            Modo Agente
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setStressOpen(true)}
+            title="Stress-test: ataques automáticos al borrador completo"
+          >
+            <ShieldAlert className="h-4 w-4 mr-1" />
+            Stress-test
+          </Button>
           <Button size="sm" variant="ghost" onClick={doSave}>
             <Save className="h-4 w-4 mr-1" />
             Guardar
@@ -319,6 +387,25 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
           toast.success('Fragmento reemplazado')
           setCounterOpen(false)
         }}
+      />
+
+      <AgentPanel
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        documentId={initialDoc.id}
+        context={{ documentIds: activeDocIds, personIds: activePersonIds }}
+        onApplyStep={handleAgentApplyStep}
+        onRequestStressTest={() => setStressOpen(true)}
+      />
+
+      <StressTestPanel
+        open={stressOpen}
+        onClose={() => setStressOpen(false)}
+        documentId={initialDoc.id}
+        clientRole={initialDoc.clientRole ?? null}
+        context={{ documentIds: activeDocIds, personIds: activePersonIds }}
+        onNavigateToPassage={handleStressNavigate}
+        onApplyRewrite={handleStressApplyRewrite}
       />
     </div>
   )
