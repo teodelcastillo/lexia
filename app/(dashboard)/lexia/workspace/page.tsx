@@ -22,9 +22,12 @@ export default async function WorkspaceIndexPage() {
   try {
     docs = await listDocuments(supabase, { userId: user.id, limit: 50 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : ''
+    const message = (error instanceof Error ? error.message : '').toLowerCase()
     workspaceUnavailable =
-      message.includes('relation') && message.includes('lexia_documents') && message.includes('does not exist')
+      message.includes('lexia_documents') &&
+      (message.includes('does not exist') ||
+        message.includes('could not find the table') ||
+        message.includes('schema cache'))
     if (!workspaceUnavailable) throw error
   }
 
