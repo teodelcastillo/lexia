@@ -15,6 +15,7 @@ import { RedactorForm } from '@/components/lexia/redactor/redactor-form'
 import { RedactorDraftView } from '@/components/lexia/redactor/redactor-draft-view'
 import { RedactorIterationChat } from '@/components/lexia/redactor/redactor-iteration-chat'
 import { SaveDraftDialog } from '@/components/lexia/redactor/save-draft-dialog'
+import { WorkspaceMigrationBanner } from '@/components/lexia/workspace/migration-banner'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import type { DocumentType } from '@/lib/ai/draft-schemas'
@@ -312,6 +313,8 @@ export default function RedactorPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6">
+        <WorkspaceMigrationBanner dismissKey="redactor" />
+
         <Card className="max-w-4xl mx-auto p-6">
           {step === 'select' && (
             <RedactorDocumentTypeSelect onSelect={handleSelectType} />

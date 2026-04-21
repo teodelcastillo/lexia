@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { PenTool, Loader2, FileText, ArrowRight, Upload, File } from 'lucide-react'
 import { LexiaCaseContextBar } from '@/components/lexia/lexia-case-context-bar'
+import { WorkspaceMigrationBanner } from '@/components/lexia/workspace/migration-banner'
 import { useLexiaCaseContext } from '@/lib/lexia/lexia-case-context'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -393,6 +394,9 @@ export default function ContestacionPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-4xl mx-auto">
+          <WorkspaceMigrationBanner preferType="contestacion" dismissKey="contestacion" />
+        </div>
         <Card className="max-w-4xl mx-auto p-6">
           {(showBloquesOnly || showQuestions || showReady) && (
             <ContestacionProgress

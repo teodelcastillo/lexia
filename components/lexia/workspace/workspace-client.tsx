@@ -1,0 +1,276 @@
+'use client'
+
+/**
+ * Top-level client for the Lexia Workspace document page.
+ * Wires editor + ⌘K popover + autosave + context panel.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { toast } from 'sonner'
+import { ArrowLeft, Save, Sparkles, Loader2, Check } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+
+import {
+  WorkspaceEditor,
+  type EditorImperativeHandle,
+  type CmdKRequest,
+} from './workspace-editor'
+import { AiEditPopover } from './ai-edit-popover'
+import { WorkspaceContextPanel } from './workspace-context-panel'
+import type { WorkspaceDocumentDTO, TiptapDoc } from '@/lib/lexia/workspace'
+
+interface WorkspaceClientProps {
+  document: WorkspaceDocumentDTO
+  caseInfo: {
+    id: string
+    caseNumber: string
+    title: string
+  } | null
+  /** Documents/persons available as context (server-fetched, could be empty). */
+  caseDocuments: Array<{ id: string; name: string }>
+  casePersons: Array<{ id: string; name: string; type: string }>
+}
+
+type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
+
+export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments, casePersons }: WorkspaceClientProps) {
+  const editorRef = useRef<EditorImperativeHandle>(null)
+
+  const [title, setTitle] = useState(initialDoc.title)
+  const [saveState, setSaveState] = useState<SaveState>('saved')
+  const [version, setVersion] = useState(initialDoc.version)
+
+  // Active context (sent to AI with each edit)
+  const [activeDocIds, setActiveDocIds] = useState<string[]>(
+    initialDoc.activeContext?.documentIds ?? []
+  )
+  const [activePersonIds, setActivePersonIds] = useState<string[]>(
+    initialDoc.activeContext?.personIds ?? []
+  )
+
+  // ⌘K popover state
+  const [cmdK, setCmdK] = useState<CmdKRequest | null>(null)
+  const popoverOpen = cmdK !== null
+
+  // Snapshot of the latest editor content (for autosave)
+  const latestContentRef = useRef<TiptapDoc>(initialDoc.content)
+  const latestTextRef = useRef<string>(initialDoc.contentText)
+  const dirtyRef = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const triggerAutosave = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    setSaveState('dirty')
+    dirtyRef.current = true
+    saveTimerRef.current = setTimeout(() => {
+      void doSave()
+    }, 1200)
+  }, [])
+
+  const doSave = useCallback(async () => {
+    if (!dirtyRef.current) return
+    setSaveState('saving')
+    try {
+      const res = await fetch(`/api/lexia/documents/${initialDoc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: latestContentRef.current,
+          title,
+          activeContext: { documentIds: activeDocIds, personIds: activePersonIds },
+        }),
+      })
+      if (!res.ok) throw new Error('No se pudo guardar')
+      const data = (await res.json()) as { document: WorkspaceDocumentDTO }
+      setVersion(data.document.version)
+      dirtyRef.current = false
+      setSaveState('saved')
+    } catch (err) {
+      console.error(err)
+      setSaveState('error')
+      toast.error('Error al guardar el documento')
+    }
+  }, [initialDoc.id, title, activeDocIds, activePersonIds])
+
+  // Save context changes & title debounced too.
+  useEffect(() => {
+    dirtyRef.current = true
+    triggerAutosave()
+  }, [title, activeDocIds, activePersonIds, triggerAutosave])
+
+  // Flush on unload.
+  useEffect(() => {
+    const handler = () => {
+      if (dirtyRef.current) void doSave()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [doSave])
+
+  // Cmd/Ctrl+S for manual save
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault()
+        void doSave()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [doSave])
+
+  const handleEditorUpdate = useCallback(
+    (doc: TiptapDoc, text: string) => {
+      latestContentRef.current = doc
+      latestTextRef.current = text
+      triggerAutosave()
+    },
+    [triggerAutosave]
+  )
+
+  const handleCmdK = useCallback((req: CmdKRequest) => {
+    setCmdK(req)
+    if (req.mode === 'selection' && req.from !== req.to) {
+      editorRef.current?.markPending(req.from, req.to)
+    }
+  }, [])
+
+  const closePopover = useCallback(() => {
+    setCmdK(null)
+    editorRef.current?.clearPending()
+    editorRef.current?.focus()
+  }, [])
+
+  const handleAccept = useCallback(
+    ({ replacement, citations }: { replacement: string; citations?: unknown }) => {
+      if (!cmdK) return
+      editorRef.current?.clearPending()
+      if (cmdK.mode === 'selection') {
+        editorRef.current?.replaceSelectionWithText(
+          replacement,
+          (citations as any) ?? undefined
+        )
+      } else {
+        editorRef.current?.insertTextAt(
+          cmdK.from,
+          replacement,
+          (citations as any) ?? undefined
+        )
+      }
+      setCmdK(null)
+      toast.success('Cambio aplicado')
+      // The editor's onUpdate will fire and autosave.
+    },
+    [cmdK]
+  )
+
+  const caseLabel = caseInfo ? `${caseInfo.caseNumber} — ${caseInfo.title}` : null
+
+  return (
+    <div className="flex flex-col h-full min-h-0 bg-background">
+      {/* Top bar */}
+      <header className="flex items-center gap-3 border-b border-border px-4 py-2.5 bg-muted/30 flex-shrink-0">
+        <Button size="icon" variant="ghost" asChild>
+          <Link href="/lexia">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="flex-1 min-w-0">
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="h-8 text-sm font-semibold bg-transparent border-0 shadow-none focus-visible:ring-1 focus-visible:ring-ring px-2"
+          />
+          <div className="flex items-center gap-2 px-2 mt-0.5 text-[11px] text-muted-foreground">
+            {caseLabel && (
+              <Link
+                href={`/casos/${caseInfo!.id}`}
+                className="hover:underline truncate max-w-[400px]"
+              >
+                {caseLabel}
+              </Link>
+            )}
+            {caseLabel && <span>·</span>}
+            <span>v{version}</span>
+            <span>·</span>
+            <SaveStateIndicator state={saveState} />
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Badge variant="outline" className="text-[10px] font-normal hidden md:inline-flex">
+            <Sparkles className="h-3 w-3 mr-1" />⌘K para editar con IA
+          </Badge>
+          <Button size="sm" variant="ghost" onClick={doSave}>
+            <Save className="h-4 w-4 mr-1" />
+            Guardar
+          </Button>
+        </div>
+      </header>
+
+      {/* Body: context panel + editor */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr]">
+        <aside className="hidden md:block border-r border-border bg-muted/20 overflow-auto">
+          <WorkspaceContextPanel
+            caseInfo={caseInfo}
+            documents={caseDocuments}
+            persons={casePersons}
+            activeDocumentIds={activeDocIds}
+            activePersonIds={activePersonIds}
+            onDocumentToggle={(id, on) =>
+              setActiveDocIds((prev) => (on ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)))
+            }
+            onPersonToggle={(id, on) =>
+              setActivePersonIds((prev) => (on ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)))
+            }
+          />
+        </aside>
+
+        <main className="min-w-0 min-h-0 overflow-hidden relative">
+          <WorkspaceEditor
+            ref={editorRef}
+            initialContent={initialDoc.content}
+            onUpdate={handleEditorUpdate}
+            onCmdK={handleCmdK}
+          />
+
+          <AiEditPopover
+            open={popoverOpen}
+            onClose={closePopover}
+            mode={cmdK?.mode ?? 'selection'}
+            documentId={initialDoc.id}
+            anchor={cmdK?.anchor ?? null}
+            selectionText={cmdK?.text ?? ''}
+            selectionFrom={cmdK?.from ?? 0}
+            selectionTo={cmdK?.to ?? 0}
+            context={{ documentIds: activeDocIds, personIds: activePersonIds }}
+            onAccept={handleAccept}
+          />
+        </main>
+      </div>
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Save state badge
+// -----------------------------------------------------------------------------
+
+function SaveStateIndicator({ state }: { state: SaveState }) {
+  if (state === 'saving')
+    return (
+      <span className="flex items-center gap-1">
+        <Loader2 className="h-3 w-3 animate-spin" /> Guardando…
+      </span>
+    )
+  if (state === 'dirty') return <span>Cambios sin guardar</span>
+  if (state === 'error') return <span className="text-red-600">Error al guardar</span>
+  return (
+    <span className="flex items-center gap-1">
+      <Check className="h-3 w-3" /> Guardado
+    </span>
+  )
+}

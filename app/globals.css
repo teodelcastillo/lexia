@@ -201,3 +201,114 @@
     background-color: var(--muted-foreground);
   }
 }
+
+/* =============================================================================
+ * Lexia Workspace Editor
+ * ========================================================================== */
+
+.lexia-editor {
+  /* ProseMirror base */
+  outline: none;
+  min-height: 100%;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+
+.lexia-editor > * + * {
+  margin-top: 0.6em;
+}
+
+.lexia-editor h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.2em;
+  letter-spacing: -0.01em;
+}
+
+.lexia-editor h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 1.4em;
+  color: var(--foreground);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25em;
+}
+
+.lexia-editor h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1em;
+}
+
+.lexia-editor p {
+  margin: 0;
+}
+
+.lexia-editor strong {
+  font-weight: 600;
+}
+
+.lexia-editor ul,
+.lexia-editor ol {
+  padding-left: 1.25rem;
+}
+
+/* Inline placeholder (filled by lawyer or ⌘K) */
+.lexia-editor [data-placeholder-inline='true'] {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* Citation marks */
+.lexia-editor .lexia-citation {
+  border-bottom: 1px dotted;
+  padding-bottom: 1px;
+  cursor: help;
+}
+.lexia-editor .lexia-citation[data-status='unverified'] {
+  color: #b45309; /* amber-700 */
+  border-color: #b45309;
+}
+.lexia-editor .lexia-citation[data-status='verified'] {
+  color: #15803d; /* green-700 */
+  border-color: #15803d;
+}
+.lexia-editor .lexia-citation[data-status='warning'] {
+  color: #a16207; /* yellow-700 */
+  border-color: #a16207;
+}
+.lexia-editor .lexia-citation[data-status='invalid'] {
+  color: #b91c1c; /* red-700 */
+  border-color: #b91c1c;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.dark .lexia-editor .lexia-citation[data-status='unverified'] {
+  color: #fbbf24;
+  border-color: #fbbf24;
+}
+.dark .lexia-editor .lexia-citation[data-status='verified'] {
+  color: #4ade80;
+  border-color: #4ade80;
+}
+.dark .lexia-editor .lexia-citation[data-status='warning'] {
+  color: #facc15;
+  border-color: #facc15;
+}
+.dark .lexia-editor .lexia-citation[data-status='invalid'] {
+  color: #f87171;
+  border-color: #f87171;
+}
+
+/* Empty paragraph placeholder (Tiptap placeholder extension) */
+.lexia-editor p.is-editor-empty:first-child::before,
+.lexia-editor p.is-empty.has-focus::before {
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+

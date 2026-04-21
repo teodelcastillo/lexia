@@ -192,6 +192,12 @@ const navigationSections: NavSection[] = [
     label: 'Lexia',
     items: [
       {
+        title: 'Workspace',
+        href: '/lexia/workspace',
+        icon: PenTool,
+        badge: 'NUEVO',
+      },
+      {
         title: 'Chat',
         href: '/lexia/chat',
         icon: MessageSquare,
@@ -200,7 +206,8 @@ const navigationSections: NavSection[] = [
       {
         title: 'Redactor',
         href: '/lexia/redactor',
-        icon: PenTool,
+        icon: FileText,
+        badge: 'Legado',
       },
       {
         title: 'Estratega',
