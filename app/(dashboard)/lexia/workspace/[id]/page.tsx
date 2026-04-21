@@ -49,13 +49,13 @@ export default async function WorkspaceDocumentPage({ params }: PageProps) {
 
     const { data: docs } = await supabase
       .from('documents')
-      .select('id, file_name')
+      .select('id, name')
       .eq('case_id', doc.caseId)
-      .order('uploaded_at', { ascending: false })
-      .limit(30)
+      .order('created_at', { ascending: false })
+      .limit(50)
     caseDocuments = (docs ?? []).map((d) => ({
       id: (d as { id: string }).id,
-      name: (d as { file_name?: string }).file_name ?? '(sin nombre)',
+      name: (d as { name?: string }).name ?? '(sin nombre)',
     }))
 
     const { data: parts } = await supabase

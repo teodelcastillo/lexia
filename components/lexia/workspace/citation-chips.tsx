@@ -121,6 +121,16 @@ export function CitationChips({ citations, autoVerify = true }: CitationChipsPro
                         : 'Doctrina'}
                   </div>
                   <div className="text-xs leading-snug">{tooltip}</div>
+                  {v?.source && v.source.startsWith('http') && (
+                    <a
+                      href={v.source}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-primary underline break-all"
+                    >
+                      Abrir fuente oficial →
+                    </a>
+                  )}
                 </div>
               </TooltipContent>
             </Tooltip>

@@ -21,6 +21,7 @@ import {
   EditOperationSchema,
   EditRequestSchema,
   docToOutline,
+  buildCaseContext,
 } from '@/lib/lexia/workspace'
 import { resolveModel } from '@/lib/ai/resolver'
 
@@ -118,59 +119,6 @@ function buildUserPrompt(opts: {
     .join('\n')
 }
 
-async function fetchCaseContextText(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  caseId: string | null,
-  documentIds: string[],
-  personIds: string[],
-): Promise<string> {
-  if (!caseId) return ''
-  const parts: string[] = []
-
-  // Documents (metadata only - content extraction is another story).
-  if (documentIds.length > 0) {
-    const { data } = await supabase
-      .from('documents')
-      .select('id, file_name')
-      .eq('case_id', caseId)
-      .in('id', documentIds)
-      .limit(10)
-    if (Array.isArray(data) && data.length > 0) {
-      parts.push(
-        'Documentos del caso seleccionados por el abogado (metadata):\n' +
-          data.map((d) => `- ${(d as { file_name?: string }).file_name ?? '(sin nombre)'}`).join('\n')
-      )
-    }
-  }
-
-  // Personas
-  if (personIds.length > 0) {
-    const { data } = await supabase
-      .from('people')
-      .select('id, first_name, last_name, name, person_type')
-      .in('id', personIds)
-      .limit(20)
-    if (Array.isArray(data) && data.length > 0) {
-      parts.push(
-        'Personas del caso seleccionadas:\n' +
-          data
-            .map((p) => {
-              const person = p as {
-                first_name?: string
-                last_name?: string
-                name?: string
-                person_type?: string
-              }
-              const nm = person.name || `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim()
-              return `- ${nm} (${person.person_type ?? 'persona'})`
-            })
-            .join('\n')
-      )
-    }
-  }
-  return parts.join('\n\n')
-}
-
 // -----------------------------------------------------------------------------
 // Handler
 // -----------------------------------------------------------------------------
@@ -222,12 +170,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     caseTitle = (data as { title?: string } | null)?.title ?? null
   }
 
-  const extraContext = await fetchCaseContextText(
-    supabase,
-    doc.caseId,
-    context?.documentIds ?? [],
-    context?.personIds ?? []
-  )
+  const contextResult = doc.caseId
+    ? await buildCaseContext(supabase, {
+        caseId: doc.caseId,
+        documentIds: context?.documentIds ?? [],
+        personIds: context?.personIds ?? [],
+      })
+    : { text: '', documents: [], people: [] }
+  const extraContext = contextResult.text
 
   const system = buildSystemPrompt({
     documentType: doc.documentType,
@@ -255,7 +205,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       selection_from: selection?.from ?? null,
       selection_to: selection?.to ?? null,
       selection_text: selection?.text ?? null,
-      context: context ?? {},
+      context: {
+        ...(context ?? {}),
+        resolved: {
+          documents: contextResult.documents,
+          people: contextResult.people,
+        },
+      },
       model_used: PRIMARY_MODEL,
       status: 'pending',
     })

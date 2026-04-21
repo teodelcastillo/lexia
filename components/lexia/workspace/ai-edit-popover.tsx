@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Loader2, Check, X, RefreshCw, ChevronRight, AlertTriangle, BookOpen } from 'lucide-react'
+import { Sparkles, Loader2, Check, X, RefreshCw, ChevronRight, AlertTriangle, BookOpen, Swords } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { DiffView } from './diff-view'
@@ -44,6 +44,8 @@ export interface AiEditPopoverProps {
     citations: EditOperation['citations']
     editId: string | null
   }) => void
+  /** Optional: "Cuestionar" action for the selected fragment. Only appears in selection mode. */
+  onChallenge?: () => void
 }
 
 export function AiEditPopover(props: AiEditPopoverProps) {
@@ -58,6 +60,7 @@ export function AiEditPopover(props: AiEditPopoverProps) {
     selectionTo,
     context,
     onAccept,
+    onChallenge,
   } = props
 
   const [instruction, setInstruction] = useState('')
@@ -241,6 +244,16 @@ export function AiEditPopover(props: AiEditPopoverProps) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Lexia está pensando y redactando…
+            </div>
+          )}
+
+          {!loading && !op && !error && mode === 'selection' && selectionText && onChallenge && (
+            <div className="flex items-center justify-between rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+              <span>¿Querés que la contraparte ataque este fragmento?</span>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onChallenge}>
+                <Swords className="h-3 w-3 mr-1" />
+                Cuestionar
+              </Button>
             </div>
           )}
 

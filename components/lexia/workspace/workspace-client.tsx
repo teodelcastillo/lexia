@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Sparkles, Loader2, Check } from 'lucide-react'
+import { ArrowLeft, Save, Sparkles, Loader2, Check, FileSearch, Swords } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,8 @@ import {
 } from './workspace-editor'
 import { AiEditPopover } from './ai-edit-popover'
 import { WorkspaceContextPanel } from './workspace-context-panel'
+import { InvestigatePanel } from './investigate-panel'
+import { CounterArguePanel } from './counter-argue-panel'
 import type { WorkspaceDocumentDTO, TiptapDoc } from '@/lib/lexia/workspace'
 
 interface WorkspaceClientProps {
@@ -55,6 +57,11 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
   // ⌘K popover state
   const [cmdK, setCmdK] = useState<CmdKRequest | null>(null)
   const popoverOpen = cmdK !== null
+
+  // Right-side panels
+  const [investigateOpen, setInvestigateOpen] = useState(false)
+  const [counterOpen, setCounterOpen] = useState(false)
+  const [counterFragment, setCounterFragment] = useState<{ text: string; from: number; to: number } | null>(null)
 
   // Snapshot of the latest editor content (for autosave)
   const latestContentRef = useRef<TiptapDoc>(initialDoc.content)
@@ -145,6 +152,13 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
     editorRef.current?.focus()
   }, [])
 
+  const handleChallenge = useCallback(() => {
+    if (!cmdK || cmdK.mode !== 'selection' || !cmdK.text) return
+    setCounterFragment({ text: cmdK.text, from: cmdK.from, to: cmdK.to })
+    setCounterOpen(true)
+    setCmdK(null)
+  }, [cmdK])
+
   const handleAccept = useCallback(
     ({ replacement, citations }: { replacement: string; citations?: unknown }) => {
       if (!cmdK) return
@@ -204,6 +218,17 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
           <Badge variant="outline" className="text-[10px] font-normal hidden md:inline-flex">
             <Sparkles className="h-3 w-3 mr-1" />⌘K para editar con IA
           </Badge>
+          {caseInfo && caseDocuments.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setInvestigateOpen(true)}
+              title="Preguntar sobre los documentos del caso"
+            >
+              <FileSearch className="h-4 w-4 mr-1" />
+              Investigar
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={doSave}>
             <Save className="h-4 w-4 mr-1" />
             Guardar
@@ -248,9 +273,53 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
             selectionTo={cmdK?.to ?? 0}
             context={{ documentIds: activeDocIds, personIds: activePersonIds }}
             onAccept={handleAccept}
+            onChallenge={cmdK?.mode === 'selection' && cmdK.text ? handleChallenge : undefined}
           />
         </main>
       </div>
+
+      <InvestigatePanel
+        open={investigateOpen}
+        onClose={() => setInvestigateOpen(false)}
+        caseId={caseInfo?.id ?? null}
+        documents={caseDocuments}
+        defaultDocumentIds={activeDocIds}
+        onInsertPassage={(text) => {
+          const h = editorRef.current
+          if (!h) return
+          const editor = h.getEditor?.()
+          const pos = editor?.state.selection.to ?? 0
+          h.insertTextAt(pos, text)
+          toast.success('Pasaje insertado')
+          setInvestigateOpen(false)
+        }}
+      />
+
+      <CounterArguePanel
+        open={counterOpen}
+        onClose={() => {
+          setCounterOpen(false)
+          editorRef.current?.clearPending()
+        }}
+        documentId={initialDoc.id}
+        fragment={counterFragment?.text ?? ''}
+        clientRole={initialDoc.clientRole ?? null}
+        onApplyRewrite={(text) => {
+          if (!counterFragment) return
+          editorRef.current?.clearPending()
+          const editor = editorRef.current?.getEditor?.()
+          if (editor) {
+            editor
+              .chain()
+              .focus()
+              .setTextSelection({ from: counterFragment.from, to: counterFragment.to })
+              .run()
+          }
+          editorRef.current?.replaceSelectionWithText(text)
+          toast.success('Fragmento reemplazado')
+          setCounterOpen(false)
+        }}
+      />
     </div>
   )
 }

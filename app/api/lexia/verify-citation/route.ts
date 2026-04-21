@@ -21,6 +21,7 @@ import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
 import { resolveModel } from '@/lib/ai/resolver'
+import { matchKnownNorm } from '@/lib/lexia/workspace'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -153,22 +154,52 @@ export async function POST(req: Request) {
   }
   const { citations } = parsed.data
 
-  // Primero corremos heurísticas. Si son claras, no llamamos al modelo para ellas.
-  const heuristics = citations.map((c) => heuristicCheck(c))
-  const needLLM: Array<{ origIndex: number; c: z.infer<typeof InputCitationSchema> }> = []
-  citations.forEach((c, i) => {
-    if (heuristics[i]?.status !== 'invalid') {
-      needLLM.push({ origIndex: i, c })
+  type Verdict = z.infer<typeof VerdictItemSchema>
+
+  // Paso 1: dataset curado. Si matchea, obtenemos un veredicto determinista.
+  const datasetVerdicts: Array<Verdict | null> = citations.map((c, i) => {
+    if (c.kind === 'jurisprudencia' || c.kind === 'doctrina') return null
+    const hit = matchKnownNorm(c.label)
+    if (hit.kind === 'verified') {
+      return {
+        index: i,
+        status: 'verified',
+        confidence: 0.95,
+        explanation: `Referencia reconocida en dataset curado.`,
+        suggestedLabel: hit.label,
+        source: hit.url,
+      }
     }
+    if (hit.kind === 'invalid') {
+      return {
+        index: i,
+        status: 'invalid',
+        confidence: 0.9,
+        explanation: hit.reason,
+      }
+    }
+    return null
   })
 
-  type Verdict = z.infer<typeof VerdictItemSchema>
-  const results: Verdict[] = citations.map((_, i) => ({
-    index: i,
-    status: heuristics[i]?.status ?? 'warning',
-    confidence: 0.3,
-    explanation: heuristics[i]?.reason ?? 'Pendiente de revisión automática.',
-  }))
+  // Paso 2: heurísticas para las que el dataset no resolvió.
+  const heuristics = citations.map((c, i) => (datasetVerdicts[i] ? null : heuristicCheck(c)))
+
+  // Paso 3: armamos resultados y decidimos qué pasar al LLM.
+  const needLLM: Array<{ origIndex: number; c: z.infer<typeof InputCitationSchema> }> = []
+  const results: Verdict[] = citations.map((c, i) => {
+    const pre = datasetVerdicts[i]
+    if (pre) return pre
+    const h = heuristics[i]
+    if (h?.status !== 'invalid') {
+      needLLM.push({ origIndex: i, c })
+    }
+    return {
+      index: i,
+      status: h?.status ?? 'warning',
+      confidence: 0.3,
+      explanation: h?.reason ?? 'Pendiente de revisión automática.',
+    }
+  })
 
   if (needLLM.length > 0) {
     let model
