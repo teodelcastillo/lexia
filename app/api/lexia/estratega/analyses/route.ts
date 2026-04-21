@@ -31,6 +31,8 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'Sin acceso al caso' }, { status: 403 })
       }
       query = query.eq('case_id', caseId)
+    } else {
+      query = query.eq('user_id', user.id)
     }
 
     const { data, error } = await query

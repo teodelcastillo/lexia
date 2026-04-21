@@ -76,6 +76,62 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
     }
 
+    // Load the referenced task/deadline from the database and assert the
+    // caller is genuinely authorized to emit the notification. This prevents
+    // any authenticated user from fabricating fake notifications to others.
+    if (type === 'task_assigned' || type === 'task_completed' || type === 'task_created') {
+      const { data: task } = await supabase
+        .from('tasks')
+        .select('id, case_id, assigned_to, status, created_by')
+        .eq('id', body.taskId)
+        .maybeSingle()
+
+      if (!task) {
+        return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
+      }
+
+      if (body.caseId && task.case_id && task.case_id !== body.caseId) {
+        return NextResponse.json({ error: 'case_id no coincide con la tarea' }, { status: 400 })
+      }
+
+      if (type === 'task_assigned' && task.assigned_to !== body.assignedTo) {
+        return NextResponse.json(
+          { error: 'assignedTo no coincide con la tarea' },
+          { status: 400 }
+        )
+      }
+
+      if (type === 'task_completed' && task.status !== 'completed') {
+        return NextResponse.json(
+          { error: 'La tarea no está completada' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (type === 'deadline_created' || type === 'deadline_assigned') {
+      const { data: deadline } = await supabase
+        .from('deadlines')
+        .select('id, case_id, assigned_to')
+        .eq('id', body.deadlineId)
+        .maybeSingle()
+
+      if (!deadline) {
+        return NextResponse.json({ error: 'Vencimiento no encontrado' }, { status: 404 })
+      }
+
+      if (body.caseId && deadline.case_id && deadline.case_id !== body.caseId) {
+        return NextResponse.json({ error: 'case_id no coincide con el vencimiento' }, { status: 400 })
+      }
+
+      if (type === 'deadline_assigned' && deadline.assigned_to !== body.assignedTo) {
+        return NextResponse.json(
+          { error: 'assignedTo no coincide con el vencimiento' },
+          { status: 400 }
+        )
+      }
+    }
+
     switch (type) {
       case 'task_assigned': {
         await notifyTaskAssigned(

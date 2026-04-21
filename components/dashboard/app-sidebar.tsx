@@ -14,7 +14,7 @@
 
 import React from "react"
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Scale,
   LayoutDashboard,
@@ -248,7 +248,7 @@ const navigationSections: NavSection[] = [
       },
       {
         title: 'Portal Clientes',
-        href: '/admin/portal',
+        href: '/portal',
         icon: ExternalLink,
         requiredRoles: ['admin_general'],
       },
@@ -296,6 +296,7 @@ function formatRole(role: string): string {
  */
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, profile, isLoading, signOut } = useAuth()
 
   if (isLoading) {
@@ -396,6 +397,9 @@ export function AppSidebar() {
 
   const handleSignOut = async () => {
     await signOut()
+    // Explicit redirect so the authenticated UI is not left mounted after
+    // the session is cleared. Mirror the header's logout behavior.
+    router.push('/auth/login')
   }
 
   return (

@@ -164,14 +164,18 @@ export function NotificationsView() {
       fetchNotifications()
     }
 
-    if (notification.case_id) {
-      router.push(`/casos/${notification.case_id}`)
-    } else if (notification.task_id) {
-      router.push(`/tareas`)
+    // Prefer the most specific entity (task/deadline/document) over the
+    // containing case so users land on the exact item that triggered it.
+    if (notification.task_id) {
+      router.push(`/tareas/${notification.task_id}`)
     } else if (notification.deadline_id) {
-      router.push(`/eventos`)
+      router.push(`/eventos?deadline=${notification.deadline_id}`)
+    } else if (notification.document_id) {
+      router.push(`/documentos/${notification.document_id}`)
     } else if (notification.metadata?.google_calendar_event_id) {
       router.push(`/calendario`)
+    } else if (notification.case_id) {
+      router.push(`/casos/${notification.case_id}`)
     }
   }
 

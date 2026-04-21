@@ -49,10 +49,12 @@ export default async function LiquidacionesPage() {
 
   const { data: compensations } = await query
 
+  // NOTE: use maybeSingle() (vs .single()) so the page does not 500 when
+  // there are 0 rows or when multiple org rows are visible via RLS.
   const { data: settings } = await supabase
     .from('organization_billing_settings')
     .select('current_jus_value, jus_currency')
-    .single()
+    .maybeSingle()
 
   return (
     <div className="space-y-6">

@@ -67,25 +67,38 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // Define protected route patterns - all dashboard routes
-  const isProtectedRoute = pathname.startsWith('/dashboard') || 
-                           pathname.startsWith('/casos') ||
-                           pathname.startsWith('/clientes') ||
-                           pathname.startsWith('/companias') ||
-                           pathname.startsWith('/personas') ||
-                           pathname.startsWith('/empresas') ||
-                           pathname.startsWith('/tareas') ||
-                           pathname.startsWith('/eventos') ||
-                           pathname.startsWith('/vencimientos') ||
-                           pathname.startsWith('/documentos') ||
-                           pathname.startsWith('/calendario') ||
-                           pathname.startsWith('/notas') ||
-                           pathname.startsWith('/lexia') ||
-                           pathname.startsWith('/herramientas') ||
-                           pathname.startsWith('/admin') ||
-                           pathname.startsWith('/perfil') ||
-                           pathname.startsWith('/notificaciones') ||
-                           pathname.startsWith('/configuracion')
+  // Define protected route patterns - all internal dashboard routes.
+  // Keep in sync with folders under app/(dashboard)/*.
+  const protectedPrefixes = [
+    '/dashboard',
+    '/tablero',
+    '/casos',
+    '/clientes',
+    '/companias',
+    '/empresas',
+    '/personas',
+    '/tareas',
+    '/eventos',
+    '/vencimientos',
+    '/documentos',
+    '/calendario',
+    '/notas',
+    '/lexia',
+    '/asistente-ia',
+    '/herramientas',
+    '/admin',
+    '/perfil',
+    '/notificaciones',
+    '/configuracion',
+    '/facturacion',
+    '/cuentas',
+    '/cobranzas',
+    '/liquidaciones',
+    '/buscar',
+  ]
+  const isProtectedRoute = protectedPrefixes.some((p) =>
+    pathname === p || pathname.startsWith(`${p}/`),
+  )
   
   // Define client portal route pattern
   const isClientPortalRoute = pathname.startsWith('/portal')

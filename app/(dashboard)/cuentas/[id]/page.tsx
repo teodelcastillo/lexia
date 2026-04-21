@@ -54,7 +54,7 @@ export default async function CuentaDetailPage({ params }: Props) {
   const { data: pendingItems } = await supabase
     .from('billing_items')
     .select('*')
-    .eq('client_id', id)
+    .eq(client ? 'client_id' : 'company_id', id)
     .in('status', ['draft', 'approved'])
     .order('created_at', { ascending: false })
 

@@ -92,6 +92,15 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const config = getModelConfig('claude-sonnet') ?? getModelConfig('gpt4o')
     const model = resolveModel(config?.model ?? 'anthropic/claude-sonnet-4-20250514')
 

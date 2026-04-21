@@ -1,7 +1,7 @@
 # LEXIA - Documentacion Tecnica Completa
 
-**Version:** 1.0.0
-**Ultima actualizacion:** Febrero 2026
+**Version:** 1.1.0
+**Ultima actualizacion:** Abril 2026
 **Stack tecnologico:** Next.js 16 + Supabase + Vercel AI SDK 6 + Tailwind CSS 4
 
 ---
@@ -126,12 +126,25 @@ app/auth/callback/route.ts     - Callback de OAuth
 
 ### 2.3 Middleware de Proteccion de Rutas
 
-El middleware (`lib/supabase/proxy.ts`) intercepta TODAS las solicitudes y:
+El middleware (`lib/supabase/middleware.ts`, exportado desde `proxy.ts`)
+intercepta TODAS las solicitudes y:
 
 1. **Refresca la sesion** en cada request para evitar logouts inesperados.
-2. **Protege rutas internas:** `/dashboard`, `/casos`, `/clientes`, `/personas`, `/empresas`, `/tareas`, `/eventos`, `/vencimientos` (redirect a /eventos), `/documentos`, `/calendario`, `/notas`, `/lexia`, `/herramientas`, `/admin`, `/perfil`, `/notificaciones`, `/configuracion`.
-3. **Protege el portal de clientes:** `/portal/*` requiere autenticacion con redireccion a `/auth/portal-login`.
-4. **Redirige usuarios autenticados** fuera de las paginas de auth, considerando su rol (clientes al portal, equipo al dashboard).
+2. **Protege rutas internas** del dashboard:
+   `/dashboard`, `/tablero`, `/casos`, `/clientes`, `/personas`, `/empresas`,
+   `/companias`, `/tareas`, `/eventos`, `/vencimientos` (alias legacy),
+   `/documentos`, `/calendario`, `/notas`, `/lexia`, `/asistente-ia`,
+   `/herramientas`, `/admin`, `/perfil`, `/notificaciones`, `/configuracion`,
+   `/facturacion`, `/cuentas`, `/cobranzas`, `/liquidaciones`, `/buscar`.
+3. **Protege el portal de clientes:** `/portal/*` requiere autenticacion con
+   redireccion a `/auth/portal-login`.
+4. **Redirige usuarios autenticados** fuera de las paginas de auth,
+   considerando su rol (clientes al portal, equipo al dashboard).
+
+> **Nota de seguridad:** el middleware NO cubre `/api/*`. Cada `route.ts`
+> implementa su propio `supabase.auth.getUser()` + `checkCasePermission` donde
+> corresponde. Ver seccion 2.7 para el checklist que aplica a toda la capa
+> API.
 
 ### 2.4 Hook useAuth (Client-Side)
 
@@ -189,6 +202,39 @@ Las tablas criticas tienen RLS habilitado en Supabase:
 | `tasks` | Si | Habilitado (politicas pendientes) |
 | `cases` | Si | Habilitado (politicas pendientes) |
 | `case_notes` | Si | Habilitado (politicas pendientes) |
+
+### 2.7 Checklist de Seguridad para API Routes
+
+Cada handler bajo `app/api/*` debe cumplir estos requisitos (validado en la
+auditoria de abril 2026):
+
+1. **Autenticacion explicita:** todas las rutas llaman a
+   `supabase.auth.getUser()` y responden `401` si no hay usuario. El
+   middleware NO cubre el endpoint API.
+2. **Autorizacion contextual:** si la operacion toca `case_id`, llamar a
+   `checkCasePermission(supabase, user.id, caseId, permission)` antes de
+   escribir o leer.
+3. **Validacion de JSON:** `await request.json().catch(() => null)`, con 400
+   si el cuerpo es invalido.
+4. **Parametros numericos:** saneizar `limit`/`offset` contra `NaN`.
+5. **Filas opcionales:** usar `.maybeSingle()` en lugar de `.single()`.
+6. **No-ops:** un PATCH/POST sin cambios devuelve `400`, nunca `ok:true`.
+7. **Fila unica escrita:** tras un `UPDATE` sensible, usar `.select()` para
+   detectar 0 filas y devolver `404` (RLS puede silenciar el cambio).
+8. **Triggers cliente:** rutas como `/api/notifications/trigger` revalidan
+   el payload contra la DB antes de fan-out a otros usuarios.
+
+Esta auditoria corrigio entre otros:
+- Falta de auth en `/api/herramientas/correo/data`,
+  `/api/herramientas/correo/informe-estado` y `/api/lexia/draft/export`.
+- IDOR en `/api/lexia/estratega/analyses` y `/[id]`,
+  `/api/lexia/conversations` (POST), `/api/lexia/drafts` (POST),
+  `/api/deadlines/[id]` (DELETE) y `/api/deadlines/[id]/complete`.
+- `/api/notifications/trigger` ahora revalida task/deadline real vs payload.
+- `/api/notifications` PATCH rechaza 400 cuando no hay `markAll` ni
+  `notificationIds`.
+- `/api/admin/create-client-user` rechaza `person.organization_id === null`
+  que antes bypaseaba la verificacion de organizacion.
 
 ---
 
@@ -913,33 +959,52 @@ CREATE TYPE notification_category AS ENUM ('activity', 'work');
 +-- app/
 |   +-- (dashboard)/           # Rutas del dashboard interno
 |   |   +-- admin/             # Panel de administracion
-|   |   +-- asistente-ia/      # Asistente IA (ruta alternativa)
+|   |   +-- asistente-ia/      # Alias de /lexia
+|   |   +-- buscar/            # Busqueda global (q=...)
 |   |   +-- calendario/        # Vista de calendario
 |   |   +-- casos/             # Gestion de casos
 |   |   +-- clientes/          # Gestion de clientes
+|   |   +-- cobranzas/         # Cobranzas
+|   |   +-- companias/         # Listado y detalle de empresas
 |   |   +-- configuracion/     # Configuracion del sistema
+|   |   +-- cuentas/           # Estado de cuenta por cliente/empresa
 |   |   +-- dashboard/         # Pagina principal del dashboard
 |   |   +-- documentos/        # Gestion de documentos
-|   |   +-- empresas/          # Gestion de empresas
+|   |   +-- empresas/          # Redirige a /companias (alias compat)
+|   |   +-- eventos/           # Vencimientos, audiencias, reuniones
+|   |   +-- facturacion/       # Modulo de facturacion
 |   |   +-- herramientas/      # Herramientas auxiliares
 |   |   +-- lexia/             # Asistente IA Lexia
 |   |   |   +-- chat/          # Chat con historial persistido
 |   |   |   +-- redactor/      # Redactor Juridico (borradores)
+|   |   |   +-- estratega/     # Lexia Estratega (analisis estrategico)
+|   |   |   +-- contestacion/  # Contestacion guiada
 |   |   |   +-- plantillas/    # Gestion de plantillas por tipo
+|   |   +-- liquidaciones/     # Liquidaciones mensuales
 |   |   +-- notas/             # Notas rapidas
 |   |   +-- notificaciones/    # Centro de notificaciones
 |   |   +-- perfil/            # Perfil del usuario
-|   |   +-- personas/          # Gestion de personas
+|   |   +-- personas/          # Gestion de personas (tabla DB: people)
+|   |   +-- tablero/           # Kanban general
 |   |   +-- tareas/            # Gestion de tareas
-|   |   +-- vencimientos/      # Gestion de vencimientos
+|   |   +-- vencimientos/      # Legacy, redirige a /eventos
 |   |   +-- layout.tsx         # Layout del dashboard (sidebar + header)
 |   +-- (portal)/              # Rutas del portal de clientes
-|   |   +-- portal/            # Paginas del portal
+|   |   +-- portal/            # Home, casos, documentos
+|   |   |   +-- perfil/        # Perfil + cambio de contrasena cliente
 |   |   +-- layout.tsx         # Layout del portal
-|   +-- api/                   # API Routes
-|   |   +-- lexia/             # API de Lexia (principal + conversaciones)
-|   |   +-- notifications/     # API de notificaciones
-|   |   +-- admin/             # API de administracion
+|   +-- api/                   # API Routes (ver DOCUMENTATION.md y seccion 2.7)
+|   |   +-- admin/             # create-client-user
+|   |   +-- cases/             # generate-description, update-description
+|   |   +-- cron/              # calendar-reminders, sac-sync
+|   |   +-- deadlines/         # [id], [id]/complete, [id]/sync-google
+|   |   +-- documents/         # [id]/download
+|   |   +-- google/            # OAuth + calendar (baja prioridad)
+|   |   +-- herramientas/      # cedulas, correo/data, correo/informe-estado
+|   |   +-- lexia/             # main, conversations, drafts, templates,
+|   |   |                      # estratega, contestacion, case-party-data
+|   |   +-- notifications/     # GET, PATCH, trigger
+|   |   +-- sac/               # Modulo Cordoba
 |   +-- auth/                  # Paginas de autenticacion
 |   +-- actions/               # Server Actions
 |   +-- layout.tsx             # Root layout
@@ -975,23 +1040,60 @@ CREATE TYPE notification_category AS ENUM ('activity', 'work');
 
 ## 13. Variables de Entorno
 
+La plantilla completa vive en `.env.example` (incluida en el repo). Resumen:
+
+### 13.1 Supabase (obligatorio)
+
 | Variable | Requerida | Descripcion |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Si | URL publica del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Si | Clave anonima publica de Supabase |
-| `SUPABASE_URL` | Si | URL del proyecto Supabase (server) |
-| `SUPABASE_ANON_KEY` | Si | Clave anonima (server) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Si | Clave de service role (operaciones admin) |
-| `SUPABASE_JWT_SECRET` | Si | Secreto JWT para verificacion de tokens |
-| `POSTGRES_URL` | Si | URL de conexion directa a PostgreSQL |
-| `POSTGRES_URL_NON_POOLING` | Si | URL sin connection pooling |
-| `POSTGRES_PRISMA_URL` | Si | URL para Prisma (si se usa) |
-| `POSTGRES_USER` | Si | Usuario de PostgreSQL |
-| `POSTGRES_PASSWORD` | Si | Contrasena de PostgreSQL |
-| `POSTGRES_DATABASE` | Si | Nombre de la base de datos |
-| `POSTGRES_HOST` | Si | Host de PostgreSQL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Si | Service role (operaciones admin server-only) |
+| `SUPABASE_JWT_SECRET` | Opcional | Verificacion de JWT custom |
+| `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` | Opcional | Conexion directa para scripts |
 
-Todas las variables del servidor se configuran automaticamente a traves de la integracion de Supabase en Vercel.
+Si las variables publicas faltan durante `next build`, `lib/supabase/client.ts`
+devuelve un stub durante prerender y recien lanza el error en runtime del
+browser. `lib/supabase/server.ts` valida al vuelo y lanza error claro.
+
+### 13.2 IA (al menos un proveedor)
+
+| Variable | Requerida | Descripcion |
+|---|---|---|
+| `OPENAI_API_KEY` | Condicional | Requerida si se usan modelos GPT-* |
+| `ANTHROPIC_API_KEY` | Condicional | Requerida si se usan modelos Claude |
+| `AI_GATEWAY_API_KEY` | Opcional | Vercel AI Gateway (si se usa proxy) |
+
+### 13.3 Cron
+
+| Variable | Requerida | Descripcion |
+|---|---|---|
+| `CRON_SECRET` | Si en prod | `Authorization: Bearer` para los cron jobs. Generar con `openssl rand -hex 32`. |
+
+### 13.4 Feature flags
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `LEXIA_CREDITS_ENFORCEMENT` | `false` | Activar cobro de creditos por consulta Lexia |
+| `SEED_USERS_ENABLED` | `false` | Habilitar endpoints de seed (solo dev) |
+| `VIEW_AS_ENABLED` | `false` | Permitir "view as" para admins |
+
+### 13.5 Google (opcional, baja prioridad)
+
+| Variable | Requerida | Descripcion |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | Opcional | OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Opcional | OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | Opcional | URL de callback (`/api/google/callback`) |
+
+### 13.6 SAC (Cordoba)
+
+| Variable | Requerida | Descripcion |
+|---|---|---|
+| `SAC_ENCRYPTION_KEY` | Si | Cifrado de credenciales del Portal SAC (`openssl rand -hex 32`) |
+
+En Vercel, las variables de Supabase se configuran automaticamente por la
+integracion; el resto se agrega manualmente.
 
 ---
 
@@ -1032,4 +1134,29 @@ vercel deploy --prod
 
 ---
 
-*Documento generado automaticamente. Revision: Febrero 2026.*
+*Documento generado automaticamente. Revision: Abril 2026.*
+
+---
+
+## Changelog
+
+### 1.1.0 - Abril 2026
+
+- Nueva seccion 2.7 con el checklist de seguridad que deben cumplir todas
+  las rutas bajo `app/api/*`.
+- Seccion 2.3 actualizada con la lista completa de rutas protegidas por
+  middleware (incluyendo `/facturacion`, `/cuentas`, `/cobranzas`,
+  `/liquidaciones`, `/tablero`, `/buscar`, `/asistente-ia`).
+- Seccion 12 actualizada con nuevas rutas del dashboard, sub-rutas Lexia
+  (estratega, contestacion) y la estructura real de `app/api/*`.
+- Seccion 13 expandida: `.env.example` ahora es la fuente de verdad; se
+  documentan `CRON_SECRET`, feature flags Lexia/SEED/VIEW_AS,
+  `SAC_ENCRYPTION_KEY` y API keys de IA.
+- Correcciones de tabla: la tabla de personas fisicas se llama `people`
+  (no `persons`); `/api/admin/create-client-user` recibe
+  `{ email, personId, companyId }`; schema real de `notifications`
+  documentado en `DOCUMENTATION.md`.
+
+### 1.0.0 - Febrero 2026
+
+- Version inicial.

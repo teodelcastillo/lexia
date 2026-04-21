@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to save draft' }, { status: 500 })
     }
 
-    await supabase
+    const { error: updateSessionError } = await supabase
       .from('lexia_contestacion_sessions')
       .update({
         state: {
@@ -88,9 +88,17 @@ export async function POST(req: Request) {
       })
       .eq('id', sessionId)
 
+    if (updateSessionError) {
+      console.error(
+        '[Contestacion] save-draft session update error:',
+        updateSessionError
+      )
+    }
+
     return NextResponse.json({
       draftId: draft.id,
       caseId: session.case_id,
+      sessionUpdated: !updateSessionError,
     })
   } catch (err) {
     console.error('[Contestacion] save-draft error:', err)

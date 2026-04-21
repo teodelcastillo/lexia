@@ -145,6 +145,16 @@ export async function PATCH(request: Request) {
     if (error) {
       return NextResponse.json({ error: 'Error updating notifications' }, { status: 500 })
     }
+  } else {
+    // Neither markAll nor a non-empty notificationIds: avoid a silent no-op
+    // that misleads callers into thinking the update succeeded.
+    return NextResponse.json(
+      {
+        error:
+          'Debe proporcionar "markAll": true o un array no vacio "notificationIds"',
+      },
+      { status: 400 },
+    )
   }
 
   return NextResponse.json({ success: true })

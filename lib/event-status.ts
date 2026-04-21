@@ -33,9 +33,21 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 /**
  * Computes temporal state from event date (start or due).
+ *
+ * Bare YYYY-MM-DD strings are parsed as LOCAL calendar dates to avoid
+ * off-by-one-day bugs in non-UTC timezones (e.g. UTC-3 in Argentina),
+ * where `new Date('2025-02-19')` produces 2025-02-18 at 21:00 local.
  */
 export function getTemporalState(date: Date | string, now: Date = new Date()): TemporalState {
-  const d = typeof date === 'string' ? new Date(date) : date
+  let d: Date
+  if (typeof date === 'string') {
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+    d = ymd
+      ? new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]))
+      : new Date(date)
+  } else {
+    d = date
+  }
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
   const eventDay = new Date(d)
@@ -48,15 +60,15 @@ export function getTemporalState(date: Date | string, now: Date = new Date()): T
 
 /**
  * Computes preparation state from associated tasks.
- * - 0 tasks: no_aplica
- * - All completed: listo
+ * - 0 tasks (or all cancelled): no_aplica
+ * - All remaining completed: listo
  * - Any in_progress or under_review: en_curso
  * - Else: sin_iniciar
  */
 export function getPreparationState(tasks: TaskLike[]): PreparationState {
   if (!tasks || tasks.length === 0) return 'no_aplica'
   const active = tasks.filter((t) => t.status !== 'cancelled')
-  if (active.length === 0) return 'listo'
+  if (active.length === 0) return 'no_aplica'
   const completed = active.filter((t) => t.status === 'completed')
   if (completed.length === active.length) return 'listo'
   const inProgress = active.some(
@@ -77,10 +89,11 @@ export function getLegalRisk(
   temporal: TemporalState,
   preparation: PreparationState
 ): LegalRisk {
-  if (preparation === 'no_aplica') return 'ninguno'
+  // Non-deliverable events never imply legal risk, regardless of preparation.
   if (eventKind === 'meeting' || eventKind === 'hearing' || eventKind === 'other') {
     return 'bajo'
   }
+  if (preparation === 'no_aplica') return 'ninguno'
   if (preparation === 'listo') return 'bajo'
   if (temporal === 'pasado') return 'alto'
   if (temporal === 'hoy') return 'medio'

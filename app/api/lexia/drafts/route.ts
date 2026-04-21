@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isDocumentType } from '@/lib/ai/draft-schemas'
 import { getDefaultDraftTitle } from '@/lib/lexia/draft-title'
+import { checkCasePermission } from '@/lib/utils/access-control'
 
 export async function GET(req: Request) {
   try {
@@ -19,7 +20,10 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const caseId = searchParams.get('caseId')
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100)
+    const parsedLimit = parseInt(searchParams.get('limit') ?? '50', 10)
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 100)
+      : 50
 
     let query = supabase
       .from('lexia_drafts')
@@ -63,6 +67,13 @@ export async function POST(req: Request) {
 
     if (!isDocumentType(documentType)) {
       return NextResponse.json({ error: 'Invalid documentType' }, { status: 400 })
+    }
+
+    if (caseId) {
+      const canView = await checkCasePermission(supabase, user.id, caseId, 'can_view')
+      if (!canView) {
+        return NextResponse.json({ error: 'Sin acceso al caso' }, { status: 403 })
+      }
     }
 
     const finalName = name?.trim() || getDefaultDraftTitle(documentType, formData)

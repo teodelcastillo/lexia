@@ -143,7 +143,13 @@ export async function POST(req: Request) {
     }
 
     // 2. Parse request body
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return new Response(
+        JSON.stringify({ error: 'Cuerpo JSON invalido' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
     const caseContextInput: CaseContextInput | null = body.caseContext || null
     const conversationId = body.conversationId ?? body.id ?? null
 

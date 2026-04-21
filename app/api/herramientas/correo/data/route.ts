@@ -36,6 +36,15 @@ export type CompanyItem = {
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const mode = searchParams.get('mode') // 'contacts' | 'cases' | 'companies' | 'case-detail' | 'client-cases'
     const caseId = searchParams.get('caseId')

@@ -251,15 +251,19 @@ export function NotificationsPopover() {
 
     setIsOpen(false)
 
-    // Navigate to relevant page
-    if (notification.case_id) {
-      router.push(`/casos/${notification.case_id}`)
-    } else if (notification.task_id) {
-      router.push(`/tareas`)
+    // Navigate to the most specific relevant page.
+    // Prefer specific IDs over case-level fallbacks so users land on the
+    // actual entity that generated the notification.
+    if (notification.task_id) {
+      router.push(`/tareas/${notification.task_id}`)
     } else if (notification.deadline_id) {
-      router.push(`/eventos`)
+      router.push(`/eventos?deadline=${notification.deadline_id}`)
+    } else if (notification.document_id) {
+      router.push(`/documentos/${notification.document_id}`)
     } else if (notification.metadata?.google_calendar_event_id) {
       router.push(`/calendario`)
+    } else if (notification.case_id) {
+      router.push(`/casos/${notification.case_id}`)
     }
   }
 

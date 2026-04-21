@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -106,13 +107,13 @@ export function KanbanQuickAdd({
 
   if (cases.length === 0) {
     return (
-      <a
+      <Link
         href="/tareas/nueva"
         className="flex items-center gap-2 w-full py-2.5 px-3 rounded-lg text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
       >
         <Plus className="h-4 w-4" />
         Agregar tarjeta
-      </a>
+      </Link>
     )
   }
 

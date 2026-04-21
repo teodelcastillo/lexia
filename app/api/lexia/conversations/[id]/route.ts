@@ -76,7 +76,10 @@ export async function PATCH(
     if (typeof body.is_archived === 'boolean') updates.is_archived = body.is_archived
 
     if (Object.keys(updates).length === 0) {
-      return Response.json({ ok: true })
+      return new Response(
+        JSON.stringify({ error: 'No updatable fields were provided' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     const ok = await updateConversation(supabase, id, user.id, updates)

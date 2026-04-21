@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/services/activity-log'
 import { notifyDeadlineCompleted } from '@/lib/services/notifications'
+import { checkCasePermission } from '@/lib/utils/access-control'
 
 export async function POST(
   _request: Request,
@@ -26,9 +27,31 @@ export async function POST(
       .from('deadlines')
       .select('title, case_id')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
-    const { error } = await supabase
+    if (!deadline) {
+      return NextResponse.json(
+        { error: 'Vencimiento no encontrado' },
+        { status: 404 }
+      )
+    }
+
+    if (deadline.case_id) {
+      const canEdit = await checkCasePermission(
+        supabase,
+        user.id,
+        deadline.case_id,
+        'can_edit'
+      )
+      if (!canEdit) {
+        return NextResponse.json(
+          { error: 'Sin permisos para completar este vencimiento' },
+          { status: 403 }
+        )
+      }
+    }
+
+    const { error, data: updated } = await supabase
       .from('deadlines')
       .update({
         status: 'completed',
@@ -37,12 +60,20 @@ export async function POST(
         completed_by: user.id,
       })
       .eq('id', id)
+      .select('id')
 
     if (error) {
       console.error('[Deadline Complete]', error)
       return NextResponse.json(
         { error: error.message || 'No se pudo marcar como completado' },
         { status: 500 }
+      )
+    }
+
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        { error: 'Vencimiento no encontrado o sin permisos para actualizar' },
+        { status: 404 }
       )
     }
 

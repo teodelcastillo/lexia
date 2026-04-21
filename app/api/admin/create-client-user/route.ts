@@ -41,7 +41,18 @@ export async function POST(req: Request) {
     }
 
     // Parse request body
-    const { email, personId, companyId } = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Cuerpo JSON invalido' },
+        { status: 400 }
+      )
+    }
+    const { email, personId, companyId } = body as {
+      email?: string
+      personId?: string
+      companyId?: string
+    }
 
     if (!email || !personId || !companyId) {
       return NextResponse.json(
@@ -64,7 +75,7 @@ export async function POST(req: Request) {
       )
     }
 
-    if (person.organization_id && person.organization_id !== profile.organization_id) {
+    if (person.organization_id !== profile.organization_id) {
       return NextResponse.json(
         { error: 'La persona seleccionada no pertenece a su organización' },
         { status: 403 }

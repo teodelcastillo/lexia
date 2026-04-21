@@ -136,24 +136,44 @@ lawyer_executive:
 - **Usuarios Team:** Dashboard personal con casos y tareas
 - **Clientes:** Redirect a `/portal`
 
-#### Rutas Protegidas
+#### Rutas Protegidas (middleware)
+
+Todas redirigen a `/auth/login` si no hay sesion, y los clientes son redirigidos a `/portal`.
 
 ```
-/dashboard
-├── /casos              # Listado de casos
-├── /casos/[id]         # Detalle de caso
-├── /clientes           # Listado de clientes
-├── /personas           # Listado de personas
-├── /empresas           # Listado de empresas
-├── /tareas             # Gestión de tareas
-├── /deadlines          # Vencimientos
-├── /lexia              # Asistente Legal IA
-├── /notificaciones     # Centro de notificaciones
-├── /perfil             # Mi perfil
-└── /admin
-    ├── /usuarios       # Gestión de usuarios
-    ├── /perfiles       # Gestión de perfiles (team + clients)
-    └── /portal         # Portal de cliente (admin)
+/dashboard              # Dashboard principal (admin / team)
+/tablero                # Kanban general
+/casos                  # Listado y detalle de casos
+/clientes               # Listado de clientes
+/personas               # Personas fisicas (tabla DB: people)
+/empresas               # Alias de compatibilidad: redirige a /companias
+/companias              # Listado y detalle de empresas
+/tareas                 # Gestion de tareas
+/eventos                # Vencimientos, audiencias y reuniones
+/vencimientos           # (legacy, redirige a /eventos)
+/calendario             # Vista de calendario
+/documentos             # Gestion documental
+/notas                  # Notas rapidas
+/lexia                  # Asistente IA Lexia (chat, redactor, estratega)
+/asistente-ia           # Alias de /lexia
+/herramientas           # Herramientas auxiliares (correo, cedulas, SAC)
+/buscar                 # Busqueda global (q=...)
+/notificaciones         # Centro de notificaciones
+/perfil                 # Mi perfil
+/configuracion          # Configuracion del sistema
+/facturacion            # Modulo de facturacion
+/cuentas                # Estado de cuenta por cliente/empresa
+/cobranzas              # Cobranzas
+/liquidaciones          # Liquidaciones mensuales
+/admin
+ ├── /usuarios          # Gestion de usuarios
+ ├── /perfiles          # Gestion de perfiles (team + clients)
+ └── /portal-admin      # Administracion del portal de clientes
+
+/portal                 # Portal de clientes (rol client)
+ ├── /portal/casos      # Casos visibles al cliente
+ ├── /portal/documentos # Documentos compartidos
+ └── /portal/perfil     # Perfil + cambio de contrasena (cliente)
 ```
 
 ### Componentes Clave
@@ -184,25 +204,66 @@ Dos categorías de notificaciones:
 
 Todas las llamadas API utilizan Supabase Client SDK.
 
+### Reglas de Seguridad para API Routes
+
+Cada `route.ts` dentro de `app/api/*` debe cumplir los siguientes requisitos
+minimos (verificados en la ultima auditoria):
+
+1. **Autenticacion explicita**: todas las rutas llaman a
+   `supabase.auth.getUser()` y devuelven 401 si no hay usuario. El middleware
+   solo protege paginas navegables, no endpoints API.
+2. **Autorizacion por caso**: cuando la operacion toca un `case_id`, la ruta
+   usa `checkCasePermission(supabase, user.id, caseId, 'can_view' | 'can_edit')`
+   desde `lib/utils/access-control.ts`.
+3. **Validacion de JSON**: cualquier `request.json()` va envuelto en
+   `.catch(() => null)` y se responde 400 si el cuerpo no es objeto valido.
+4. **Parametros numericos**: `limit`/`offset` se saneizan para evitar `NaN`.
+5. **Filas opcionales**: usar `.maybeSingle()` cuando la fila puede no existir.
+6. **Sin no-ops silenciosos**: PATCH/POST vacios responden 400, no `{ok: true}`.
+7. **UPDATE de fila unica**: verificar que al menos una fila fue modificada
+   (`.select()` post-update) para no devolver 200 cuando RLS bloqueo el cambio.
+
 ### Endpoints Principales
 
 #### Autenticación
 
-```typescript
-POST /api/auth/logout
-POST /api/auth/login
-POST /api/auth/signup
-```
+Las paginas `app/auth/*` (login, sign-up, portal-login, forgot-password,
+reset-password, callback, error) manejan el flujo con Supabase Auth. No hay
+endpoints REST separados; se usan Server Actions y el cliente Supabase.
 
 #### Notificaciones
 
 ```typescript
 GET /api/notifications
   Query params:
-  - category: 'all' | 'activity' | 'work'
-  - limit: number (default: 20)
+  - category?: 'activity' | 'work'  // opcional
+  - limit?: number (default 20, max 50)
+  - offset?: number
 
-Retorna: { work: Notification[], activity: Notification[] }
+Retorna: {
+  notifications: Notification[],
+  unreadCount: number,
+  hasMore: boolean,
+}
+
+PATCH /api/notifications
+Body: {
+  notificationIds?: string[]   // marcar especificas
+  markAll?: boolean            // marcar todas
+  category?: 'activity' | 'work' // opcional, solo con markAll
+}
+// Responde 400 si no se envia ninguno de los dos modos.
+Retorna: { success: true }
+
+POST /api/notifications/trigger
+// Disparador interno desde el cliente despues de acciones (crear/completar
+// tareas, crear/asignar vencimientos). El servidor REVALIDA contra la DB:
+// - Carga la tarea/deadline real por ID.
+// - Verifica que assignedTo, caseId y estado coincidan con el payload.
+// - Rechaza 400/404 si no coincide (previene notificaciones forjadas).
+Body: { type: 'task_assigned' | 'task_completed' | 'task_created'
+       | 'deadline_created' | 'deadline_assigned', ... }
+Retorna: { success: true }
 ```
 
 #### Lexia (IA)
@@ -282,41 +343,110 @@ DELETE /api/lexia/templates/[id]                 // Eliminar template org
 
 ```typescript
 POST /api/admin/create-client-user
+// Requiere rol admin_general. Verifica que la persona y la empresa
+// pertenezcan a la organizacion del administrador (incluyendo el caso
+// donde person.organization_id es NULL, que ahora se rechaza).
 Body: {
   email: string
-  clientId: string
+  personId: string    // id en tabla `people`
+  companyId: string   // id en tabla `companies`
 }
 
 Retorna: { userId, email, temporalPassword }
+```
+
+#### Lexia - Estratega
+
+```typescript
+GET /api/lexia/estratega/analyses?caseId=...
+// Sin caseId: lista analisis del usuario actual (scoped por user_id).
+// Con caseId: verifica checkCasePermission('can_view') antes de filtrar.
+
+GET /api/lexia/estratega/analyses/[id]
+// Verifica que el solicitante sea el owner del analisis o miembro del caso.
+
+POST /api/lexia/estratega/analyze
+Body: { caseId: string, ... }
+// Upsert on (case_id, user_id). Rate limit en memoria.
+```
+
+#### Lexia - Conversaciones y Borradores
+
+```typescript
+GET  /api/lexia/conversations?caseId=...&limit=50
+POST /api/lexia/conversations    // Body: { caseId?: string }
+                                 // Verifica acceso al caso si caseId presente.
+GET  /api/lexia/conversations/[id]
+PATCH /api/lexia/conversations/[id]  // title | is_pinned | is_archived
+                                     // 400 si no hay campos a actualizar.
+
+GET  /api/lexia/drafts?caseId=...&limit=50  // Scoped por user_id.
+POST /api/lexia/drafts    // { documentType, name?, content, formData, caseId? }
+                          // Verifica acceso al caso si caseId presente.
+
+POST /api/lexia/draft/export     // Genera .docx. Requiere sesion.
+```
+
+#### Deadlines (Vencimientos)
+
+```typescript
+DELETE /api/deadlines/[id]
+// Verifica checkCasePermission('can_edit') sobre deadline.case_id.
+// Si hay google_calendar_event_id, intenta borrar del calendario antes.
+
+POST /api/deadlines/[id]/complete
+// Verifica checkCasePermission('can_edit').
+// Usa .select() post-update para devolver 404 si RLS bloqueo la actualizacion.
+```
+
+#### Herramientas de Correo
+
+```typescript
+GET /api/herramientas/correo/data
+// Requiere auth. Modes: 'contacts' | 'cases' | 'companies' |
+// 'case-detail' | 'client-cases'.
+
+POST /api/herramientas/correo/informe-estado
+// Requiere auth. Genera texto via IA usando datos del caso.
+Body: { caseId: string }
 ```
 
 ### Estructura de Respuestas
 
 #### Notificación
 
+El schema real (tabla `notifications`) usa columnas especificas por entidad
+en lugar de un `related_entity_id` generico.
+
 ```typescript
 interface Notification {
   id: string
   user_id: string
-  title: string
-  description: string
   category: 'activity' | 'work'
-  type: NotificationType
-  related_entity_id?: string
-  related_entity_type?: string
+  type: string                     // task_assigned, deadline_due_soon, etc.
+  title: string
+  message: string
+
+  // Foreign keys (todas opcionales, ON DELETE SET NULL)
+  case_id?: string | null
+  task_id?: string | null
+  deadline_id?: string | null
+  document_id?: string | null
+
+  triggered_by?: string | null     // user_id de quien origino la accion
+  metadata: Record<string, unknown>
+
   is_read: boolean
+  read_at?: string | null
   created_at: string
 }
-
-type NotificationType =
-  | 'task_assigned'
-  | 'deadline_approaching'
-  | 'document_uploaded'
-  | 'comment_added'
-  | 'case_status_changed'
-  | 'user_joined'
-  | 'file_shared'
 ```
+
+La UI (`notifications-view.tsx` / `notifications-popover.tsx`) rutea al
+hacer click en orden de especificidad:
+`task_id` -> `/tareas/[id]`, `deadline_id` -> `/eventos?deadline=...`,
+`document_id` -> `/documentos/[id]`, `metadata.google_calendar_event_id`
+-> `/calendario`, `case_id` -> `/casos/[id]`.
 
 #### Caso
 
@@ -545,10 +675,13 @@ Recibe notificaciones de sus casos:
 - id, company_name, industry
 - address, phone, email
 
-**persons** (Personas)
-- id, first_name, last_name
-- company_id (FK)
-- role, email, phone
+**people** (Personas fisicas)
+- id, first_name, last_name, name (computed), company_name
+- person_type (client | judge | opposing_lawyer | prosecutor | witness | expert | other)
+- client_type (person | company) cuando corresponde
+- email, phone, address
+- organization_id (FK a organizations, para multitenancy)
+- is_active
 
 **documents** (Documentos)
 - id, case_id (FK)
@@ -623,11 +756,38 @@ npm run dev
 
 ### Variables de Entorno Requeridas
 
-```
+El archivo `.env.example` contiene la lista completa. Resumen:
+
+```bash
+# --- Supabase ---
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxx
-SUPABASE_SERVICE_ROLE_KEY=xxxxx
+SUPABASE_SERVICE_ROLE_KEY=xxxxx        # operaciones admin (server-only)
+
+# --- IA (al menos una proveedor) ---
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+
+# --- Cron ---
+CRON_SECRET=<openssl rand -hex 32>     # requerido en producción
+
+# --- Feature flags ---
+LEXIA_CREDITS_ENFORCEMENT=false        # activar cobro de creditos Lexia
+SEED_USERS_ENABLED=false               # habilitar endpoints de seed
+VIEW_AS_ENABLED=false                  # permitir "view as" admin
+
+# --- Google (opcional, baja prioridad) ---
+GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=xxxxx
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/callback
+
+# --- SAC (Cordoba) ---
+SAC_ENCRYPTION_KEY=<openssl rand -hex 32>
 ```
+
+Si las variables de Supabase faltan en build, `lib/supabase/client.ts` devuelve
+un stub durante prerender SSR y lanza un error claro en runtime del browser.
+`lib/supabase/server.ts` lanza el error explicito en runtime del servidor.
 
 ### Integración Google (Calendar, Drive, Sheets, Docs)
 
@@ -713,5 +873,43 @@ Las plantillas se gestionan en la tabla `lexia_document_templates` (script `025_
 
 Para reportar bugs o solicitar features, contactar al equipo de desarrollo.
 
-**Última actualización:** 2026-02-03
-**Versión:** 1.0.0
+**Última actualización:** 2026-04-21
+**Versión:** 1.1.0
+
+### Cambios recientes (2026-04-21)
+
+- **Build:** `next.config.mjs` fija `turbopack.root = __dirname` para
+  resolver warning de workspace. `.env.example` agregado.
+- **Supabase clients:** `lib/supabase/client.ts` ahora devuelve un stub
+  durante prerender si faltan envs y lanza un error claro en browser.
+- **Middleware (`lib/supabase/middleware.ts`):** extiende la lista de
+  rutas protegidas con `/facturacion`, `/cuentas`, `/cobranzas`,
+  `/liquidaciones`, `/tablero`, `/buscar`, `/asistente-ia`.
+- **Runtime fixes:** `/cuentas` evita crash si no hay accounts;
+  `/liquidaciones` usa `.maybeSingle()`; `/notificaciones` sin header
+  duplicado; nueva pagina `/buscar` global; `/portal/perfil` agregado;
+  `/empresas` redirige a `/companias`; sidebar sign-out redirige
+  explicitamente; notifications-view rutea al entity especifico
+  (tarea/vencimiento/documento) en vez del listado generico.
+- **API routes (auditoria de seguridad):**
+  - Auth explicita agregada a `/api/herramientas/correo/data`,
+    `/api/herramientas/correo/informe-estado`, `/api/lexia/draft/export`.
+  - Permisos de caso (`checkCasePermission`) agregados a
+    `/api/lexia/drafts` (POST), `/api/lexia/conversations` (POST),
+    `/api/deadlines/[id]` (DELETE) y `/api/deadlines/[id]/complete`.
+  - `/api/lexia/estratega/analyses` scope por `user_id` si no hay caseId;
+    `/[id]` valida ownership o membership del caso.
+  - `/api/notifications/trigger` ahora revalida task/deadline contra la DB
+    antes de emitir notificaciones (previene forged notifications).
+  - `/api/notifications` PATCH responde 400 si no se manda ni `markAll`
+    ni `notificationIds` no vacio (antes era no-op silencioso).
+  - `/api/admin/create-client-user`: rechazo explicito cuando
+    `person.organization_id === null` (antes by-passaba check).
+  - Saneado `limit` (NaN-safe) en drafts y conversations.
+  - `request.json()` envuelto en `.catch(() => null)` con 400 en:
+    lexia (main), lexia/draft, cases/generate-description,
+    admin/create-client-user, lexia/draft/export.
+  - `.maybeSingle()` donde la fila puede no existir
+    (templates/[id], deadlines, google_connections, cuentas).
+- **Tests:** 23/23 pasando en `lib/event-status.test.ts` tras fix de
+  timezone (`getTemporalState`) y reordenar prioridades de riesgo.

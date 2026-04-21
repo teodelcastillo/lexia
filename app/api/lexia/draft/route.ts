@@ -72,7 +72,13 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return new Response(
+        JSON.stringify({ error: 'Cuerpo JSON invalido' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
     const documentType = body.documentType as string
     const variant = (body.variant as string | undefined) ?? ''
     const formData = (body.formData ?? {}) as Record<string, string>

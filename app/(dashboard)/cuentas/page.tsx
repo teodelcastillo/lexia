@@ -34,6 +34,22 @@ export default async function CuentasCorrientesPage() {
     .from('client_account_summary')
     .select('*')
 
+  const rows = accounts ?? []
+  const totalInvoiced = rows.reduce(
+    (sum: number, a: any) => sum + (Number(a.total_invoiced) || 0),
+    0,
+  )
+  const totalPaid = rows.reduce(
+    (sum: number, a: any) => sum + (Number(a.total_paid) || 0),
+    0,
+  )
+  const totalBalance = rows.reduce(
+    (sum: number, a: any) => sum + (Number(a.balance) || 0),
+    0,
+  )
+  const currencyFmt = (n: number) =>
+    n.toLocaleString('es-AR', { minimumFractionDigits: 2 })
+
   return (
     <div className="space-y-6">
       <div>
@@ -52,10 +68,7 @@ export default async function CuentasCorrientesPage() {
             <CardTitle className="text-sm font-medium">Total Facturado</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${accounts?.reduce((sum: number, a: any) => sum + (a.total_invoiced || 0), 0)
-                .toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </div>
+            <div className="text-2xl font-bold">${currencyFmt(totalInvoiced)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -64,8 +77,7 @@ export default async function CuentasCorrientesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">
-              ${accounts?.reduce((sum: number, a: any) => sum + (a.total_paid || 0), 0)
-                .toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              ${currencyFmt(totalPaid)}
             </div>
           </CardContent>
         </Card>
@@ -75,8 +87,7 @@ export default async function CuentasCorrientesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">
-              ${accounts?.reduce((sum: number, a: any) => sum + (a.balance || 0), 0)
-                .toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              ${currencyFmt(totalBalance)}
             </div>
           </CardContent>
         </Card>
@@ -101,11 +112,32 @@ export default async function CuentasCorrientesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {accounts && accounts.length > 0 ? (
-                accounts.map((account: any, idx: number) => {
-                  const balance = account.balance || 0
-                  const balanceStatus = balance <= 0 ? 'Al día' : balance > (account.credit_limit || Infinity) ? 'Excede límite' : 'Saldo pendiente'
-                  const balanceColor = balance <= 0 ? 'text-emerald-700 bg-emerald-50' : balance > (account.credit_limit || Infinity) ? 'text-red-700 bg-red-50' : 'text-amber-700 bg-amber-50'
+              {rows.length > 0 ? (
+                rows.map((account: any, idx: number) => {
+                  const balance = Number(account.balance) || 0
+                  const creditLimit =
+                    account.credit_limit != null
+                      ? Number(account.credit_limit)
+                      : Infinity
+                  const balanceStatus =
+                    balance <= 0
+                      ? 'Al día'
+                      : balance > creditLimit
+                        ? 'Excede límite'
+                        : 'Saldo pendiente'
+                  const balanceColor =
+                    balance <= 0
+                      ? 'text-emerald-700 bg-emerald-50'
+                      : balance > creditLimit
+                        ? 'text-red-700 bg-red-50'
+                        : 'text-amber-700 bg-amber-50'
+                  const displayName =
+                    account.client_name ||
+                    account.company_name ||
+                    account.name ||
+                    account.client_id ||
+                    account.company_id ||
+                    '-'
 
                   return (
                     <TableRow key={idx}>
@@ -114,17 +146,17 @@ export default async function CuentasCorrientesPage() {
                           href={`/cuentas/${account.client_id || account.company_id}`}
                           className="font-medium hover:underline"
                         >
-                          {account.client_id || account.company_id}
+                          {displayName}
                         </Link>
                       </TableCell>
                       <TableCell className="text-right">
-                        ${account.total_invoiced?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        ${currencyFmt(Number(account.total_invoiced) || 0)}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${account.total_paid?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        ${currencyFmt(Number(account.total_paid) || 0)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${balance.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        ${currencyFmt(balance)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {account.last_invoice_date || '-'}

@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { NotificationsView } from '@/components/notifications/notifications-view'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -21,17 +20,19 @@ export default async function NotificacionesPage() {
   await validateAccess()
 
   return (
-    <>
-      <DashboardHeader
-        title="Notificaciones"
-        description="Centro de notificaciones y actividad"
-      />
-      <main className="flex-1 p-6">
-        <Suspense fallback={<NotificationsSkeleton />}>
-          <NotificationsView />
-        </Suspense>
-      </main>
-    </>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Notificaciones
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Centro de notificaciones y actividad
+        </p>
+      </div>
+      <Suspense fallback={<NotificationsSkeleton />}>
+        <NotificationsView />
+      </Suspense>
+    </div>
   )
 }
 

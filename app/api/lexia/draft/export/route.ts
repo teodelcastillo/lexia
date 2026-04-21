@@ -13,10 +13,27 @@ import {
   TextRun,
   HeadingLevel,
 } from 'docx'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Invalid JSON body' },
+        { status: 400 }
+      )
+    }
+
     const content = (body.content ?? '') as string
     const fileName = (body.fileName ?? 'borrador.docx') as string
 

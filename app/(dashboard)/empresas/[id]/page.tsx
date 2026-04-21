@@ -15,13 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { 
-  ArrowLeft, 
-  Building2, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Edit,
+import {
+  ArrowLeft,
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
   Briefcase,
   Users,
   FileText,
@@ -149,14 +148,9 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
             </div>
           </div>
         </div>
-        {canEdit && (
-          <Button variant="outline" asChild>
-            <Link href={`/empresas/${id}/editar`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Link>
-          </Button>
-        )}
+        {/* TODO: el flujo de edición de empresas todavía no está implementado
+            (no existe la ruta /empresas/[id]/editar). Ocultamos el CTA para
+            no romper el link. Reactivar cuando la página exista. */}
       </div>
 
       {/* Quick Stats */}

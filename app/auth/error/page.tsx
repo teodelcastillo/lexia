@@ -111,8 +111,8 @@ export default function AuthErrorPage() {
 
               {errorDescription?.includes('Email not confirmed') && (
                 <Button asChild variant="outline" className="w-full bg-transparent">
-                  <Link href="/auth/resend-confirmation">
-                    Reenviar Email de Confirmación
+                  <Link href="/auth/forgot-password">
+                    Reenviar/Restablecer Contraseña
                   </Link>
                 </Button>
               )}
@@ -121,13 +121,7 @@ export default function AuthErrorPage() {
             {/* Help Section */}
             <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
               <p className="text-sm text-muted-foreground">
-                ¿Necesita ayuda?{' '}
-                <Link
-                  href="/contacto"
-                  className="font-medium text-primary hover:underline"
-                >
-                  Contáctenos
-                </Link>
+                ¿Necesita ayuda? Contacte al administrador del estudio.
               </p>
             </div>
 

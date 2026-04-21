@@ -34,7 +34,7 @@ export async function PUT(
       .from('lexia_document_templates')
       .select('id, organization_id')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
@@ -107,7 +107,7 @@ export async function DELETE(
       .from('lexia_document_templates')
       .select('id, organization_id')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })

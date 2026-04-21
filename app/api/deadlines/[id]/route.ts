@@ -7,6 +7,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { deleteCalendarEvent } from '@/lib/google/calendar'
+import { checkCasePermission } from '@/lib/utils/access-control'
 import { NextResponse } from 'next/server'
 
 export async function DELETE(
@@ -23,12 +24,27 @@ export async function DELETE(
 
     const { data: deadline, error: fetchErr } = await supabase
       .from('deadlines')
-      .select('id, google_calendar_event_id')
+      .select('id, case_id, google_calendar_event_id')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (fetchErr || !deadline) {
       return NextResponse.json({ error: 'Vencimiento no encontrado' }, { status: 404 })
+    }
+
+    if (deadline.case_id) {
+      const canDelete = await checkCasePermission(
+        supabase,
+        user.id,
+        deadline.case_id,
+        'can_edit'
+      )
+      if (!canDelete) {
+        return NextResponse.json(
+          { error: 'Sin permisos para eliminar este vencimiento' },
+          { status: 403 }
+        )
+      }
     }
 
     if (deadline.google_calendar_event_id) {
@@ -37,7 +53,7 @@ export async function DELETE(
         .select('access_token, refresh_token, token_expires_at')
         .eq('user_id', user.id)
         .eq('service', 'calendar')
-        .single()
+        .maybeSingle()
 
       if (connection) {
         const tokens = {
