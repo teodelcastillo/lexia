@@ -38,10 +38,13 @@ function NuevoWorkspaceInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const presetCaseId = searchParams.get('caso')
+  const presetTypeRaw = searchParams.get('type')
+  const presetType: 'demanda' | 'contestacion' | null =
+    presetTypeRaw === 'demanda' || presetTypeRaw === 'contestacion' ? presetTypeRaw : null
 
   const [cases, setCases] = useState<CaseOpt[] | null>(null)
   const [caseId, setCaseId] = useState<string>(presetCaseId ?? '')
-  const [selectedType, setSelectedType] = useState<'demanda' | 'contestacion' | null>(null)
+  const [selectedType, setSelectedType] = useState<'demanda' | 'contestacion' | null>(presetType)
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {

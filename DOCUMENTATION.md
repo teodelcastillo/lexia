@@ -266,7 +266,47 @@ Body: { type: 'task_assigned' | 'task_completed' | 'task_created'
 Retorna: { success: true }
 ```
 
-#### Lexia (IA)
+#### Lexia - Workspace (flujo principal desde Fase 4)
+
+Editor Tiptap + ⌘K + modo agente + stress-test. Detalle de arquitectura
+en la sección "Lexia - Asistente Legal IA" más abajo.
+
+```typescript
+// CRUD de documentos
+GET    /api/lexia/documents?caseId=...&limit=50
+POST   /api/lexia/documents
+       Body: { documentType: 'demanda'|'contestacion',
+               caseId?: string, clientRole?: string, title?: string }
+GET    /api/lexia/documents/[id]
+PATCH  /api/lexia/documents/[id]
+       Body: { content?, title?, activeContext?, clientRole? }
+DELETE /api/lexia/documents/[id]   // owner-only
+
+// Edición por selección (⌘K)
+POST   /api/lexia/documents/[id]/edit
+       Body: EditRequest
+       Retorna: stream<EditOperation>
+
+// Modo Agente (Fase 3)
+POST   /api/lexia/documents/[id]/agent/plan
+       Body: { objective: string, context? }
+       Retorna: stream<AgentPlan>
+POST   /api/lexia/documents/[id]/agent/execute
+       Body: { plan, stepIndex, previousResults, context?, planRunId }
+       Retorna: stream<AgentStepResult>
+
+// Stress-test del borrador completo
+POST   /api/lexia/documents/[id]/stress-test
+       Body: { context? }
+       Retorna: { report: StressReport }
+
+// Modos auxiliares
+POST   /api/lexia/investigar            // pregunta sobre docs del caso
+POST   /api/lexia/counter-argue         // stress-test de un fragmento
+POST   /api/lexia/verify-citation       // verificador de citas (dataset + heurística + LLM)
+```
+
+#### Lexia - Chat
 
 ```typescript
 POST /api/lexia
@@ -279,7 +319,11 @@ Body: {
 Retorna: Stream de respuesta IA
 ```
 
-#### Lexia - Redactor (Borradores)
+#### Lexia - Redactor (Borradores) — DEPRECADO (Fase 4)
+
+La ruta UI `/lexia/redactor` redirige a `/lexia/workspace/nuevo?type=demanda`.
+Los endpoints siguen activos para compatibilidad con borradores guardados
+y la lista `/lexia/borradores`.
 
 ```typescript
 POST /api/lexia/draft
@@ -294,9 +338,14 @@ Body: {
 Retorna: Stream de texto del borrador
 ```
 
-#### Lexia - Contestación Guiada
+#### Lexia - Contestación Guiada — DEPRECADO (Fase 4)
 
-Flujo asistido para redactar contestaciones desde el texto de la demanda. Tres fuentes de texto: documento del caso, subir archivo (PDF/Word) o pegar texto. Documentación completa en `docs/02-modulo-ia-lexia.md` (sección 10.6).
+La ruta UI `/lexia/contestacion` redirige a
+`/lexia/workspace/nuevo?type=contestacion`. Los endpoints de sesiones
+legacy se mantienen para no romper sesiones en curso; el flujo nuevo
+vive en el Workspace.
+
+Documentación histórica: `docs/02-modulo-ia-lexia.md` (sección 10.6).
 
 ```typescript
 POST /api/lexia/contestacion/sessions
@@ -479,109 +528,210 @@ interface Case {
 
 ### Visión General
 
-**Lexia** es un asistente de IA especializado en legal que funciona en dos modos:
+**Lexia** es un copiloto legal centrado en el **documento**, no en el chat.
+Está diseñado para tareas de alta exigencia (demanda, contestación) con
+control granular del abogado, diff visual antes de aceptar cualquier
+cambio, contexto real del caso (documentos extraídos y personas) y
+auditoría completa de cada intervención de la IA.
 
-1. **Modo Contextual:** Dentro de un caso, con acceso a documentos, notas y contexto
-2. **Modo General:** Sin contexto específico, para consultas generales
+Entry point: `/lexia` → redirige a `/lexia/workspace`.
 
-### Arquitectura
+### Submódulos activos
 
-#### Componentes Principales
+| Ruta | Rol | Badge |
+|------|-----|-------|
+| `/lexia/workspace` | Editor de documentos con IA (default) | — |
+| `/lexia/workspace/nuevo` | Wizard de alta (tipo + caso) | — |
+| `/lexia/workspace/[id]` | Editor Tiptap + ⌘K + paneles | — |
+| `/lexia/chat` | Chat conversacional (sin documento) | — |
+| `/lexia/estratega` | Análisis estratégico estructurado | — |
 
-```
-/lexia/page.tsx               # Página principal de Lexia
-/components/lexia/
-  ├── lexia-chat-message.tsx  # Renderizado de mensajes
-  ├── lexia-context-panel.tsx # Panel con contexto del caso
-  └── lexia-tool-card.tsx     # Cards de herramientas
-```
+#### Submódulos deprecados (Fase 4)
 
-#### Módulos de Lexia
+- `/lexia/redactor` → 302 a `/lexia/workspace/nuevo?type=demanda`
+- `/lexia/contestacion` → 302 a `/lexia/workspace/nuevo?type=contestacion`
 
-- **Chat:** Conversación con IA, historial de conversaciones, herramientas rápidas.
-- **Redactor:** Formularios guiados para generar borradores (demanda, contestación, apelación, etc.).
-- **Contestación Guiada:** Flujo completo desde el texto de la demanda hasta un borrador de contestación (parse → análisis → preguntas → respuestas → generación → iteración). Ver `docs/02-modulo-ia-lexia.md` (sección 10.6) y `docs/03-manual-de-usuario.md` (sección 11.6.1).
+Las rutas permanecen reachable para deep-links pero redirigen al
+Workspace. Los borradores existentes del Redactor siguen consultables en
+`/lexia/borradores` y las plantillas organizacionales en `/lexia/plantillas`.
 
-#### API: `/api/lexia`
+---
 
-Maneja streaming de respuestas de IA con contexto opcional.
+### Workspace (flujo principal)
 
-```typescript
-POST /api/lexia
-Body: {
-  messages: UIMessage[]              // Historial de chat
-  caseContext?: {
-    caseId: string
-    caseNumber: string
-    title: string
-    description?: string
-  }
-}
+#### Modelo de datos (script `051_lexia_workspace.sql`)
 
-Retorna: ReadableStream<UIMessage>   // Stream SSE
-```
+```sql
+lexia_documents           -- Documento vivo (Tiptap JSON + texto plano)
+  id, user_id, case_id, document_type, title,
+  content JSONB, content_text TEXT, client_role,
+  metadata JSONB, active_context JSONB, version
 
-### Herramientas Disponibles
+lexia_document_versions   -- Snapshots inmutables por cambio aceptado
+  document_id, version, content, edit_id
 
-Organizadas en 4 categorías:
-
-#### 1. Redacción
-- **Generar Documento Legal:** Crear escritos, demandas, contestaciones
-- **Mejorar Texto:** Optimizar gramática y claridad legal
-- **Traducir Legal:** Traducir documentos legales
-
-#### 2. Investigación
-- **Resumir Documento:** Extraer puntos clave
-- **Investigar Jurisprudencia:** Buscar casos similares
-- **Analizar Contrato:** Revisar cláusulas críticas
-
-#### 3. Procedimiento
-- **Calcular Plazos:** Determinar fechas límite de procedimientos
-- **Checklist Procesal:** Pasos para procedimientos específicos
-- **Verificar Requisitos:** Validar documentación requerida
-
-#### 4. Consulta
-- **Pregunta Legal:** Consultas generales sobre leyes
-- **Estrategia de Caso:** Recomendaciones de estrategia
-- **Riesgos Legales:** Análisis de riesgos
-
-### Modo Contextual
-
-Cuando se selecciona un caso en Lexia:
-
-```typescript
-// El panel izquierdo muestra:
-- Número y título del caso
-- Compañía/cliente
-- Documentos del caso
-- Vencimientos próximos
-- Notas recientes
+lexia_document_edits      -- Auditoría de CADA intervención de la IA
+  document_id, user_id, instruction, mode ('selection'|'insert'|'agent'),
+  selection_from/to/text, context JSONB,
+  reasoning, replacement, alternatives, citations,
+  status ('pending'|'accepted'|'rejected'|'edited'),
+  accepted_text, model_used, tokens_used
 ```
 
-Lexia puede entonces:
-- Responder preguntas sobre ese caso específico
-- Redactar documentos contextualizados
-- Sugerir próximos pasos basados en los vencimientos
-- Analizar documentos del caso
+#### Editor Tiptap
 
-### Flujo de Mensaje
+`components/lexia/workspace/workspace-editor.tsx`
 
-```typescript
-1. Usuario escribe mensaje o selecciona herramienta
-2. Se envía a /api/lexia con contexto
-3. IA procesa y comienza streaming
-4. Cada chunk se actualiza en tiempo real
-5. Usuario puede copiar, expandir, o hacer follow-ups
+- StarterKit + Placeholder + Typography + Underline + Highlight + Link.
+- Marcas custom:
+  - `placeholderInline` — texto tutor tipo `[demandante]` en gris.
+  - `citation` — cita jurídica con `kind` y `status` (`verified` |
+    `warning` | `invalid` | `unverified`).
+  - `pendingEdit` — resalta en ámbar el rango que el popover está
+    editando.
+- Atajo `⌘K` (`Ctrl+K` en Windows) para abrir el popover de IA sobre
+  la selección actual o el punto de inserción.
+
+#### ⌘K — Edición por selección con diff
+
+`components/lexia/workspace/ai-edit-popover.tsx`
+
+Flujo:
+1. El abogado selecciona texto y pulsa ⌘K.
+2. Escribe una instrucción breve ("más formal", "agregá CCyCN 1737", etc.).
+3. Lexia streamea un `EditOperation` estructurado con **razonamiento**,
+   **reemplazo**, **alternativas**, **citas** y **caveats**.
+4. Se muestra `DiffView` (rojo tachado / verde nuevo).
+5. El abogado acepta, rechaza, o abre "Cuestionar" para stress-test del
+   fragmento.
+
+API: `POST /api/lexia/documents/[id]/edit`. Usa `streamObject` con el
+schema `EditOperationSchema`, inyecta contexto real del caso
+(`buildCaseContext`) y registra el intento en `lexia_document_edits`
+incluyendo los documentos/personas que efectivamente entraron al prompt
+(`context.resolved`).
+
+#### Contexto granular del caso
+
+`lib/lexia/workspace/case-context.ts` + `document-extract.ts`.
+
+- **document-extract.ts**: baja archivos de Supabase Storage y extrae
+  texto plano (`pdf-parse` para PDF, `mammoth` para DOCX/DOC) con límites
+  por documento para evitar prompt overflow.
+- **case-context.ts**: arma el bloque contextual con pasajes de los
+  documentos seleccionados + personas con su rol en
+  `case_participants`, respetando un presupuesto total de caracteres.
+
+El abogado elige qué documentos y personas entran al contexto desde el
+`WorkspaceContextPanel` (panel izquierdo).
+
+#### Verificador de citas
+
+`POST /api/lexia/verify-citation` con pipeline de tres pasos:
+
+1. **Dataset curado** (`lib/lexia/workspace/citation-sources.ts`) —
+   matching determinístico contra CCyCN, CN, LCT, CPCCN, etc., con
+   número máximo de artículos conocido y URL oficial (InfoLEG/SAIJ).
+2. **Heurísticas regex** sobre `label`.
+3. **LLM juez** (`generateObject`) sólo para citas que los pasos
+   anteriores no resolvieron.
+
+`components/lexia/workspace/citation-chips.tsx` consume este endpoint y
+pinta cada cita según el veredicto, mostrando link a la fuente oficial
+cuando existe.
+
+---
+
+### Modo Agente (Fase 3)
+
+Redacción de secciones enteras con plan previo.
+
+#### APIs
+
+```
+POST /api/lexia/documents/[id]/agent/plan
+  body: { objective, context? }
+  returns: stream<AgentPlan> { summary, risks[], steps[] }
+
+POST /api/lexia/documents/[id]/agent/execute
+  body: { plan, stepIndex, previousResults, context?, planRunId }
+  returns: stream<AgentStepResult>
+    { stepId, kind, heading?, headingLevel?, content,
+      reasoning, citations[], caveats[] }
 ```
 
-### Logging de Uso
+#### AgentStep.kind
+
+| kind | Aplicación en el editor |
+|------|-------------------------|
+| `draft_section` | Crea heading + párrafos y los agrega al final. |
+| `replace_section` | Reemplaza el contenido entre `targetHeading` y el próximo heading de igual-o-mayor jerarquía. |
+| `insert_after_heading` | Inserta párrafos justo debajo del heading indicado. |
+| `rewrite_entire` | Reemplaza todo el documento (requiere confirmación). |
+
+#### UI
+
+`components/lexia/workspace/agent-panel.tsx` — sheet de dos fases:
+
+1. **Planificación**: el abogado escribe el objetivo, ve el plan
+   streamed y marca con checkboxes los pasos que quiere ejecutar.
+2. **Ejecución**: cada paso se streamea y se aplica sobre el editor
+   via `applyAgentStep` (`components/lexia/workspace/agent-applier.ts`)
+   con fuzzy-match de headings. El panel muestra en vivo reasoning +
+   citas verificadas + caveats. Cancelable en cualquier momento.
+
+Al finalizar se ofrece correr el **stress-test** directamente.
+
+#### Auditoría del agente
+
+Cada paso se registra en `lexia_document_edits` con `mode='agent'` y
+`context.agent = { plan_run_id, step_id, step_index, step_kind,
+target_heading, plan_summary }`.
+
+---
+
+### Stress-test del borrador (Fase 3)
+
+`POST /api/lexia/documents/[id]/stress-test`
+
+1. Segmenta el documento por `(sección, párrafo)` y toma los N
+   párrafos más extensos (peso argumentativo).
+2. Para cada uno, `generateObject` desde la perspectiva de la
+   contraparte devuelve `attacks[]`, `defenses[]`, `suggestedRewrite?` y
+   `severity`.
+3. Veredicto global heurístico: `strong | acceptable | weak`.
+
+`components/lexia/workspace/stress-test-panel.tsx` muestra el informe
+con findings ordenados por severidad, permite navegar al párrafo exacto
+(scroll + selección) y aplicar la reescritura sugerida con un click.
+
+---
+
+### Modos auxiliares del Workspace
+
+- **Investigar** — `POST /api/lexia/investigar` + `investigate-panel.tsx`.
+  Pregunta sobre los documentos del caso con respuestas citadas pasaje
+  por pasaje. Los pasajes se pueden insertar directamente en el editor.
+- **Cuestionar** — `POST /api/lexia/counter-argue` +
+  `counter-argue-panel.tsx`. Stress-test de un fragmento puntual
+  (accesible desde el popover ⌘K).
+
+### Otros módulos
+
+- **Chat** (`/lexia/chat`) — conversación libre con herramientas
+  rápidas y contexto opcional de caso. Implementación: `useChat` +
+  `lexiaTools` + `/api/lexia`.
+- **Estratega** (`/lexia/estratega`) — análisis estructurado de casos
+  (FODA, estrategia, recomendaciones). Persiste análisis en
+  `lexia_estratega_analyses`.
+
+### Logging de uso
 
 Cada interacción se registra en `activity_log`:
-- `action_type`: 'lexia_query'
-- `entity_type`: 'case' | 'general'
-- `entity_id`: case_id o 'general'
-- `case_id`: null si es general
-- `description`: contexto de la consulta
+- `action_type`: 'lexia_query' | 'lexia_edit' | 'lexia_agent_run' | 'lexia_stress_test'
+- `entity_type`: 'lexia_document' | 'case' | 'general'
+- `entity_id`: id del documento / caso
+- `description`: contexto de la operación
 
 ---
 
