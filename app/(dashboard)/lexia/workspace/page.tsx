@@ -17,7 +17,16 @@ export default async function WorkspaceIndexPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const docs = await listDocuments(supabase, { userId: user.id, limit: 50 })
+  let docs: Awaited<ReturnType<typeof listDocuments>> = []
+  let workspaceUnavailable = false
+  try {
+    docs = await listDocuments(supabase, { userId: user.id, limit: 50 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    workspaceUnavailable =
+      message.includes('relation') && message.includes('lexia_documents') && message.includes('does not exist')
+    if (!workspaceUnavailable) throw error
+  }
 
   return (
     <div className="flex-1 min-h-0 overflow-auto">
@@ -42,7 +51,15 @@ export default async function WorkspaceIndexPage() {
         </header>
 
         <section>
-          {docs.length === 0 ? (
+          {workspaceUnavailable ? (
+            <Card className="p-8">
+              <h3 className="font-medium mb-1">Workspace no disponible en este entorno</h3>
+              <p className="text-sm text-muted-foreground">
+                Falta aplicar la migración del Workspace (`lexia_documents`). Ejecutá las migraciones
+                pendientes y recargá esta pantalla.
+              </p>
+            </Card>
+          ) : docs.length === 0 ? (
             <Card className="p-8 text-center">
               <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
               <h3 className="font-medium mb-1">Aún no creaste documentos</h3>

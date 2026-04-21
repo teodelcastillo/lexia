@@ -452,18 +452,41 @@ BEGIN
   -- =============================================================================
   -- 6. Case assignments (demo user como leader en todos)
   -- =============================================================================
-  INSERT INTO public.case_assignments (
-    id, case_id, user_id, assignment_role, assigned_by, notes, organization_id, assigned_at
-  )
-  SELECT
-    ('d3100000-a551-4000-a000-' || lpad((row_number() OVER ())::text, 12, '0'))::uuid,
-    case_id, v_demo_user, 'leader', v_demo_user,
-    'Responsable del expediente', v_org, v_now - INTERVAL '30 days'
-  FROM (VALUES
-    (v_case_despido), (v_case_cobro), (v_case_danos), (v_case_desalojo),
-    (v_case_rescision), (v_case_sucesion), (v_case_concurso), (v_case_accidente)
-  ) AS t(case_id)
-  ON CONFLICT (case_id, user_id) DO NOTHING;
+  -- Compatibilidad de schema: algunas bases tienen `assignment_role` y otras
+  -- `case_role` (migration 006). Soportamos ambos nombres de columna.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'case_assignments'
+      AND column_name = 'assignment_role'
+  ) THEN
+    INSERT INTO public.case_assignments (
+      id, case_id, user_id, assignment_role, assigned_by, notes, organization_id, assigned_at
+    )
+    SELECT
+      ('d3100000-a551-4000-a000-' || lpad((row_number() OVER ())::text, 12, '0'))::uuid,
+      case_id, v_demo_user, 'leader', v_demo_user,
+      'Responsable del expediente', v_org, v_now - INTERVAL '30 days'
+    FROM (VALUES
+      (v_case_despido), (v_case_cobro), (v_case_danos), (v_case_desalojo),
+      (v_case_rescision), (v_case_sucesion), (v_case_concurso), (v_case_accidente)
+    ) AS t(case_id)
+    ON CONFLICT (case_id, user_id) DO NOTHING;
+  ELSE
+    INSERT INTO public.case_assignments (
+      id, case_id, user_id, case_role, assigned_by, notes, organization_id, assigned_at
+    )
+    SELECT
+      ('d3100000-a551-4000-a000-' || lpad((row_number() OVER ())::text, 12, '0'))::uuid,
+      case_id, v_demo_user, 'leader', v_demo_user,
+      'Responsable del expediente', v_org, v_now - INTERVAL '30 days'
+    FROM (VALUES
+      (v_case_despido), (v_case_cobro), (v_case_danos), (v_case_desalojo),
+      (v_case_rescision), (v_case_sucesion), (v_case_concurso), (v_case_accidente)
+    ) AS t(case_id)
+    ON CONFLICT (case_id, user_id) DO NOTHING;
+  END IF;
 
   -- =============================================================================
   -- 7. Case participants (personas vinculadas a cada caso)
@@ -993,65 +1016,135 @@ BEGIN
   -- =============================================================================
   -- 13. Notifications (mezcla leída + no leída)
   -- =============================================================================
-  INSERT INTO public.notifications (
-    id, user_id, category, type, title, message,
-    case_id, task_id, deadline_id, document_id, triggered_by,
-    is_read, read_at, organization_id, created_at, metadata
-  )
-  VALUES
-    -- No leídas
-    ('d3100000-1010-4000-a000-000000000001', v_demo_user, 'work'::notification_category,
-     'deadline_approaching'::notification_type,
-     'Vencimiento en 6 días',
-     'Contestar demanda — Molina c/ Distribuidora San Martín',
-     v_case_despido, NULL, v_dl_contest, NULL, v_demo_user,
-     false, NULL, v_org, v_now - INTERVAL '6 hours', '{}'::jsonb),
+  -- Compatibilidad de schema: `notifications.organization_id` existe en algunos
+  -- entornos (multi-tenant) y en otros no. Soportamos ambos.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'notifications'
+      AND column_name = 'organization_id'
+  ) THEN
+    INSERT INTO public.notifications (
+      id, user_id, category, type, title, message,
+      case_id, task_id, deadline_id, document_id, triggered_by,
+      is_read, read_at, organization_id, created_at, metadata
+    )
+    VALUES
+      -- No leídas
+      ('d3100000-1010-4000-a000-000000000001', v_demo_user, 'work'::notification_category,
+       'deadline_approaching'::notification_type,
+       'Vencimiento en 6 días',
+       'Contestar demanda — Molina c/ Distribuidora San Martín',
+       v_case_despido, NULL, v_dl_contest, NULL, v_demo_user,
+       false, NULL, v_org, v_now - INTERVAL '6 hours', '{}'::jsonb),
 
-    ('d3100000-1010-4000-a000-000000000002', v_demo_user, 'work'::notification_category,
-     'deadline_approaching'::notification_type,
-     'Verificación de créditos en 8 días',
-     'Concurso Sierras Chicas — prioridad alta',
-     v_case_concurso, NULL, v_dl_verificacion, NULL, v_demo_user,
-     false, NULL, v_org, v_now - INTERVAL '5 hours', '{}'::jsonb),
+      ('d3100000-1010-4000-a000-000000000002', v_demo_user, 'work'::notification_category,
+       'deadline_approaching'::notification_type,
+       'Verificación de créditos en 8 días',
+       'Concurso Sierras Chicas — prioridad alta',
+       v_case_concurso, NULL, v_dl_verificacion, NULL, v_demo_user,
+       false, NULL, v_org, v_now - INTERVAL '5 hours', '{}'::jsonb),
 
-    ('d3100000-1010-4000-a000-000000000003', v_demo_user, 'work'::notification_category,
-     'deadline_overdue'::notification_type,
-     'Vencimiento atrasado',
-     'Revisar prescripción sucesión Fernández — vencido hace 5 días',
-     v_case_sucesion, NULL, v_dl_prescrip, NULL, v_demo_user,
-     false, NULL, v_org, v_now - INTERVAL '3 hours', '{}'::jsonb),
+      ('d3100000-1010-4000-a000-000000000003', v_demo_user, 'work'::notification_category,
+       'deadline_overdue'::notification_type,
+       'Vencimiento atrasado',
+       'Revisar prescripción sucesión Fernández — vencido hace 5 días',
+       v_case_sucesion, NULL, v_dl_prescrip, NULL, v_demo_user,
+       false, NULL, v_org, v_now - INTERVAL '3 hours', '{}'::jsonb),
 
-    ('d3100000-1010-4000-a000-000000000004', v_demo_user, 'activity'::notification_category,
-     'document_uploaded'::notification_type,
-     'Nuevo documento en Daños Benítez',
-     'Dictamen pericial (borrador) subido por perito Sosa',
-     v_case_danos, NULL, NULL, 'd3100000-d0cc-4000-a000-000000000022'::uuid, v_demo_user,
-     false, NULL, v_org, v_now - INTERVAL '10 hours', '{}'::jsonb),
+      ('d3100000-1010-4000-a000-000000000004', v_demo_user, 'activity'::notification_category,
+       'document_uploaded'::notification_type,
+       'Nuevo documento en Daños Benítez',
+       'Dictamen pericial (borrador) subido por perito Sosa',
+       v_case_danos, NULL, NULL, 'd3100000-d0cc-4000-a000-000000000022'::uuid, v_demo_user,
+       false, NULL, v_org, v_now - INTERVAL '10 hours', '{}'::jsonb),
 
-    -- Leídas
-    ('d3100000-1010-4000-a000-000000000005', v_demo_user, 'work'::notification_category,
-     'task_assigned'::notification_type,
-     'Nueva tarea asignada',
-     'Ofrecer prueba pericial y testimonial — Daños Benítez',
-     v_case_danos, 'd3100000-7a5c-4000-a000-000000000006'::uuid, NULL, NULL, v_demo_user,
-     true, v_now - INTERVAL '18 days', v_org, v_now - INTERVAL '20 days', '{}'::jsonb),
+      -- Leídas
+      ('d3100000-1010-4000-a000-000000000005', v_demo_user, 'work'::notification_category,
+       'task_assigned'::notification_type,
+       'Nueva tarea asignada',
+       'Ofrecer prueba pericial y testimonial — Daños Benítez',
+       v_case_danos, 'd3100000-7a5c-4000-a000-000000000006'::uuid, NULL, NULL, v_demo_user,
+       true, v_now - INTERVAL '18 days', v_org, v_now - INTERVAL '20 days', '{}'::jsonb),
 
-    ('d3100000-1010-4000-a000-000000000006', v_demo_user, 'activity'::notification_category,
-     'case_status_changed'::notification_type,
-     'Caso cerrado',
-     'Sosa c/ Tecnotextil marcado como cerrado',
-     v_case_accidente, NULL, NULL, NULL, v_demo_user,
-     true, v_now - INTERVAL '30 days', v_org, v_now - INTERVAL '30 days', '{}'::jsonb),
+      ('d3100000-1010-4000-a000-000000000006', v_demo_user, 'activity'::notification_category,
+       'case_status_changed'::notification_type,
+       'Caso cerrado',
+       'Sosa c/ Tecnotextil marcado como cerrado',
+       v_case_accidente, NULL, NULL, NULL, v_demo_user,
+       true, v_now - INTERVAL '30 days', v_org, v_now - INTERVAL '30 days', '{}'::jsonb),
 
-    ('d3100000-1010-4000-a000-000000000007', v_demo_user, 'work'::notification_category,
-     'task_completed'::notification_type,
-     'Tarea completada',
-     'Presentar demanda ejecutiva — Cobro Arroyito',
-     v_case_cobro, 'd3100000-7a5c-4000-a000-000000000013'::uuid, NULL, NULL, v_demo_user,
-     true, v_now - INTERVAL '22 days', v_org, v_now - INTERVAL '22 days', '{}'::jsonb)
-  ON CONFLICT (id) DO UPDATE SET
-    is_read = EXCLUDED.is_read,
-    read_at = EXCLUDED.read_at;
+      ('d3100000-1010-4000-a000-000000000007', v_demo_user, 'work'::notification_category,
+       'task_completed'::notification_type,
+       'Tarea completada',
+       'Presentar demanda ejecutiva — Cobro Arroyito',
+       v_case_cobro, 'd3100000-7a5c-4000-a000-000000000013'::uuid, NULL, NULL, v_demo_user,
+       true, v_now - INTERVAL '22 days', v_org, v_now - INTERVAL '22 days', '{}'::jsonb)
+    ON CONFLICT (id) DO UPDATE SET
+      is_read = EXCLUDED.is_read,
+      read_at = EXCLUDED.read_at;
+  ELSE
+    INSERT INTO public.notifications (
+      id, user_id, category, type, title, message,
+      case_id, task_id, deadline_id, document_id, triggered_by,
+      is_read, read_at, created_at, metadata
+    )
+    VALUES
+      -- No leídas
+      ('d3100000-1010-4000-a000-000000000001', v_demo_user, 'work'::notification_category,
+       'deadline_approaching'::notification_type,
+       'Vencimiento en 6 días',
+       'Contestar demanda — Molina c/ Distribuidora San Martín',
+       v_case_despido, NULL, v_dl_contest, NULL, v_demo_user,
+       false, NULL, v_now - INTERVAL '6 hours', '{}'::jsonb),
+
+      ('d3100000-1010-4000-a000-000000000002', v_demo_user, 'work'::notification_category,
+       'deadline_approaching'::notification_type,
+       'Verificación de créditos en 8 días',
+       'Concurso Sierras Chicas — prioridad alta',
+       v_case_concurso, NULL, v_dl_verificacion, NULL, v_demo_user,
+       false, NULL, v_now - INTERVAL '5 hours', '{}'::jsonb),
+
+      ('d3100000-1010-4000-a000-000000000003', v_demo_user, 'work'::notification_category,
+       'deadline_overdue'::notification_type,
+       'Vencimiento atrasado',
+       'Revisar prescripción sucesión Fernández — vencido hace 5 días',
+       v_case_sucesion, NULL, v_dl_prescrip, NULL, v_demo_user,
+       false, NULL, v_now - INTERVAL '3 hours', '{}'::jsonb),
+
+      ('d3100000-1010-4000-a000-000000000004', v_demo_user, 'activity'::notification_category,
+       'document_uploaded'::notification_type,
+       'Nuevo documento en Daños Benítez',
+       'Dictamen pericial (borrador) subido por perito Sosa',
+       v_case_danos, NULL, NULL, 'd3100000-d0cc-4000-a000-000000000022'::uuid, v_demo_user,
+       false, NULL, v_now - INTERVAL '10 hours', '{}'::jsonb),
+
+      -- Leídas
+      ('d3100000-1010-4000-a000-000000000005', v_demo_user, 'work'::notification_category,
+       'task_assigned'::notification_type,
+       'Nueva tarea asignada',
+       'Ofrecer prueba pericial y testimonial — Daños Benítez',
+       v_case_danos, 'd3100000-7a5c-4000-a000-000000000006'::uuid, NULL, NULL, v_demo_user,
+       true, v_now - INTERVAL '18 days', v_now - INTERVAL '20 days', '{}'::jsonb),
+
+      ('d3100000-1010-4000-a000-000000000006', v_demo_user, 'activity'::notification_category,
+       'case_status_changed'::notification_type,
+       'Caso cerrado',
+       'Sosa c/ Tecnotextil marcado como cerrado',
+       v_case_accidente, NULL, NULL, NULL, v_demo_user,
+       true, v_now - INTERVAL '30 days', v_now - INTERVAL '30 days', '{}'::jsonb),
+
+      ('d3100000-1010-4000-a000-000000000007', v_demo_user, 'work'::notification_category,
+       'task_completed'::notification_type,
+       'Tarea completada',
+       'Presentar demanda ejecutiva — Cobro Arroyito',
+       v_case_cobro, 'd3100000-7a5c-4000-a000-000000000013'::uuid, NULL, NULL, v_demo_user,
+       true, v_now - INTERVAL '22 days', v_now - INTERVAL '22 days', '{}'::jsonb)
+    ON CONFLICT (id) DO UPDATE SET
+      is_read = EXCLUDED.is_read,
+      read_at = EXCLUDED.read_at;
+  END IF;
 END
 $demo_ops$;
 
@@ -1183,7 +1276,13 @@ BEGIN
     ]
   }'::jsonb;
 
-  INSERT INTO public.lexia_documents (
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'lexia_documents'
+  ) THEN
+    INSERT INTO public.lexia_documents (
     id, organization_id, user_id, case_id, document_type, title,
     content, content_text, client_role, metadata, active_context,
     version, created_at, updated_at
@@ -1337,12 +1436,21 @@ BEGIN
        jsonb_build_object('source','CSJN «Banco Patagonia c/ Terra», 18/06/2023','status','unknown')),
      'pending', NULL, 'gpt-5.4', 1870,
      v_now - INTERVAL '2 days', NULL)
-  ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO NOTHING;
+  ELSE
+    RAISE NOTICE 'Tabla public.lexia_documents no existe: se omite seed de Workspace (docs/versiones/edits).';
+  END IF;
 
   -- =============================================================================
   -- 15. Lexia conversations (chat legal)
   -- =============================================================================
-  INSERT INTO public.lexia_conversations (
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'lexia_conversations'
+  ) THEN
+    INSERT INTO public.lexia_conversations (
     id, user_id, case_id, organization_id,
     title, summary, intent, model_used,
     message_count, is_archived, is_pinned, last_message_at,
@@ -1369,64 +1477,76 @@ BEGIN
      'investigate', 'gpt-5.4',
      3, false, false, v_now - INTERVAL '2 days',
      v_now - INTERVAL '3 days', v_now - INTERVAL '2 days')
-  ON CONFLICT (id) DO UPDATE SET
-    title = EXCLUDED.title,
-    summary = EXCLUDED.summary,
-    last_message_at = EXCLUDED.last_message_at,
-    message_count = EXCLUDED.message_count,
-    updated_at = v_now;
+    ON CONFLICT (id) DO UPDATE SET
+      title = EXCLUDED.title,
+      summary = EXCLUDED.summary,
+      last_message_at = EXCLUDED.last_message_at,
+      message_count = EXCLUDED.message_count,
+      updated_at = v_now;
 
-  -- Mensajes de cada conversación (UIMessage-like structure)
-  INSERT INTO public.lexia_messages (
-    id, conversation_id, role, content, metadata, tokens_used, organization_id, created_at
-  )
-  VALUES
+    -- Mensajes de cada conversación (UIMessage-like structure)
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = 'lexia_messages'
+    ) THEN
+      INSERT INTO public.lexia_messages (
+        id, conversation_id, role, content, metadata, tokens_used, organization_id, created_at
+      )
+      VALUES
     -- conversación general
-    ('msg-gen-1', v_conv_general, 'user',
-     jsonb_build_object('id','msg-gen-1','role','user','parts',
+    ('d3100000-be55-4000-a000-000000000001'::uuid, v_conv_general, 'user',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000001','role','user','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          '¿Cuál es el plazo de prescripción de acciones emergentes de un despido?'))),
      '{}'::jsonb, 0, v_org, v_now - INTERVAL '5 days'),
-    ('msg-gen-2', v_conv_general, 'assistant',
-     jsonb_build_object('id','msg-gen-2','role','assistant','parts',
+    ('d3100000-be55-4000-a000-000000000002'::uuid, v_conv_general, 'assistant',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000002','role','assistant','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          'En Argentina, el art. 256 LCT establece un plazo de prescripción bienal para las acciones emergentes de la relación laboral, incluyendo las indemnizaciones por despido. El plazo corre desde que la obligación se hace exigible.'))),
      '{}'::jsonb, 180, v_org, v_now - INTERVAL '5 days' + INTERVAL '1 min'),
-    ('msg-gen-3', v_conv_general, 'user',
-     jsonb_build_object('id','msg-gen-3','role','user','parts',
+    ('d3100000-be55-4000-a000-000000000003'::uuid, v_conv_general, 'user',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000003','role','user','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          '¿Hay algún supuesto que suspenda o interrumpa el plazo?'))),
      '{}'::jsonb, 0, v_org, v_now - INTERVAL '3 days' - INTERVAL '5 min'),
-    ('msg-gen-4', v_conv_general, 'assistant',
-     jsonb_build_object('id','msg-gen-4','role','assistant','parts',
+    ('d3100000-be55-4000-a000-000000000004'::uuid, v_conv_general, 'assistant',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000004','role','assistant','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          'Sí: el reclamo administrativo ante el SECLO/MTESS suspende el plazo hasta el acta de cierre; también la interposición de demanda, las gestiones extrajudiciales fehacientes y los reconocimientos del empleador (arts. 2541 y 2545 CCyC en lo aplicable). La intimación por CD, por sí sola, no suspende pero puede constituir mora.'))),
      '{}'::jsonb, 240, v_org, v_now - INTERVAL '3 days'),
 
     -- conversación concurso
-    ('msg-conc-1', v_conv_concurso, 'user',
-     jsonb_build_object('id','msg-conc-1','role','user','parts',
+    ('d3100000-be55-4000-a000-000000000005'::uuid, v_conv_concurso, 'user',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000005','role','user','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          'Proveedor Central S.A. insinuó un crédito de $42M alegando facturas impagas pero sin acompañar acuerdos de pago. ¿Elementos para impugnar?'))),
      '{}'::jsonb, 0, v_org, v_now - INTERVAL '3 days'),
-    ('msg-conc-2', v_conv_concurso, 'assistant',
-     jsonb_build_object('id','msg-conc-2','role','assistant','parts',
+    ('d3100000-be55-4000-a000-000000000006'::uuid, v_conv_concurso, 'assistant',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000006','role','assistant','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          'Sobre la impugnación del crédito, te sugiero atacar: (1) autosuficiencia de la causa — la mera factura no prueba la prestación; necesita remito, acuerdo marco o correspondencia; (2) compensaciones pendientes del período — cruzar contra tu libro IVA y cuentas corrientes; (3) prescripción parcial si hay facturas de más de 3 años (art. 2560 CCyC para mercantiles).'))),
      '{}'::jsonb, 420, v_org, v_now - INTERVAL '3 days' + INTERVAL '2 min'),
 
     -- investigar
-    ('msg-inv-1', v_conv_investig, 'user',
-     jsonb_build_object('id','msg-inv-1','role','user','parts',
+    ('d3100000-be55-4000-a000-000000000007'::uuid, v_conv_investig, 'user',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000007','role','user','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          '¿La actora notificó el embarazo a la empresa antes del despido? Revisar el legajo y el telegrama.'))),
      '{}'::jsonb, 0, v_org, v_now - INTERVAL '2 days'),
-    ('msg-inv-2', v_conv_investig, 'assistant',
-     jsonb_build_object('id','msg-inv-2','role','assistant','parts',
+    ('d3100000-be55-4000-a000-000000000008'::uuid, v_conv_investig, 'assistant',
+     jsonb_build_object('id','d3100000-be55-4000-a000-000000000008','role','assistant','parts',
        jsonb_build_array(jsonb_build_object('type','text','text',
          'Del legajo personal Molina.pdf (p. 14) surge un certificado médico del 18/03/2025 que menciona "controles ginecológicos"; del telegrama de despido no surge notificación previa de embarazo ni agravio invocado por la empresa. Recomiendo atacar el art. 182 LCT por falta de notificación fehaciente ANTES del distracto (requisito: CNAT Sala VII «Pérez c/ Falabella»).'))),
      '{}'::jsonb, 380, v_org, v_now - INTERVAL '2 days' + INTERVAL '1 min')
-  ON CONFLICT (conversation_id, id) DO NOTHING;
+      ON CONFLICT DO NOTHING;
+    ELSE
+      RAISE NOTICE 'Tabla public.lexia_messages no existe: se omite seed de mensajes Lexia.';
+    END IF;
+  ELSE
+    RAISE NOTICE 'Tabla public.lexia_conversations no existe: se omite seed de chat Lexia.';
+  END IF;
 END
 $demo_lexia$;
 
@@ -1450,6 +1570,9 @@ DECLARE
   v_co_agro      UUID := 'd3100000-c1c1-4000-a000-000000000003';
   v_co_textil    UUID := 'd3100000-c1c1-4000-a000-000000000004';
   v_co_hotel     UUID := 'd3100000-c1c1-4000-a000-000000000005';
+  v_p_distrib_rep UUID := 'd3100000-9e9e-4000-a000-000000000001';
+  v_p_construc_rep UUID := 'd3100000-9e9e-4000-a000-000000000002';
+  v_p_hotel_rep UUID := 'd3100000-9e9e-4000-a000-000000000005';
   v_p_benitez    UUID := 'd3100000-9e9e-4000-a000-000000000006';
 
   v_case_despido  UUID := 'd3100000-ca5e-4000-a000-000000000001';
@@ -1631,40 +1754,40 @@ BEGIN
   )
   VALUES
     -- Distribuidora septiembre (facturado)
-    ('d3100000-b17e-4000-a000-000000000001', NULL, v_co_distrib, v_case_despido,
+    ('d3100000-b17e-4000-a000-000000000001', v_p_distrib_rep, v_co_distrib, v_case_despido,
      v_fa_distrib, v_inv_distrib_09, 'monthly_fee'::billing_item_type,
      'Retainer mensual — septiembre', 450000, 1, 'ARS', '2025-09',
      'invoiced'::billing_item_status, v_demo_user, v_demo_user,
      v_now - INTERVAL '56 days', v_org, v_now - INTERVAL '60 days', v_now),
 
     -- Distribuidora octubre
-    ('d3100000-b17e-4000-a000-000000000002', NULL, v_co_distrib, NULL,
+    ('d3100000-b17e-4000-a000-000000000002', v_p_distrib_rep, v_co_distrib, NULL,
      v_fa_distrib, v_inv_distrib_10, 'monthly_fee'::billing_item_type,
      'Retainer mensual — octubre', 450000, 1, 'ARS', '2025-10',
      'invoiced'::billing_item_status, v_demo_user, v_demo_user,
      v_now - INTERVAL '11 days', v_org, v_now - INTERVAL '15 days', v_now),
-    ('d3100000-b17e-4000-a000-000000000003', NULL, v_co_distrib, v_case_despido,
+    ('d3100000-b17e-4000-a000-000000000003', v_p_distrib_rep, v_co_distrib, v_case_despido,
      v_fa_distrib, v_inv_distrib_10, 'task_fee'::billing_item_type,
      'Preparación contestación demanda Molina', 120000, 2, 'ARS', '2025-10',
      'invoiced'::billing_item_status, v_demo_user, v_demo_user,
      v_now - INTERVAL '11 days', v_org, v_now - INTERVAL '15 days', v_now),
 
     -- Distribuidora draft (sin facturar)
-    ('d3100000-b17e-4000-a000-000000000004', NULL, v_co_distrib, v_case_despido,
+    ('d3100000-b17e-4000-a000-000000000004', v_p_distrib_rep, v_co_distrib, v_case_despido,
      v_fa_distrib, NULL, 'task_fee'::billing_item_type,
      'Audiencia testimonial — preparar', 180000, 1, 'ARS', '2025-11',
      'draft'::billing_item_status, v_demo_user, NULL, NULL,
      v_org, v_now - INTERVAL '2 days', v_now),
 
     -- Constructora
-    ('d3100000-b17e-4000-a000-000000000005', NULL, v_co_construc, v_case_cobro,
+    ('d3100000-b17e-4000-a000-000000000005', v_p_construc_rep, v_co_construc, v_case_cobro,
      v_fa_construc, v_inv_construc, 'other'::billing_item_type,
      'Honorarios fijos ejecución Frigorífico', 800000, 1, 'ARS', NULL,
      'invoiced'::billing_item_status, v_demo_user, v_demo_user,
      v_now - INTERVAL '56 days', v_org, v_now - INTERVAL '60 days', v_now),
 
     -- Hotel
-    ('d3100000-b17e-4000-a000-000000000006', NULL, v_co_hotel, v_case_concurso,
+    ('d3100000-b17e-4000-a000-000000000006', v_p_hotel_rep, v_co_hotel, v_case_concurso,
      v_fa_hotel, v_inv_hotel, 'other'::billing_item_type,
      'Etapa 1: apertura concurso preventivo', 1500000, 1, 'ARS', NULL,
      'invoiced'::billing_item_status, v_demo_user, v_demo_user,
