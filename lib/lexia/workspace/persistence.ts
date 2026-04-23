@@ -55,28 +55,43 @@ export async function createDocument(
   }
 ): Promise<WorkspaceDocumentDTO> {
   const contentText = docToPlainText(params.content)
-  const { data, error } = await db
+  const baseInsertPayload = {
+    user_id: params.userId,
+    case_id: params.caseId,
+    document_type: params.documentType,
+    title: params.title,
+    content: params.content,
+    content_text: contentText,
+  }
+  const extendedInsertPayload = {
+    ...baseInsertPayload,
+    client_role: params.clientRole,
+    metadata: params.metadata ?? {},
+    active_context: { documentIds: [], personIds: [] },
+    version: 1,
+  }
+  let { data, error } = await db
     .from('lexia_documents')
-    .insert({
-      user_id: params.userId,
-      case_id: params.caseId,
-      document_type: params.documentType,
-      title: params.title,
-      content: params.content,
-      content_text: contentText,
-      client_role: params.clientRole,
-      metadata: params.metadata ?? {},
-      active_context: { documentIds: [], personIds: [] },
-      version: 1,
-    })
+    .insert(extendedInsertPayload)
     .select('*')
     .single()
+  // Backward-compatible fallback for environments with partial migrations.
+  if (error?.code === '42703') {
+    ;({ data, error } = await db
+      .from('lexia_documents')
+      .insert(baseInsertPayload)
+      .select('*')
+      .single())
+  }
   if (error || !data) {
-    throw new Error(`Failed to create document: ${error?.message ?? 'no data'}`)
+    const details = [error?.code, error?.message, error?.details, error?.hint]
+      .filter(Boolean)
+      .join(' | ')
+    throw new Error(`Failed to create document: ${details || 'no data'}`)
   }
   const row = data as unknown as DocumentRow
   // Persist the initial version snapshot.
-  await db.from('lexia_document_versions').insert({
+  const { error: versionError } = await db.from('lexia_document_versions').insert({
     document_id: row.id,
     user_id: params.userId,
     version: 1,
@@ -85,6 +100,12 @@ export async function createDocument(
     source: 'template',
     summary: 'Documento creado a partir de plantilla',
   })
+  if (versionError) {
+    const details = [versionError.code, versionError.message, versionError.details, versionError.hint]
+      .filter(Boolean)
+      .join(' | ')
+    throw new Error(`Failed to create initial document version: ${details}`)
+  }
   return rowToDTO(row)
 }
 
