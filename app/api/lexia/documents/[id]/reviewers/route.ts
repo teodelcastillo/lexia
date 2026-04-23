@@ -44,7 +44,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       .select('user:profiles(id,first_name,last_name,email,role)')
       .eq('case_id', d.case_id)
     for (const row of data ?? []) {
-      const p = (row as { user?: ProfileRow | null }).user
+      const raw = (row as { user?: ProfileRow | ProfileRow[] | null }).user
+      const p = raw == null ? null : Array.isArray(raw) ? raw[0] : raw
       if (p && p.id !== user.id) reviewers.push(p)
     }
   }

@@ -180,18 +180,22 @@ export const WorkspaceEditor = forwardRef<EditorImperativeHandle, WorkspaceEdito
       scrollToComment: (threadId) => {
         if (!editor) return
         const { doc } = editor.state
-        let target: { pos: number } | null = null
+        const foundPos: number[] = []
         doc.descendants((node, pos) => {
-          if (target) return false
+          if (foundPos.length) return false
           const hit = node.marks.some(
             (m) => m.type.name === 'commentThread' && m.attrs.threadId === threadId
           )
-          if (hit) target = { pos }
-          return !target
+          if (hit) {
+            foundPos.push(pos)
+            return false
+          }
+          return true
         })
-        if (!target) return
-        editor.chain().focus().setTextSelection({ from: target.pos, to: target.pos }).run()
-        const dom = editor.view.domAtPos(target.pos)
+        const at = foundPos[0]
+        if (at === undefined) return
+        editor.chain().focus().setTextSelection({ from: at, to: at }).run()
+        const dom = editor.view.domAtPos(at)
         const element = dom.node instanceof HTMLElement
           ? dom.node
           : dom.node.parentElement

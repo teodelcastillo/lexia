@@ -196,12 +196,13 @@ export async function ensureGroundedCitations(
     }
   }
 
-  const status = aggregateStatus(verdicts)
+  const status = aggregateGroundingStatus(verdicts)
   const violatesStrict = Boolean(options.strict) && status === 'ungrounded'
   return { verdicts, status, violatesStrict }
 }
 
-function aggregateStatus(verdicts: GroundedVerdict[]): GroundingStatus {
+/** Exported for unit tests; same rules as the aggregated report `status` field. */
+export function aggregateGroundingStatus(verdicts: GroundedVerdict[]): GroundingStatus {
   if (verdicts.length === 0) return 'grounded'
   let hasInvalid = false
   let hasWarning = false
