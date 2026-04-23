@@ -1,50 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserOrganizationId } from '@/lib/utils/organization'
+import { insertNotifications, type CreateNotificationParams } from '@/lib/services/notification-insert'
 import type { SupabaseClient } from '@supabase/supabase-js'
-
-type NotificationType =
-  | 'user_login'
-  | 'user_created'
-  | 'case_created'
-  | 'case_updated'
-  | 'case_status_changed'
-  | 'document_uploaded'
-  | 'document_deleted'
-  | 'comment_added'
-  | 'person_created'
-  | 'company_created'
-  | 'task_assigned'
-  | 'task_created'
-  | 'task_completed'
-  | 'task_overdue'
-  | 'deadline_approaching'
-  | 'deadline_overdue'
-  | 'deadline_created'
-  | 'deadline_completed'
-  | 'case_assigned'
-  | 'mention'
-  | 'task_approaching'
-  | 'calendar_event_approaching'
-  | 'sac_new_movements'
-  | 'review_requested'
-  | 'review_decided'
-  | 'document_comment'
-
-type NotificationCategory = 'activity' | 'work'
-
-interface CreateNotificationParams {
-  userIds: string[]
-  category: NotificationCategory
-  type: NotificationType
-  title: string
-  message: string
-  caseId?: string
-  taskId?: string
-  deadlineId?: string
-  documentId?: string
-  triggeredBy?: string
-  metadata?: Record<string, unknown>
-}
 
 /**
  * Creates notifications for specified users.
@@ -55,28 +12,7 @@ export async function createNotifications(
   options?: { supabase?: SupabaseClient; metadata?: Record<string, unknown> }
 ) {
   const supabase = options?.supabase ?? (await createClient())
-
-  const metadata = { ...(params.metadata || {}), ...(options?.metadata || {}) }
-  const notifications = params.userIds.map((userId) => ({
-    user_id: userId,
-    category: params.category,
-    type: params.type,
-    title: params.title,
-    message: params.message,
-    case_id: params.caseId || null,
-    task_id: params.taskId || null,
-    deadline_id: params.deadlineId || null,
-    document_id: params.documentId || null,
-    triggered_by: params.triggeredBy || null,
-    metadata: Object.keys(metadata).length ? metadata : {},
-  }))
-
-  const { error } = await supabase.from('notifications').insert(notifications)
-  
-  if (error) {
-    console.error('[v0] Error creating notifications:', error)
-    throw error
-  }
+  return insertNotifications(supabase, params, options)
 }
 
 /**

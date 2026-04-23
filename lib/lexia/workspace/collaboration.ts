@@ -5,7 +5,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createNotifications } from '@/lib/services/notifications'
+import { insertNotifications } from '@/lib/services/notification-insert'
 
 // =============================================================================
 // Types
@@ -522,7 +522,7 @@ async function notifyCommentAdded(
 
   if (targets.size === 0) return
 
-  await createNotifications({
+  await insertNotifications(db, {
     userIds: Array.from(targets),
     category: 'activity',
     type: 'document_comment',
@@ -546,7 +546,7 @@ async function notifyReviewRequested(
   if (!doc) return
   const d = doc as { title: string; case_id: string | null }
 
-  await createNotifications({
+  await insertNotifications(db, {
     userIds: params.reviewerIds,
     category: 'work',
     type: 'review_requested',
@@ -576,7 +576,7 @@ async function notifyReviewDecided(
   if (!doc) return
   const d = doc as { title: string; case_id: string | null }
 
-  await createNotifications({
+  await insertNotifications(db, {
     userIds: [params.requestedBy],
     category: 'work',
     type: 'review_decided',
