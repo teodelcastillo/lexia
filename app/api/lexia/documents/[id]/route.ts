@@ -132,7 +132,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     })
     return Response.json({ document: updated })
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error'
     console.error('[Lexia Workspace] update error:', err)
+    // Approved-document guard surfaces a specific message; bubble it up with 409.
+    if (/aprobado/i.test(message)) {
+      return Response.json({ error: message }, { status: 409 })
+    }
     return Response.json({ error: 'Error actualizando el documento' }, { status: 500 })
   }
 }

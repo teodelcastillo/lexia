@@ -21,6 +21,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import type { ToolRegistryEntry, LexiaIntent } from './types'
+import { searchOrFetch } from '@/lib/lexia/juris'
 
 // ============================================
 // Tool Registry (metadata for controller)
@@ -62,6 +63,17 @@ export const TOOL_REGISTRY: Record<string, ToolRegistryEntry> = {
     category: 'deterministic',
     description: 'Query case information from the database',
     allowedIntents: ['case_query', 'legal_analysis', 'general_chat'] as LexiaIntent[],
+  },
+  searchJurisprudence: {
+    name: 'searchJurisprudence',
+    category: 'deterministic',
+    description: 'Search real Argentine jurisprudence on SAIJ (cached)',
+    allowedIntents: [
+      'legal_analysis',
+      'document_drafting',
+      'procedural_query',
+      'general_chat',
+    ] as LexiaIntent[],
   },
 }
 
@@ -112,6 +124,55 @@ export const queryCaseInfoTool = tool({
     count: z.number().nullable(),
     message: z.string(),
   }),
+})
+
+export const searchJurisprudenceTool = tool({
+  description:
+    'Search real Argentine jurisprudence from the SAIJ public repository. Returns fallos with verifiable id-infojus, title, court, date, summary and a canonical URL. ALWAYS use this before citing any fallo; never invent jurisprudence.',
+  inputSchema: z.object({
+    query: z.string().min(2).describe('Free-text legal query (topic, article, key terms)'),
+    caseType: z.string().nullable().describe('Case type to focus the search (laboral, civil, etc.)'),
+    jurisdiction: z
+      .enum(['Nacional', 'Cordoba', 'Buenos Aires', 'CABA', 'Federal', 'Otra'])
+      .nullable(),
+    court: z.string().nullable().describe('Optional specific court name'),
+    limit: z.number().int().min(1).max(10).default(5),
+  }),
+  outputSchema: z.object({
+    degraded: z.boolean(),
+    source: z.enum(['cache', 'live', 'mixed']),
+    results: z.array(
+      z.object({
+        externalId: z.string(),
+        title: z.string(),
+        court: z.string().nullable(),
+        date: z.string().nullable(),
+        summary: z.string().nullable(),
+        url: z.string(),
+      })
+    ),
+  }),
+  async execute({ query, jurisdiction, court, limit }) {
+    const res = await searchOrFetch({
+      query,
+      tipo: 'fallo',
+      jurisdiction: jurisdiction ?? null,
+      court: court ?? null,
+      limit,
+    })
+    return {
+      degraded: res.degraded,
+      source: res.source,
+      results: res.results.map((d) => ({
+        externalId: d.externalId,
+        title: d.title,
+        court: d.court,
+        date: d.decisionDate,
+        summary: d.summary,
+        url: d.url,
+      })),
+    }
+  },
 })
 
 // ============================================
@@ -202,6 +263,7 @@ export const lexiaTools = {
   getProceduralChecklist: getProceduralChecklistTool,
   calculateDeadline: calculateDeadlineTool,
   queryCaseInfo: queryCaseInfoTool,
+  searchJurisprudence: searchJurisprudenceTool,
 } as const
 
 /**
@@ -222,6 +284,7 @@ export function getToolsForIntent(allowedToolNames: string[]): typeof lexiaTools
   // Always include deterministic tools
   filtered.calculateDeadline = lexiaTools.calculateDeadline
   filtered.queryCaseInfo = lexiaTools.queryCaseInfo
+  filtered.searchJurisprudence = lexiaTools.searchJurisprudence
 
   return filtered as typeof lexiaTools
 }

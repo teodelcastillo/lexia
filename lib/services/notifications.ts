@@ -26,6 +26,9 @@ type NotificationType =
   | 'task_approaching'
   | 'calendar_event_approaching'
   | 'sac_new_movements'
+  | 'review_requested'
+  | 'review_decided'
+  | 'document_comment'
 
 type NotificationCategory = 'activity' | 'work'
 

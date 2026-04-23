@@ -24,6 +24,7 @@ import {
   buildCaseContext,
 } from '@/lib/lexia/workspace'
 import { resolveModel } from '@/lib/ai/resolver'
+import { ensureGroundedCitations } from '@/lib/ai/grounding'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -158,6 +159,37 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (!canEdit) return Response.json({ error: 'Sin permisos de edición' }, { status: 403 })
   }
 
+  // Guard against editing approved documents.
+  const { data: reviewRow } = await supabase
+    .from('lexia_documents')
+    .select('review_status')
+    .eq('id', id)
+    .maybeSingle()
+  const reviewStatus = (reviewRow as { review_status?: string } | null)?.review_status
+  if (reviewStatus === 'approved') {
+    return Response.json(
+      { error: 'El documento esta aprobado. Cree una nueva version para editarlo.' },
+      { status: 409 }
+    )
+  }
+
+  // Check organization strict_grounding flag (read-only). We forward it to the
+  // client so the UI can decide to reject proposals with invalid citations.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('id', user.id)
+    .maybeSingle()
+  let strictGrounding = false
+  if (profile && (profile as { organization_id?: string }).organization_id) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('strict_grounding')
+      .eq('id', (profile as { organization_id: string }).organization_id)
+      .maybeSingle()
+    strictGrounding = Boolean((org as { strict_grounding?: boolean } | null)?.strict_grounding)
+  }
+
   let caseNumber: string | null = null
   let caseTitle: string | null = null
   if (doc.caseId) {
@@ -227,6 +259,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     model = resolveModel(FALLBACK_MODEL)
   }
 
+  // Resolve the origin so the grounding layer can call /api/lexia/verify-citation
+  // back with the same auth cookie.
+  const baseUrl = new URL(req.url).origin
+  const cookieHeader = req.headers.get('cookie') ?? ''
+
   const result = streamObject({
     model,
     schema: EditOperationSchema,
@@ -236,6 +273,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     onFinish: async ({ object, usage }) => {
       if (!editId) return
       try {
+        // Run grounding check on the proposed citations (best effort).
+        let groundingStatus: 'grounded' | 'partial' | 'ungrounded' | 'unknown' = 'unknown'
+        let verdicts: unknown[] = []
+        if (object?.citations && object.citations.length > 0) {
+          const report = await ensureGroundedCitations(
+            object.citations as Array<{
+              label: string
+              kind: 'norma' | 'jurisprudencia' | 'doctrina'
+              quote?: string
+            }>,
+            { baseUrl, cookieHeader }
+          )
+          groundingStatus = report.status
+          verdicts = report.verdicts
+        } else {
+          groundingStatus = 'grounded' // No citations = nothing to falsify.
+        }
+
         await supabase
           .from('lexia_document_edits')
           .update({
@@ -243,6 +298,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
             replacement: object?.replacement ?? null,
             alternatives: object?.alternatives ?? [],
             citations: object?.citations ?? [],
+            citation_verdicts: verdicts,
+            grounding_status: groundingStatus,
             tokens_used: usage?.totalTokens ?? 0,
           })
           .eq('id', editId)
@@ -255,5 +312,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // Include the editId in a header so the client can reference it on accept.
   const response = result.toTextStreamResponse()
   if (editId) response.headers.set('x-lexia-edit-id', editId)
+  response.headers.set('x-lexia-strict-grounding', strictGrounding ? '1' : '0')
   return response
 }

@@ -302,6 +302,25 @@
   border-color: #f87171;
 }
 
+/* Comment thread highlights */
+.lexia-editor .lexia-comment-thread {
+  background-color: rgba(251, 191, 36, 0.28); /* amber-300 */
+  border-bottom: 2px solid rgba(217, 119, 6, 0.8); /* amber-600 */
+  cursor: pointer;
+  padding: 0 1px;
+}
+.lexia-editor .lexia-comment-thread[data-resolved='true'] {
+  background-color: rgba(148, 163, 184, 0.18); /* slate-400 */
+  border-bottom: 2px solid rgba(100, 116, 139, 0.6);
+}
+.dark .lexia-editor .lexia-comment-thread {
+  background-color: rgba(217, 119, 6, 0.28);
+  border-bottom-color: rgba(252, 211, 77, 0.9);
+}
+.dark .lexia-editor .lexia-comment-thread[data-resolved='true'] {
+  background-color: rgba(71, 85, 105, 0.35);
+}
+
 /* Empty paragraph placeholder (Tiptap placeholder extension) */
 .lexia-editor p.is-editor-empty:first-child::before,
 .lexia-editor p.is-empty.has-focus::before {

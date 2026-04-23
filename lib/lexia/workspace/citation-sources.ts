@@ -92,7 +92,197 @@ export const KNOWN_NORMS: KnownNorm[] = [
     url: 'https://www.justiciacordoba.gob.ar/JusticiaCordoba/files/LEY%208465.pdf',
     kind: 'codigo',
   },
+  // --- Extended set (migration 054) ---
+  {
+    label: 'Ley de Concursos y Quiebras (LCQ, Ley 24.522)',
+    pattern: /\b(lcq|ley\s*24[.\s]?522|ley\s+de\s+concursos\s+y\s+quiebras)\b/i,
+    maxArticle: 294,
+    url: 'https://www.argentina.gob.ar/normativa/nacional/ley-24522-25379',
+    kind: 'norma',
+  },
+  {
+    label: 'Ley de Propiedad Intelectual (Ley 11.723)',
+    pattern: /\bley\s*11[.\s]?723\b/i,
+    maxArticle: 89,
+    url: 'https://www.argentina.gob.ar/normativa/nacional/ley-11723-42755',
+    kind: 'norma',
+  },
+  {
+    label: 'Ley de Protección Integral a las Mujeres (Ley 26.485)',
+    pattern: /\bley\s*26[.\s]?485\b/i,
+    maxArticle: 45,
+    url: 'https://www.argentina.gob.ar/normativa/nacional/ley-26485-152155',
+    kind: 'norma',
+  },
+  {
+    label: 'Ley de Protección de Datos Personales (Ley 25.326)',
+    pattern: /\b(ley\s*25[.\s]?326|protecci[oó]n\s+de\s+datos\s+personales)\b/i,
+    maxArticle: 49,
+    url: 'https://www.argentina.gob.ar/normativa/nacional/ley-25326-64790',
+    kind: 'norma',
+  },
+  {
+    label: 'Código Aeronáutico (Ley 17.285)',
+    pattern: /\b(c[oó]digo\s+aeron[aá]utico|ley\s*17[.\s]?285)\b/i,
+    maxArticle: 239,
+    url: 'https://www.argentina.gob.ar/normativa/nacional/ley-17285-24751',
+    kind: 'codigo',
+  },
+  {
+    label: 'CPCC Mendoza (Ley 9.001)',
+    pattern: /\b(cpcc\s+mendoza|ley\s*9[.\s]?001)\b/i,
+    maxArticle: 397,
+    url: 'https://www.jus.mendoza.gov.ar/documents/10184/0/Ley+9001/',
+    kind: 'codigo',
+  },
+  {
+    label: 'CPCC Buenos Aires (Ley 7.425)',
+    pattern: /\b(cpcc\s+buenos\s+aires|cpcba|ley\s*7[.\s]?425)\b/i,
+    maxArticle: 895,
+    url: 'https://normas.gba.gob.ar/documentos/xXzLGIw.html',
+    kind: 'codigo',
+  },
+  {
+    label: 'CPCC Santa Fe (Ley 5.531)',
+    pattern: /\b(cpcc\s+santa\s+fe|ley\s*5[.\s]?531)\b/i,
+    maxArticle: 596,
+    url: 'https://www.santafe.gov.ar/normativa/',
+    kind: 'codigo',
+  },
+  {
+    label: 'Ley de Propiedad Horizontal (Ley 13.512)',
+    pattern: /\bley\s*13[.\s]?512\b/i,
+    maxArticle: 20,
+    url: 'https://servicios.infoleg.gob.ar/infolegInternet/anexos/40000-44999/43091/norma.htm',
+    kind: 'norma',
+  },
+  {
+    label: 'Ley de Riesgos del Trabajo (LRT, Ley 24.557)',
+    pattern: /\b(lrt|ley\s*24[.\s]?557|ley\s+de\s+riesgos\s+del\s+trabajo)\b/i,
+    maxArticle: 51,
+    url: 'https://www.argentina.gob.ar/normativa/nacional/ley-24557-27971',
+    kind: 'norma',
+  },
 ]
+
+// ---------------------------------------------------------------------------
+// Known leading cases (CSJN). Hardcoded so that very canonical "Fallos T:P"
+// citations can be verified deterministically without hitting SAIJ.
+// ---------------------------------------------------------------------------
+
+export interface KnownJurisprudence {
+  label: string
+  /** Match patterns; if ANY matches, the citation is considered verified. */
+  patterns: RegExp[]
+  court: string
+  year: number
+  volumePages?: string   // e.g. "340:1695"
+  url: string
+}
+
+export const KNOWN_LEADING_CASES: KnownJurisprudence[] = [
+  {
+    label: 'Halabi, Ernesto c/ PEN (CSJN, 2009)',
+    patterns: [/\bhalabi\b/i, /\bFallos\s*332:111\b/],
+    court: 'CSJN',
+    year: 2009,
+    volumePages: '332:111',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Aquino, Isacio c/ Cargo Servicios (CSJN, 2004)',
+    patterns: [/\baquino\b.*\bcargo\b/i, /\bFallos\s*327:3753\b/],
+    court: 'CSJN',
+    year: 2004,
+    volumePages: '327:3753',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Vizzoti, Carlos c/ AMSA (CSJN, 2004)',
+    patterns: [/\bvizzoti\b/i, /\bFallos\s*327:3677\b/],
+    court: 'CSJN',
+    year: 2004,
+    volumePages: '327:3677',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Ercolano c/ Lanteri de Renshaw (CSJN, 1922)',
+    patterns: [/\bercolano\b.*\blanteri\b/i, /\bFallos\s*136:161\b/],
+    court: 'CSJN',
+    year: 1922,
+    volumePages: '136:161',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Mendoza, Beatriz c/ Estado Nacional (riachuelo, CSJN, 2008)',
+    patterns: [/\bmendoza\b.*\bbeatriz\b/i, /\briachuelo\b/i, /\bFallos\s*331:1622\b/],
+    court: 'CSJN',
+    year: 2008,
+    volumePages: '331:1622',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Arriola (CSJN, 2009)',
+    patterns: [/\barriola\b/i, /\bFallos\s*332:1963\b/],
+    court: 'CSJN',
+    year: 2009,
+    volumePages: '332:1963',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Siri, Angel (CSJN, 1957)',
+    patterns: [/\bsiri\b.*\bangel\b/i, /\bFallos\s*239:459\b/],
+    court: 'CSJN',
+    year: 1957,
+    volumePages: '239:459',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Kot (CSJN, 1958)',
+    patterns: [/\bkot\b.*(samuel|s\.a)/i, /\bFallos\s*241:291\b/],
+    court: 'CSJN',
+    year: 1958,
+    volumePages: '241:291',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Ekmekdjian c/ Sofovich (CSJN, 1992)',
+    patterns: [/\bekmekdjian\b/i, /\bsofovich\b/i, /\bFallos\s*315:1492\b/],
+    court: 'CSJN',
+    year: 1992,
+    volumePages: '315:1492',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+  {
+    label: 'Bazterrica (CSJN, 1986)',
+    patterns: [/\bbazterrica\b/i, /\bFallos\s*308:1392\b/],
+    court: 'CSJN',
+    year: 1986,
+    volumePages: '308:1392',
+    url: 'https://sjconsulta.csjn.gov.ar/sjconsulta/',
+  },
+]
+
+export type JurisVerdict =
+  | { kind: 'verified'; label: string; url: string; source: 'dataset' }
+  | { kind: 'unknown' }
+
+/**
+ * Try to match a jurisprudence label against the hardcoded leading cases.
+ * Only returns `verified` for perfect hits; otherwise leaves it to the
+ * SAIJ cache / LLM judge downstream.
+ */
+export function matchKnownJurisprudence(label: string): JurisVerdict {
+  const trimmed = label.trim()
+  for (const c of KNOWN_LEADING_CASES) {
+    for (const p of c.patterns) {
+      if (p.test(trimmed)) {
+        return { kind: 'verified', label: c.label, url: c.url, source: 'dataset' }
+      }
+    }
+  }
+  return { kind: 'unknown' }
+}
 
 export type NormVerdict =
   | { kind: 'verified'; label: string; url: string }

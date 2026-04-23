@@ -20,6 +20,7 @@ import Link from '@tiptap/extension-link'
 import { PlaceholderInline } from './extensions/placeholder-inline'
 import { Citation, type CitationStatus } from './extensions/citation'
 import { PendingEdit } from './extensions/pending-edit'
+import { CommentMark } from './extensions/comment-mark'
 import type { TiptapDoc, Citation as CitationData } from '@/lib/lexia/workspace'
 
 export interface EditorImperativeHandle {
@@ -32,6 +33,12 @@ export interface EditorImperativeHandle {
   /** Mark a range as "pending edit" (amber highlight while popover open). */
   markPending: (from: number, to: number) => void
   clearPending: () => void
+  /** Wrap a range in a commentThread mark with the given threadId. */
+  markComment: (from: number, to: number, threadId: string) => void
+  /** Remove commentThread mark for all ranges matching threadId. */
+  unmarkComment: (threadId: string) => void
+  /** Scroll to the first occurrence of a commentThread mark. */
+  scrollToComment: (threadId: string) => void
   focus: () => void
   getEditor: () => Editor | null
 }
@@ -73,6 +80,7 @@ export const WorkspaceEditor = forwardRef<EditorImperativeHandle, WorkspaceEdito
         PlaceholderInline,
         Citation,
         PendingEdit,
+        CommentMark,
       ],
       content: initialContent as unknown as Content,
       editable,
@@ -142,6 +150,52 @@ export const WorkspaceEditor = forwardRef<EditorImperativeHandle, WorkspaceEdito
         if (!editor) return
         editor.chain().setTextSelection({ from: pos, to: pos }).run()
         applyTextReplacement(editor, text, citations, { replaceSelection: false })
+      },
+      markComment: (from, to, threadId) => {
+        if (!editor) return
+        editor
+          .chain()
+          .setTextSelection({ from, to })
+          .setMark('commentThread', { threadId, resolved: false })
+          .run()
+      },
+      unmarkComment: (threadId) => {
+        if (!editor) return
+        const { doc } = editor.state
+        const ranges: Array<{ from: number; to: number }> = []
+        doc.descendants((node, pos) => {
+          node.marks.forEach((m) => {
+            if (m.type.name === 'commentThread' && m.attrs.threadId === threadId) {
+              ranges.push({ from: pos, to: pos + node.nodeSize })
+            }
+          })
+        })
+        if (ranges.length === 0) return
+        const chain = editor.chain()
+        for (const r of ranges) {
+          chain.setTextSelection(r).unsetMark('commentThread')
+        }
+        chain.run()
+      },
+      scrollToComment: (threadId) => {
+        if (!editor) return
+        const { doc } = editor.state
+        let target: { pos: number } | null = null
+        doc.descendants((node, pos) => {
+          if (target) return false
+          const hit = node.marks.some(
+            (m) => m.type.name === 'commentThread' && m.attrs.threadId === threadId
+          )
+          if (hit) target = { pos }
+          return !target
+        })
+        if (!target) return
+        editor.chain().focus().setTextSelection({ from: target.pos, to: target.pos }).run()
+        const dom = editor.view.domAtPos(target.pos)
+        const element = dom.node instanceof HTMLElement
+          ? dom.node
+          : dom.node.parentElement
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       },
     }))
 

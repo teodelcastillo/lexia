@@ -8,7 +8,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Sparkles, Loader2, Check, FileSearch, Bot, ShieldAlert } from 'lucide-react'
+import {
+  ArrowLeft,
+  Save,
+  Sparkles,
+  Loader2,
+  Check,
+  FileSearch,
+  Bot,
+  ShieldAlert,
+  Gavel,
+  MessageSquare,
+  ClipboardCheck,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +37,10 @@ import { InvestigatePanel } from './investigate-panel'
 import { CounterArguePanel } from './counter-argue-panel'
 import { AgentPanel } from './agent-panel'
 import { StressTestPanel } from './stress-test-panel'
+import { JurisprudencePanel } from './jurisprudence-panel'
+import { GroundingBanner } from './grounding-banner'
+import { CommentsPanel } from './comments-panel'
+import { ReviewPanel, type DocumentReviewState } from './review-panel'
 import { applyAgentStep, scrollToPassage } from './agent-applier'
 import type {
   WorkspaceDocumentDTO,
@@ -43,11 +59,19 @@ interface WorkspaceClientProps {
   /** Documents/persons available as context (server-fetched, could be empty). */
   caseDocuments: Array<{ id: string; name: string }>
   casePersons: Array<{ id: string; name: string; type: string }>
+  /** The currently logged in user id, used by comments / reviews panels. */
+  currentUserId: string
 }
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
 
-export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments, casePersons }: WorkspaceClientProps) {
+export function WorkspaceClient({
+  document: initialDoc,
+  caseInfo,
+  caseDocuments,
+  casePersons,
+  currentUserId,
+}: WorkspaceClientProps) {
   const editorRef = useRef<EditorImperativeHandle>(null)
 
   const [title, setTitle] = useState(initialDoc.title)
@@ -72,6 +96,18 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
   const [counterFragment, setCounterFragment] = useState<{ text: string; from: number; to: number } | null>(null)
   const [agentOpen, setAgentOpen] = useState(false)
   const [stressOpen, setStressOpen] = useState(false)
+  const [jurisOpen, setJurisOpen] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [groundingRefreshKey, setGroundingRefreshKey] = useState(0)
+  const [commentsReloadKey, setCommentsReloadKey] = useState(0)
+  const [reviewReloadKey, setReviewReloadKey] = useState(0)
+  const [reviewStatus, setReviewStatus] = useState<DocumentReviewState['reviewStatus']>('draft')
+  const [currentSelection, setCurrentSelection] = useState<{
+    from: number
+    to: number
+    text: string
+  } | null>(null)
 
   // Snapshot of the latest editor content (for autosave)
   const latestContentRef = useRef<TiptapDoc>(initialDoc.content)
@@ -101,7 +137,18 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
           activeContext: { documentIds: activeDocIds, personIds: activePersonIds },
         }),
       })
-      if (!res.ok) throw new Error('No se pudo guardar')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const message = (data?.error as string | undefined) ?? 'No se pudo guardar'
+        if (reviewStatus === 'approved' || /aprobado/i.test(message)) {
+          toast.error(
+            'El documento esta aprobado: creá una nueva version para editarlo.'
+          )
+        } else {
+          toast.error(message)
+        }
+        throw new Error(message)
+      }
       const data = (await res.json()) as { document: WorkspaceDocumentDTO }
       setVersion(data.document.version)
       dirtyRef.current = false
@@ -109,9 +156,8 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
     } catch (err) {
       console.error(err)
       setSaveState('error')
-      toast.error('Error al guardar el documento')
     }
-  }, [initialDoc.id, title, activeDocIds, activePersonIds])
+  }, [initialDoc.id, title, activeDocIds, activePersonIds, reviewStatus])
 
   // Save context changes & title debounced too.
   useEffect(() => {
@@ -148,6 +194,45 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
     },
     [triggerAutosave]
   )
+
+  // Track the current editor selection so the comments panel can anchor a
+  // new thread to it. We poll lazily; Tiptap's selectionUpdate would be a
+  // tighter hook but the editor ref is not available at mount time.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const ed = editorRef.current?.getEditor?.()
+      if (!ed) return
+      const { from, to, empty } = ed.state.selection
+      if (empty || from === to) {
+        setCurrentSelection((prev) => (prev ? null : prev))
+        return
+      }
+      const text = ed.state.doc.textBetween(from, to, '\n')
+      setCurrentSelection({ from, to, text })
+    }, 400)
+    return () => clearInterval(id)
+  }, [])
+
+  // Load initial review status so the header badge is up-to-date.
+  useEffect(() => {
+    let aborted = false
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/lexia/documents/${initialDoc.id}/reviews`, {
+          cache: 'no-store',
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as { reviewStatus: DocumentReviewState['reviewStatus'] }
+        if (!aborted) setReviewStatus(data.reviewStatus)
+      } catch {
+        // best effort
+      }
+    }
+    void load()
+    return () => {
+      aborted = true
+    }
+  }, [initialDoc.id, reviewReloadKey])
 
   const handleCmdK = useCallback((req: CmdKRequest) => {
     setCmdK(req)
@@ -228,6 +313,7 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
       setCmdK(null)
       toast.success('Cambio aplicado')
       // The editor's onUpdate will fire and autosave.
+      setGroundingRefreshKey((k) => k + 1)
     },
     [cmdK]
   )
@@ -262,6 +348,8 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
             <span>v{version}</span>
             <span>·</span>
             <SaveStateIndicator state={saveState} />
+            <span>·</span>
+            <GroundingBanner documentId={initialDoc.id} refreshKey={groundingRefreshKey} />
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -279,6 +367,38 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
               Investigar
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setJurisOpen(true)}
+            title="Buscar jurisprudencia real en SAIJ (con cache)"
+          >
+            <Gavel className="h-4 w-4 mr-1" />
+            Jurisprudencia
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setCommentsOpen(true)}
+            title="Comentarios y discusion colaborativa"
+          >
+            <MessageSquare className="h-4 w-4 mr-1" />
+            Comentarios
+          </Button>
+          <Button
+            size="sm"
+            variant={reviewStatus === 'approved' ? 'default' : 'ghost'}
+            onClick={() => setReviewOpen(true)}
+            title="Solicitar revision o aprobar el documento"
+          >
+            <ClipboardCheck className="h-4 w-4 mr-1" />
+            Revision
+            {reviewStatus !== 'draft' && (
+              <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">
+                {reviewStatus.replace('_', ' ')}
+              </Badge>
+            )}
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -406,6 +526,58 @@ export function WorkspaceClient({ document: initialDoc, caseInfo, caseDocuments,
         context={{ documentIds: activeDocIds, personIds: activePersonIds }}
         onNavigateToPassage={handleStressNavigate}
         onApplyRewrite={handleStressApplyRewrite}
+      />
+
+      <JurisprudencePanel
+        open={jurisOpen}
+        onClose={() => setJurisOpen(false)}
+        caseId={caseInfo?.id ?? null}
+        defaultQuery={caseInfo?.title ?? ''}
+        onInsertCitation={({ label, summary }) => {
+          const h = editorRef.current
+          if (!h) return
+          const editor = h.getEditor?.()
+          const pos = editor?.state.selection.to ?? 0
+          const text = summary
+            ? `${summary.slice(0, 280)}... (conforme ${label}).`
+            : `Conforme a ${label}.`
+          h.insertTextAt(pos, text, [{ label, kind: 'jurisprudencia' }])
+          toast.success('Cita insertada')
+          setJurisOpen(false)
+        }}
+      />
+
+      <CommentsPanel
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        documentId={initialDoc.id}
+        currentUserId={currentUserId}
+        currentSelection={currentSelection}
+        reloadKey={commentsReloadKey}
+        onThreadCreated={(threadId, from, to) => {
+          editorRef.current?.markComment(from, to, threadId)
+          setCommentsReloadKey((k) => k + 1)
+        }}
+        onThreadResolved={(threadId) => {
+          editorRef.current?.unmarkComment(threadId)
+        }}
+        onFocusThread={(threadId) => {
+          editorRef.current?.scrollToComment(threadId)
+        }}
+      />
+
+      <ReviewPanel
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        documentId={initialDoc.id}
+        currentUserId={currentUserId}
+        reloadKey={reviewReloadKey}
+        onStateChange={(state) => {
+          setReviewStatus(state.reviewStatus)
+          if (state.reviewStatus === 'approved' || state.reviewStatus === 'rejected') {
+            setReviewReloadKey((k) => k + 1)
+          }
+        }}
       />
     </div>
   )

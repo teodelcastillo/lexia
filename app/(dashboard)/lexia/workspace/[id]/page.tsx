@@ -92,6 +92,7 @@ export default async function WorkspaceDocumentPage({ params }: PageProps) {
       caseInfo={caseInfo}
       caseDocuments={caseDocuments}
       casePersons={casePersons}
+      currentUserId={user.id}
     />
   )
 }

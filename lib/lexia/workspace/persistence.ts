@@ -131,20 +131,33 @@ export async function updateDocumentContent(
     source?: 'manual' | 'ai_edit' | 'ai_agent'
     summary?: string
     editId?: string | null
+    /**
+     * When true, editing is allowed even if the document is in `approved`
+     * review_status. Reserved for admins / explicit override; the UI never
+     * sets this by default.
+     */
+    forceEditApproved?: boolean
   }
 ): Promise<WorkspaceDocumentDTO> {
   const contentText = docToPlainText(params.content)
 
-  // Load current version to increment.
+  // Load current version + review state to guard against editing approved
+  // documents (unless explicitly forced).
   const { data: current, error: curErr } = await db
     .from('lexia_documents')
-    .select('version, user_id')
+    .select('version, user_id, review_status')
     .eq('id', params.id)
     .maybeSingle()
   if (curErr || !current) {
     throw new Error(`Failed to load document for update: ${curErr?.message ?? 'not found'}`)
   }
-  const nextVersion = ((current as { version: number }).version ?? 1) + 1
+  const cur = current as { version: number; review_status?: string }
+  if (cur.review_status === 'approved' && !params.forceEditApproved) {
+    throw new Error(
+      'El documento esta aprobado. Creá una nueva version antes de editarlo.'
+    )
+  }
+  const nextVersion = (cur.version ?? 1) + 1
 
   const updatePayload: Record<string, unknown> = {
     content: params.content,

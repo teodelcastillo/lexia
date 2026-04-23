@@ -114,7 +114,12 @@ export const ROUTING_RULES: RoutingRule[] = [
     fallbackModel: 'claude-sonnet',
     temperature: 0.4,
     maxTokens: 3000,
-    toolsAllowed: ['getProceduralChecklist', 'queryCaseInfo', 'calculateDeadline'],
+    toolsAllowed: [
+      'getProceduralChecklist',
+      'queryCaseInfo',
+      'calculateDeadline',
+      'searchJurisprudence',
+    ],
   },
   {
     intent: 'document_drafting',
@@ -122,7 +127,7 @@ export const ROUTING_RULES: RoutingRule[] = [
     fallbackModel: 'gpt4-turbo',
     temperature: 0.6,
     maxTokens: 4096,
-    toolsAllowed: ['generateDraft', 'queryCaseInfo'],
+    toolsAllowed: ['generateDraft', 'queryCaseInfo', 'searchJurisprudence'],
   },
   {
     intent: 'document_summary',
@@ -138,7 +143,7 @@ export const ROUTING_RULES: RoutingRule[] = [
     fallbackModel: 'gpt4o',
     temperature: 0.3,
     maxTokens: 2048,
-    toolsAllowed: ['getProceduralChecklist', 'calculateDeadline'],
+    toolsAllowed: ['getProceduralChecklist', 'calculateDeadline', 'searchJurisprudence'],
   },
   {
     intent: 'case_query',

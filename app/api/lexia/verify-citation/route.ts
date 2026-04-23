@@ -21,7 +21,8 @@ import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
 import { resolveModel } from '@/lib/ai/resolver'
-import { matchKnownNorm } from '@/lib/lexia/workspace'
+import { matchKnownNorm, matchKnownJurisprudence } from '@/lib/lexia/workspace'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -54,6 +55,9 @@ const VerdictItemSchema = z.object({
   explanation: z.string().min(1),
   suggestedLabel: z.string().optional(),
   source: z.string().optional(),
+  sourceType: z
+    .enum(['dataset', 'saij_cache', 'heuristic', 'llm_judge'])
+    .optional(),
 })
 
 const VerdictPayloadSchema = z.object({
@@ -156,30 +160,69 @@ export async function POST(req: Request) {
 
   type Verdict = z.infer<typeof VerdictItemSchema>
 
-  // Paso 1: dataset curado. Si matchea, obtenemos un veredicto determinista.
+  // Paso 1: dataset curado de normativa. Si matchea, obtenemos un veredicto
+  // determinista para normas muy conocidas (CCyCN, LCT, LCQ, etc.).
   const datasetVerdicts: Array<Verdict | null> = citations.map((c, i) => {
-    if (c.kind === 'jurisprudencia' || c.kind === 'doctrina') return null
-    const hit = matchKnownNorm(c.label)
-    if (hit.kind === 'verified') {
-      return {
-        index: i,
-        status: 'verified',
-        confidence: 0.95,
-        explanation: `Referencia reconocida en dataset curado.`,
-        suggestedLabel: hit.label,
-        source: hit.url,
+    if (c.kind === 'norma') {
+      const hit = matchKnownNorm(c.label)
+      if (hit.kind === 'verified') {
+        return {
+          index: i,
+          status: 'verified',
+          confidence: 0.95,
+          explanation: `Referencia reconocida en dataset curado.`,
+          suggestedLabel: hit.label,
+          source: hit.url,
+          sourceType: 'dataset',
+        }
+      }
+      if (hit.kind === 'invalid') {
+        return {
+          index: i,
+          status: 'invalid',
+          confidence: 0.9,
+          explanation: hit.reason,
+          sourceType: 'dataset',
+        }
       }
     }
-    if (hit.kind === 'invalid') {
-      return {
-        index: i,
-        status: 'invalid',
-        confidence: 0.9,
-        explanation: hit.reason,
+    if (c.kind === 'jurisprudencia') {
+      const hit = matchKnownJurisprudence(c.label)
+      if (hit.kind === 'verified') {
+        return {
+          index: i,
+          status: 'verified',
+          confidence: 0.9,
+          explanation: `Fallo reconocido en el dataset de leading cases.`,
+          suggestedLabel: hit.label,
+          source: hit.url,
+          sourceType: 'dataset',
+        }
       }
     }
     return null
   })
+
+  // Paso 1.5: SAIJ cache lookup para jurisprudencia.
+  // Buscamos hit fuerte por id-infojus o por titulo/tribunal.
+  const adminDb = createAdminClient()
+  for (let i = 0; i < citations.length; i++) {
+    if (datasetVerdicts[i]) continue
+    const c = citations[i]
+    if (c.kind !== 'jurisprudencia') continue
+    const cacheHit = await hitJurisCache(adminDb, c.label).catch(() => null)
+    if (cacheHit) {
+      datasetVerdicts[i] = {
+        index: i,
+        status: 'verified',
+        confidence: 0.88,
+        explanation: `Fallo encontrado en el cache SAIJ (id-infojus: ${cacheHit.external_id}).`,
+        suggestedLabel: cacheHit.title,
+        source: cacheHit.url,
+        sourceType: 'saij_cache',
+      }
+    }
+  }
 
   // Paso 2: heurísticas para las que el dataset no resolvió.
   const heuristics = citations.map((c, i) => (datasetVerdicts[i] ? null : heuristicCheck(c)))
@@ -198,6 +241,7 @@ export async function POST(req: Request) {
       status: h?.status ?? 'warning',
       confidence: 0.3,
       explanation: h?.reason ?? 'Pendiente de revisión automática.',
+      sourceType: 'heuristic',
     }
   })
 
@@ -240,6 +284,7 @@ export async function POST(req: Request) {
               : v.explanation,
           suggestedLabel: v.suggestedLabel,
           source: v.source,
+          sourceType: 'llm_judge',
         }
       })
     } catch (err) {
@@ -253,6 +298,7 @@ export async function POST(req: Request) {
             confidence: 0.2,
             explanation:
               'No se pudo verificar automáticamente. Revisá la cita manualmente antes de confiar en ella.',
+            sourceType: 'heuristic',
           }
         }
       })
@@ -260,4 +306,45 @@ export async function POST(req: Request) {
   }
 
   return Response.json({ verdicts: results })
+}
+
+// -----------------------------------------------------------------------------
+// SAIJ cache lookup
+// -----------------------------------------------------------------------------
+
+interface JurisCacheRow {
+  external_id: string
+  title: string
+  url: string
+}
+
+/** Look up a citation label against juris_cache. Matches strategies:
+ *  1) id-infojus literal inside the label ("id-infojus: FA01234567")
+ *  2) ILIKE on title
+ */
+async function hitJurisCache(
+  db: ReturnType<typeof createAdminClient>,
+  label: string
+): Promise<JurisCacheRow | null> {
+  const trimmed = label.trim()
+  const idMatch = trimmed.match(/\b(FA\d{6,}|SU\d{6,}|id-infojus[:\s]+([A-Z0-9_-]+))\b/i)
+  if (idMatch) {
+    const ext = idMatch[2] ?? idMatch[1]
+    const { data } = await db
+      .from('juris_cache')
+      .select('external_id,title,url')
+      .eq('external_id', ext)
+      .maybeSingle()
+    if (data) return data as JurisCacheRow
+  }
+  // Fall back to fuzzy title match on the first 50 chars (avoid huge queries).
+  const key = trimmed.slice(0, 80).replace(/[%_]/g, '')
+  if (key.length < 6) return null
+  const { data } = await db
+    .from('juris_cache')
+    .select('external_id,title,url')
+    .ilike('title', `%${key}%`)
+    .limit(1)
+    .maybeSingle()
+  return (data as JurisCacheRow) ?? null
 }
