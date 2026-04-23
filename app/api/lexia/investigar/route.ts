@@ -29,7 +29,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkCasePermission } from '@/lib/utils/access-control'
 import { resolveModel } from '@/lib/ai/resolver'
-import { extractDocumentsForCase } from '@/lib/lexia/workspace'
+import { extractDocumentsForCase } from '@/lib/lexia/workspace/document-extract'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
