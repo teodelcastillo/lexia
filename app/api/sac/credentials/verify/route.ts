@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/sac/crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { verifySacLogin } from '@/lib/sac/scraper'
+import { httpVerifySacLogin } from '@/lib/sac/http-scraper'
 
 export const maxDuration = 30
 
@@ -45,7 +45,7 @@ export async function POST() {
       )
     }
 
-    const result = await verifySacLogin(creds.extranet_username, password)
+    const result = await httpVerifySacLogin(creds.extranet_username, password)
 
     const admin = createAdminClient()
     const now = new Date().toISOString()

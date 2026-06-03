@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { decrypt } from './crypto'
-import { scrapeSacCase } from './scraper'
+import { httpScrapeSacCase } from './http-scraper'
 import { detectDeadline } from './deadline-detector'
 import { notifySacNewMovements } from '@/lib/services/notifications'
 import type { SacSyncResult, SacParsedMovement } from './types'
@@ -96,8 +96,8 @@ export async function syncSacCase(params: SyncCaseParams): Promise<SacSyncResult
       return result
     }
 
-    // 2. Scrape
-    const caseData = await scrapeSacCase(
+    // 2. Scrape via HTTP (no Playwright/Chromium required)
+    const caseData = await httpScrapeSacCase(
       creds.extranet_username,
       password,
       expedienteNumber,
