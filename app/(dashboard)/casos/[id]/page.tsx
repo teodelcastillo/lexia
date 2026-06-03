@@ -45,6 +45,7 @@ import { CaseActivityLog } from '@/components/cases/case-activity-log'
 import { CaseNotes } from '@/components/cases/case-notes'
 import { CaseLexiaButton } from '@/components/cases/case-lexia-button'
 import { SacMovementsPanel } from '@/components/sac/sac-movements-panel'
+import { CaseStagePanel } from '@/components/cases/case-stage-panel'
 import type { CaseStatus, TaskPriority, CaseRole } from '@/lib/types'
 
 export const metadata = {
@@ -488,6 +489,10 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             <Activity className="h-4 w-4" />
             <span className="hidden sm:inline">Actividad</span>
           </TabsTrigger>
+          <TabsTrigger value="workflow" className="flex-1 min-w-fit gap-1.5">
+            <CheckSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Etapas</span>
+          </TabsTrigger>
           <TabsTrigger value="sac" className="flex-1 min-w-fit gap-1.5">
             <Scale className="h-4 w-4" />
             <span className="hidden sm:inline">SAC</span>
@@ -552,6 +557,19 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
             <CaseActivityLog caseId={id} />
           </Suspense>
+        </TabsContent>
+
+        {/* Workflow / Etapas Tab */}
+        <TabsContent value="workflow">
+          <div className="rounded-lg border bg-card p-4">
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold">Etapa procesal</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Al avanzar la etapa se crean automáticamente las tareas y vencimientos correspondientes según el CPCC Córdoba.
+              </p>
+            </div>
+            <CaseStagePanel caseId={id} canEdit={canEdit} />
+          </div>
         </TabsContent>
 
         {/* SAC Tab */}

@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncSacCase } from '@/lib/sac/sync'
-import { waitBetweenQueries, waitBetweenBatches, closeBrowser } from '@/lib/sac/scraper'
+import { waitBetweenQueries, waitBetweenBatches } from '@/lib/sac/http-scraper'
 import { SAC_RATE_LIMITS } from '@/lib/sac/types'
 
 export const dynamic = 'force-dynamic'
@@ -93,8 +93,6 @@ export async function GET(request: Request) {
       }
     }
 
-    await closeBrowser()
-
     const totalNew = results.reduce((sum, r) => sum + r.movements, 0)
 
     return NextResponse.json({
@@ -104,7 +102,6 @@ export async function GET(request: Request) {
       results,
     })
   } catch (err) {
-    await closeBrowser()
     console.error('[cron sac-sync] error:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Unknown error' },

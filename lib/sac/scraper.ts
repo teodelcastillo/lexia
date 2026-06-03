@@ -365,3 +365,198 @@ export async function waitBetweenQueries(): Promise<void> {
 export async function waitBetweenBatches(): Promise<void> {
   await randomDelay(SAC_RATE_LIMITS.betweenBatchesMinMs, SAC_RATE_LIMITS.betweenBatchesMaxMs)
 }
+
+// ---------------------------------------------------------------------------
+// Diagnostic / Debug utilities
+// ---------------------------------------------------------------------------
+
+export interface SacDiagnosticStep {
+  step: string
+  ok: boolean
+  detail?: string
+  screenshotBase64?: string
+  htmlSnippet?: string
+}
+
+export interface SacDiagnosticResult {
+  steps: SacDiagnosticStep[]
+  error?: string
+}
+
+async function captureStep(
+  page: Page,
+  step: string,
+  ok: boolean,
+  detail?: string
+): Promise<SacDiagnosticStep> {
+  let screenshotBase64: string | undefined
+  let htmlSnippet: string | undefined
+  try {
+    const buf = await page.screenshot({ fullPage: false })
+    screenshotBase64 = buf.toString('base64')
+    // Grab the outer HTML of <body> truncated to 4 KB for inspection
+    const html = await page.evaluate(() => document.body?.innerHTML ?? '')
+    htmlSnippet = html.slice(0, 4096)
+  } catch {
+    // Screenshot failed — continue without it
+  }
+  return { step, ok, detail, screenshotBase64, htmlSnippet }
+}
+
+/**
+ * Open the SAC login page and report what we can see, without credentials.
+ * Useful for checking network reachability and inspecting real HTML selectors.
+ */
+export async function diagnoseSacConnection(): Promise<SacDiagnosticResult> {
+  const steps: SacDiagnosticStep[] = []
+  let context: BrowserContext | null = null
+  let page: Page | null = null
+
+  try {
+    const browser = await getBrowser()
+    context = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      viewport: { width: 1280, height: 720 },
+    })
+    page = await context.newPage()
+
+    // Step 1: Load the SAC login page
+    try {
+      await page.goto(SAC_BASE_URL, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      steps.push(await captureStep(page, 'Cargar página de login SAC', true, SAC_BASE_URL))
+    } catch (err) {
+      steps.push({
+        step: 'Cargar página de login SAC',
+        ok: false,
+        detail: err instanceof Error ? err.message : String(err),
+      })
+      return { steps, error: 'No se pudo cargar la URL del SAC' }
+    }
+
+    // Step 2: Check for username field
+    const userSel = await resolveSelector(page, 'usernameInput', { timeout: 5_000 })
+    steps.push(await captureStep(
+      page,
+      'Detectar campo usuario',
+      !!userSel,
+      userSel
+        ? `Encontrado con selector: ${userSel}`
+        : `No encontrado. Probados: ${[SAC_SELECTORS.usernameInput.primary, ...(SAC_SELECTORS.usernameInput.fallbacks ?? [])].join(', ')}`
+    ))
+
+    // Step 3: Check for password field
+    const passSel = await resolveSelector(page, 'passwordInput', { timeout: 3_000 })
+    steps.push(await captureStep(
+      page,
+      'Detectar campo contraseña',
+      !!passSel,
+      passSel
+        ? `Encontrado con selector: ${passSel}`
+        : `No encontrado. Probados: ${[SAC_SELECTORS.passwordInput.primary, ...(SAC_SELECTORS.passwordInput.fallbacks ?? [])].join(', ')}`
+    ))
+
+    // Step 4: Check for submit button
+    const submitSel = await resolveSelector(page, 'submitButton', { timeout: 3_000 })
+    steps.push(await captureStep(
+      page,
+      'Detectar botón de ingreso',
+      !!submitSel,
+      submitSel
+        ? `Encontrado con selector: ${submitSel}`
+        : `No encontrado. Probados: ${[SAC_SELECTORS.submitButton.primary, ...(SAC_SELECTORS.submitButton.fallbacks ?? [])].join(', ')}`
+    ))
+
+    return { steps }
+  } catch (err) {
+    return {
+      steps,
+      error: err instanceof Error ? err.message : 'Error desconocido',
+    }
+  } finally {
+    try { await page?.close() } catch { /* ignore */ }
+    try { await context?.close() } catch { /* ignore */ }
+  }
+}
+
+/**
+ * Attempt a full login with real credentials, capturing screenshots at each step.
+ * Returns diagnostic steps so we can pinpoint exactly where failures occur.
+ */
+export async function debugSacLogin(
+  username: string,
+  password: string
+): Promise<SacDiagnosticResult> {
+  const steps: SacDiagnosticStep[] = []
+  let context: BrowserContext | null = null
+  let page: Page | null = null
+
+  try {
+    const browser = await getBrowser()
+    context = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      viewport: { width: 1280, height: 720 },
+    })
+    page = await context.newPage()
+
+    // 1. Load login page
+    try {
+      await page.goto(SAC_BASE_URL, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      steps.push(await captureStep(page, 'Cargar página de login SAC', true))
+    } catch (err) {
+      steps.push({ step: 'Cargar página de login SAC', ok: false, detail: String(err) })
+      return { steps, error: 'No se pudo cargar el SAC' }
+    }
+
+    // 2. Fill username
+    const userSel = await resolveSelector(page, 'usernameInput', { timeout: 5_000 })
+    if (!userSel) {
+      steps.push(await captureStep(page, 'Completar usuario', false, 'Selector no encontrado'))
+      return { steps, error: 'No se encontró el campo de usuario' }
+    }
+    await page.fill(userSel, username)
+    steps.push(await captureStep(page, 'Completar usuario', true, `Selector: ${userSel}`))
+
+    // 3. Fill password
+    const passSel = await resolveSelector(page, 'passwordInput', { timeout: 3_000 })
+    if (!passSel) {
+      steps.push(await captureStep(page, 'Completar contraseña', false, 'Selector no encontrado'))
+      return { steps, error: 'No se encontró el campo de contraseña' }
+    }
+    await page.fill(passSel, password)
+    steps.push(await captureStep(page, 'Completar contraseña', true, `Selector: ${passSel}`))
+
+    // 4. Click submit
+    const submitSel = await resolveSelector(page, 'submitButton', { timeout: 3_000 })
+    if (!submitSel) {
+      steps.push(await captureStep(page, 'Click en ingresar', false, 'Botón no encontrado'))
+      return { steps, error: 'No se encontró el botón de ingreso' }
+    }
+    await page.click(submitSel)
+    steps.push(await captureStep(page, 'Click en ingresar', true, `Selector: ${submitSel}`))
+
+    // 5. Wait for navigation
+    await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {})
+    await page.waitForTimeout(2_000)
+
+    // 6. Check login result
+    const successSel = await resolveSelector(page, 'loginSuccessIndicator', { timeout: 5_000 })
+    const stillOnLogin = await resolveSelector(page, 'usernameInput', { timeout: 2_000 })
+
+    if (successSel) {
+      steps.push(await captureStep(page, 'Verificar login exitoso', true, `Indicador: ${successSel}`))
+    } else if (stillOnLogin) {
+      steps.push(await captureStep(page, 'Verificar login exitoso', false, 'Sigue en la página de login — credenciales incorrectas o CAPTCHA'))
+    } else {
+      steps.push(await captureStep(page, 'Verificar login exitoso', false, 'Estado ambiguo — no se encontró indicador de éxito ni formulario de login'))
+    }
+
+    return { steps }
+  } catch (err) {
+    return { steps, error: err instanceof Error ? err.message : 'Error desconocido' }
+  } finally {
+    try { await page?.close() } catch { /* ignore */ }
+    try { await context?.close() } catch { /* ignore */ }
+  }
+}
